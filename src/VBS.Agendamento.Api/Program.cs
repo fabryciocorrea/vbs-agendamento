@@ -125,8 +125,11 @@ app.Use(async (contexto, proximo) =>
     {
         contexto.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Erro")
             .LogError(ex, "Erro não tratado em {Metodo} {Caminho}", contexto.Request.Method, contexto.Request.Path);
-        await Problema.Escrever(contexto, 500, "Erro interno",
-            "Ocorreu um erro inesperado. Tente novamente; se persistir, avise a TI.");
+        // Em desenvolvimento, mostra a causa na própria tela para facilitar o diagnóstico. Em produção, nunca.
+        var detalhe500 = app.Environment.IsDevelopment()
+            ? "Erro interno: " + ex.GetBaseException().Message
+            : "Ocorreu um erro inesperado. Tente novamente; se persistir, avise a TI.";
+        await Problema.Escrever(contexto, 500, "Erro interno", detalhe500);
     }
 });
 
