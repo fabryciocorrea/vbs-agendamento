@@ -1,0 +1,4811 @@
+{
+ "info": {
+  "name": "Agendamento de Consultas - Viver Bem Saúde (API 1.0.0-rc.1)",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+  "description": "Coleção gerada a partir do contrato openapi_completo.yaml. Primeiro rode POST /auth/login; o token é guardado sozinho."
+ },
+ "auth": {
+  "type": "bearer",
+  "bearer": [
+   {
+    "key": "token",
+    "value": "{{token}}",
+    "type": "string"
+   }
+  ]
+ },
+ "variable": [
+  {
+   "key": "baseUrl",
+   "value": "http://localhost:5000/api/v1"
+  },
+  {
+   "key": "token",
+   "value": ""
+  },
+  {
+   "key": "assinaturaWebhook",
+   "value": ""
+  }
+ ],
+ "item": [
+  {
+   "name": "Autenticação",
+   "item": [
+    {
+     "name": "POST /auth/login",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/auth/login",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "auth",
+        "login"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Entrar no sistema**\n\nLiberação exigida: `pública`\n\nValida usuário e senha. A mensagem de falha é sempre genérica, para não revelar se o usuário existe.\nCada falha soma em `tentativas_falhas`; ao atingir o limite (D5) o usuário fica bloqueado (423) até o administrador desbloquear. Login correto zera o contador.\nUsuário inativo recebe a mesma resposta de credenciais inválidas.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"nomeUsuario\": \"fabrycio.correa\",\n  \"senha\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "auth": {
+       "type": "noauth"
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const j = pm.response.json();",
+         "if (j.accessToken) { pm.collectionVariables.set('token', j.accessToken); }"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "POST /auth/logout",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/auth/logout",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "auth",
+        "logout"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Sair do sistema**\n\nLiberação exigida: `logado`\n\nEncerra a sessão atual (`sessao_usuario.data_encerramento`, motivo LOGOUT)."
+     }
+    },
+    {
+     "name": "GET /auth/eu",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/auth/eu",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "auth",
+        "eu"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Dados do usuário logado e suas liberações**\n\nLiberação exigida: `logado`\n\nDevolve o usuário, o perfil e as liberações por tela e por campo. A interface usa isso para montar menus e telas.\nO servidor continua conferindo a permissão em cada requisição (RNF08).\n"
+     }
+    },
+    {
+     "name": "POST /auth/recuperar-senha",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/auth/recuperar-senha",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "auth",
+        "recuperar-senha"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Solicitar a recuperação de senha**\n\nLiberação exigida: `pública`\n\nSe existir um usuário ativo com o e-mail informado, envia a ele um link com token de uso único e validade de 30 minutos (D2).\nO e-mail é único por usuário, então a conta é identificada sem ambiguidade.\nSó o hash do token é guardado (`token_recuperacao_senha.token_hash`).\nA resposta é sempre 202, exista ou não o e-mail.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"email\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "auth": {
+       "type": "noauth"
+      }
+     }
+    },
+    {
+     "name": "POST /auth/redefinir-senha",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/auth/redefinir-senha",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "auth",
+        "redefinir-senha"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Definir a nova senha com o token recebido por e-mail**\n\nLiberação exigida: `pública`\n\nConfere o token (existente, não expirado e não usado), grava a nova senha com hash e marca `data_troca_senha`.\nEncerra as sessões abertas do usuário. **Não desbloqueia** um usuário bloqueado: só o administrador desbloqueia (D5).\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"token\": \"texto\",\n  \"novaSenha\": \"xxxxxxxxxx\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "auth": {
+       "type": "noauth"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Usuários",
+   "item": [
+    {
+     "name": "GET /usuarios",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/usuarios",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "usuarios"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "busca",
+         "value": "texto",
+         "disabled": true
+        },
+        {
+         "key": "perfilId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "ativo",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listar usuários**\n\nLiberação exigida: `usuario.cadastro:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "POST /usuarios",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/usuarios",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "usuarios"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Cadastrar usuário**\n\nLiberação exigida: `usuario.cadastro:incluir`\n\nSomente o administrador (ou quem tiver a liberação) cadastra usuários; não há autocadastro.\nO nome de usuário e o e-mail não podem se repetir (RN13 e D2): o servidor responde 409 com \"Este e-mail já está cadastrado\" ou \"Este nome de usuário já está cadastrado\".\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"nomeUsuario\": \"fabrycio.correa\",\n  \"senha\": \"xxxxxxxxxx\",\n  \"nomeCompleto\": \"texto\",\n  \"email\": \"texto\",\n  \"cargo\": \"texto\",\n  \"perfilId\": 1,\n  \"profissionalId\": 1,\n  \"ativo\": false\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /usuarios/{usuarioId}",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/usuarios/:usuarioId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "usuarios",
+        ":usuarioId"
+       ],
+       "variable": [
+        {
+         "key": "usuarioId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Consultar um usuário**\n\nLiberação exigida: `usuario.cadastro:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "PUT /usuarios/{usuarioId}",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/usuarios/:usuarioId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "usuarios",
+        ":usuarioId"
+       ],
+       "variable": [
+        {
+         "key": "usuarioId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Alterar os dados de um usuário**\n\nLiberação exigida: `usuario.cadastro:editar`\n\nA senha não é alterada aqui; use `/usuarios/{usuarioId}/senha`. O e-mail não pode ser o de outro usuário (409).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"nomeUsuario\": \"texto\",\n  \"nomeCompleto\": \"texto\",\n  \"email\": \"texto\",\n  \"cargo\": \"texto\",\n  \"perfilId\": 1,\n  \"profissionalId\": 1\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "PATCH /usuarios/{usuarioId}/status",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/usuarios/:usuarioId/status",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "usuarios",
+        ":usuarioId",
+        "status"
+       ],
+       "variable": [
+        {
+         "key": "usuarioId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Ativar ou inativar um usuário**\n\nLiberação exigida: `usuario.cadastro:editar`\n\nInativar substitui a exclusão (RN14). Inativar encerra as sessões abertas do usuário.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"ativo\": false\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST /usuarios/{usuarioId}/desbloquear",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/usuarios/:usuarioId/desbloquear",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "usuarios",
+        ":usuarioId",
+        "desbloquear"
+       ],
+       "variable": [
+        {
+         "key": "usuarioId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Desbloquear um usuário bloqueado por tentativas inválidas**\n\nLiberação exigida: `usuario.cadastro:editar`\n\nZera `tentativas_falhas` e limpa `data_bloqueio`. É a única forma de liberar um usuário bloqueado (D5)."
+     }
+    },
+    {
+     "name": "PUT /usuarios/{usuarioId}/senha",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/usuarios/:usuarioId/senha",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "usuarios",
+        ":usuarioId",
+        "senha"
+       ],
+       "variable": [
+        {
+         "key": "usuarioId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**O administrador define uma nova senha para o usuário**\n\nLiberação exigida: `usuario.cadastro:editar`\n\nEncerra as sessões abertas do usuário. A senha é gravada somente com hash (RNF06). Não desbloqueia um usuário bloqueado (D5).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"novaSenha\": \"xxxxxxxxxx\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Perfis de acesso",
+   "item": [
+    {
+     "name": "GET /perfis",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/perfis",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "perfis"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Listar perfis de acesso**\n\nLiberação exigida: `perfil.cadastro:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "POST /perfis",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/perfis",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "perfis"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Incluir um perfil com as suas liberações**\n\nLiberação exigida: `perfil.cadastro:incluir`\n\nA tela de inclusão envia o nome, a descrição e as liberações por tela e por campo (RF26).\nSe algum campo obrigatório de uma tela com incluir ou editar liberado não estiver liberado para edição, a resposta traz `avisos` (RN23). O perfil é salvo mesmo assim.\nUse `/perfis/validacao` para obter os avisos antes de salvar.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"nome\": \"texto\",\n  \"descricao\": \"texto\",\n  \"permissoes\": {\n    \"telas\": [\n      {\n        \"telaId\": 1,\n        \"podeVisualizar\": false,\n        \"podeIncluir\": false,\n        \"podeEditar\": false,\n        \"podeExcluir\": false,\n        \"podeExportar\": false\n      }\n    ],\n    \"campos\": [\n      {\n        \"campoId\": 1,\n        \"podeVisualizar\": false,\n        \"podeEditar\": false\n      }\n    ]\n  }\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST /perfis/validacao",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/perfis/validacao",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "perfis",
+        "validacao"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Conferir as liberações sem salvar**\n\nLiberação exigida: `perfil.cadastro:incluir`\n\nDevolve os avisos da RN23 (campos obrigatórios não liberados para edição) para a tela exibir antes de salvar.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"nome\": \"texto\",\n  \"descricao\": \"texto\",\n  \"permissoes\": {\n    \"telas\": [\n      {\n        \"telaId\": 1,\n        \"podeVisualizar\": false,\n        \"podeIncluir\": false,\n        \"podeEditar\": false,\n        \"podeExcluir\": false,\n        \"podeExportar\": false\n      }\n    ],\n    \"campos\": [\n      {\n        \"campoId\": 1,\n        \"podeVisualizar\": false,\n        \"podeEditar\": false\n      }\n    ]\n  }\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /perfis/{perfilId}",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/perfis/:perfilId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "perfis",
+        ":perfilId"
+       ],
+       "variable": [
+        {
+         "key": "perfilId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Consultar um perfil com todas as liberações**\n\nLiberação exigida: `perfil.cadastro:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "PUT /perfis/{perfilId}",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/perfis/:perfilId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "perfis",
+        ":perfilId"
+       ],
+       "variable": [
+        {
+         "key": "perfilId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Alterar um perfil e as suas liberações**\n\nLiberação exigida: `perfil.cadastro:editar`\n\nSubstitui o nome, a descrição e todas as liberações do perfil.\nO perfil Administrador é protegido: não pode ser editado nem perder liberações (RN21); a resposta é 403.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"nome\": \"texto\",\n  \"descricao\": \"texto\",\n  \"permissoes\": {\n    \"telas\": [\n      {\n        \"telaId\": 1,\n        \"podeVisualizar\": false,\n        \"podeIncluir\": false,\n        \"podeEditar\": false,\n        \"podeExcluir\": false,\n        \"podeExportar\": false\n      }\n    ],\n    \"campos\": [\n      {\n        \"campoId\": 1,\n        \"podeVisualizar\": false,\n        \"podeEditar\": false\n      }\n    ]\n  }\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "DELETE /perfis/{perfilId}",
+     "request": {
+      "method": "DELETE",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/perfis/:perfilId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "perfis",
+        ":perfilId"
+       ],
+       "variable": [
+        {
+         "key": "perfilId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Excluir um perfil**\n\nLiberação exigida: `perfil.cadastro:excluir`\n\nBloqueada nos casos da RN21:\n- perfil com usuário vinculado: **409**, informando a quantidade de usuários;\n- perfil Administrador (protegido): **403**.\n"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Catálogo de telas",
+   "item": [
+    {
+     "name": "GET /telas",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/telas",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "telas"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Telas e campos disponíveis para liberação**\n\nLiberação exigida: `perfil.cadastro:visualizar`\n\nBase da tela de inclusão de perfil (RF26). Cada tela traz os seus campos e se cada campo é obrigatório."
+     }
+    }
+   ]
+  },
+  {
+   "name": "Pacientes",
+   "item": [
+    {
+     "name": "GET /pacientes",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/pacientes",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "pacientes"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "busca",
+         "value": "texto",
+         "disabled": true
+        },
+        {
+         "key": "ativo",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "profissionalId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "convenioId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "menorDeIdade",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listar pacientes**\n\nLiberação exigida: `paciente.cadastro:visualizar`\n\nOrdenada por nome. O perfil Médico recebe somente os pacientes de que é o profissional responsável atual (RN16).\nPara buscar por CPF use `POST /pacientes/busca-por-cpf` (E1).\n"
+     }
+    },
+    {
+     "name": "POST /pacientes",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/pacientes",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "pacientes"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Cadastrar paciente**\n\nLiberação exigida: `paciente.cadastro:incluir`\n\nRegras de validação (todas conferidas no servidor):\n- **CPF (RN25):** obrigatório, com dígitos válidos e sem duplicidade (409 \"Este CPF já está cadastrado\").\n- **Paciente estrangeiro:** com `estrangeiro` verdadeiro o CPF deixa de ser obrigatório, mas continua validado quando informado. Sem CPF, `tipoDocumentoEstrangeiro` e `numeroDocumentoEstrangeiro` passam a ser obrigatórios. Com `estrangeiro` falso, os campos de documento alternativo não podem ser enviados.\n- **Menor de 18 anos (E4):** `responsavelLegalId` obrigatório. Se o responsável não existir, responde 400 com `codigo` `RESPONSAVEL_NAO_CADASTRADO` e a mensagem \"Este responsável não está cadastrado. Cadastre-o para concluir o cadastro do paciente.\" A tela leva o usuário a cadastrá-lo (`POST /responsaveis-legais`) e volta ao paciente.\n- **Convênio:** `convenio` traz convênio, número e validade da carteirinha juntos, ou nenhum dos três.\n- **Profissional responsável (RN18):** obrigatório; o servidor grava a primeira linha do histórico.\n- **Consentimentos (E3):** `consentimentos` deve trazer `TRATAMENTO_DADOS` concedido; `CONTATO_SMS_WHATSAPP` pode ser concedido ou recusado.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"nome\": \"texto\",\n  \"estrangeiro\": false,\n  \"cpf\": \"52998224725\",\n  \"tipoDocumentoEstrangeiro\": \"Passaporte\",\n  \"numeroDocumentoEstrangeiro\": \"texto\",\n  \"rg\": \"texto\",\n  \"dataNascimento\": \"2026-11-03\",\n  \"telefone\": \"11987654321\",\n  \"email\": \"texto\",\n  \"endereco\": \"texto\",\n  \"cidade\": \"texto\",\n  \"uf\": \"AC\",\n  \"escolaridade\": \"texto\",\n  \"convenio\": {\n    \"convenioId\": 1,\n    \"numeroCarteirinha\": \"texto\",\n    \"dataValidadeCarteirinha\": \"2026-11-03\"\n  },\n  \"responsavelLegalId\": 1,\n  \"profissionalResponsavelId\": 1,\n  \"consentimentos\": [\n    {\n      \"finalidade\": \"TRATAMENTO_DADOS\",\n      \"concedido\": false,\n      \"origem\": \"PRESENCIAL\"\n    }\n  ]\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST /pacientes/busca-por-cpf",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/pacientes/busca-por-cpf",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "pacientes",
+        "busca-por-cpf"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Buscar paciente pelo CPF**\n\nLiberação exigida: `paciente.cadastro:visualizar`\n\nO CPF vai no corpo, não na URL (E1). Serve para a recepção localizar o paciente e para evitar cadastro duplicado antes de preencher o formulário.\nRetorna 404 com `codigo` `PACIENTE_NAO_CADASTRADO` quando não houver paciente com esse CPF (ou, para o perfil Médico, quando o paciente não for dele).\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"cpf\": \"52998224725\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /pacientes/{pacienteId}",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/pacientes/:pacienteId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "pacientes",
+        ":pacienteId"
+       ],
+       "variable": [
+        {
+         "key": "pacienteId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Consultar um paciente**\n\nLiberação exigida: `paciente.cadastro:visualizar`\n\nCampos sem liberação de visualização para o perfil não são enviados (E2). O médico vê somente os campos liberados pela RN24."
+     }
+    },
+    {
+     "name": "PUT /pacientes/{pacienteId}",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/pacientes/:pacienteId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "pacientes",
+        ":pacienteId"
+       ],
+       "variable": [
+        {
+         "key": "pacienteId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Alterar o cadastro de um paciente**\n\nLiberação exigida: `paciente.cadastro:editar`\n\nMesmas regras de validação do cadastro (RN25, E4). Não altera o profissional responsável, o status nem os consentimentos, que têm operações próprias.\nValor diferente em campo sem liberação de edição retorna 403 com os campos (E2).\nVale a última gravação (sem controle de edição simultânea).\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"nome\": \"texto\",\n  \"estrangeiro\": false,\n  \"cpf\": \"52998224725\",\n  \"tipoDocumentoEstrangeiro\": \"Passaporte\",\n  \"numeroDocumentoEstrangeiro\": \"texto\",\n  \"rg\": \"texto\",\n  \"dataNascimento\": \"2026-11-03\",\n  \"telefone\": \"11987654321\",\n  \"email\": \"texto\",\n  \"endereco\": \"texto\",\n  \"cidade\": \"texto\",\n  \"uf\": \"AC\",\n  \"escolaridade\": \"texto\",\n  \"convenio\": {\n    \"convenioId\": 1,\n    \"numeroCarteirinha\": \"texto\",\n    \"dataValidadeCarteirinha\": \"2026-11-03\"\n  },\n  \"responsavelLegalId\": 1\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "PATCH /pacientes/{pacienteId}/status",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/pacientes/:pacienteId/status",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "pacientes",
+        ":pacienteId",
+        "status"
+       ],
+       "variable": [
+        {
+         "key": "pacienteId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Ativar ou inativar um paciente**\n\nLiberação exigida: `paciente.cadastro:editar`\n\nInativar substitui a exclusão (RN14). Com `ativo` falso, se o paciente tiver consulta futura marcada (agendada, confirmada ou em andamento), o servidor responde **409** com `codigo` `PACIENTE_COM_CONSULTAS` e a quantidade em `quantidadeConsultas` (E7). O paciente inativo não recebe novos agendamentos. Ativar de novo é sempre permitido.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"ativo\": false\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Profissional responsável",
+   "item": [
+    {
+     "name": "PUT /pacientes/{pacienteId}/profissional-responsavel",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/pacientes/:pacienteId/profissional-responsavel",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "pacientes",
+        ":pacienteId",
+        "profissional-responsavel"
+       ],
+       "variable": [
+        {
+         "key": "pacienteId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Trocar o profissional responsável**\n\nLiberação exigida: `paciente.cadastro:editar`\n\nRegistra a troca no histórico, com data e usuário (RN18, E6). O profissional anterior deixa de visualizar e de preencher o prontuário (RN16); o novo passa a ver todos os registros, inclusive os anteriores.\nInformar o profissional que já é o responsável atual retorna 409.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"profissionalId\": 1\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /pacientes/{pacienteId}/profissionais-historico",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/pacientes/:pacienteId/profissionais-historico",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "pacientes",
+        ":pacienteId",
+        "profissionais-historico"
+       ],
+       "variable": [
+        {
+         "key": "pacienteId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Histórico de profissionais do paciente**\n\nLiberação exigida: `paciente.cadastro:visualizar`\n\nTodos os profissionais que já atenderam o paciente, do mais recente ao mais antigo. O atual tem `dataFim` vazia."
+     }
+    }
+   ]
+  },
+  {
+   "name": "Consentimentos LGPD",
+   "item": [
+    {
+     "name": "GET /pacientes/{pacienteId}/consentimentos",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/pacientes/:pacienteId/consentimentos",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "pacientes",
+        ":pacienteId",
+        "consentimentos"
+       ],
+       "variable": [
+        {
+         "key": "pacienteId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Histórico de consentimentos**\n\nLiberação exigida: `paciente.cadastro:visualizar`\n\nTodas as linhas registradas, da mais recente para a mais antiga. O estado atual de cada finalidade é a linha mais recente."
+     }
+    },
+    {
+     "name": "POST /pacientes/{pacienteId}/consentimentos",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/pacientes/:pacienteId/consentimentos",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "pacientes",
+        ":pacienteId",
+        "consentimentos"
+       ],
+       "variable": [
+        {
+         "key": "pacienteId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Registrar mudança de consentimento**\n\nLiberação exigida: `paciente.cadastro:editar`\n\nCada chamada grava uma nova linha com data, hora, origem e usuário; as anteriores não são alteradas (E3).\nNão é possível revogar o `TRATAMENTO_DADOS` enquanto o paciente estiver ativo (409): para encerrar o tratamento o cadastro é inativado.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"finalidade\": \"TRATAMENTO_DADOS\",\n  \"concedido\": false,\n  \"origem\": \"PRESENCIAL\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Responsáveis legais",
+   "item": [
+    {
+     "name": "POST /responsaveis-legais",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/responsaveis-legais",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "responsaveis-legais"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Cadastrar responsável legal**\n\nLiberação exigida: `paciente.cadastro:incluir`\n\nCPF com dígitos válidos e sem duplicidade (409 \"Este CPF já está cadastrado como responsável legal\"). O responsável deve ter 18 anos ou mais (E5).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"nome\": \"texto\",\n  \"cpf\": \"52998224725\",\n  \"rg\": \"texto\",\n  \"dataNascimento\": \"2026-11-03\",\n  \"telefone\": \"11987654321\",\n  \"email\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST /responsaveis-legais/busca-por-cpf",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/responsaveis-legais/busca-por-cpf",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "responsaveis-legais",
+        "busca-por-cpf"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Buscar responsável legal pelo CPF**\n\nLiberação exigida: `paciente.cadastro:incluir ou paciente.cadastro:editar`\n\nUsada no cadastro de paciente menor: o usuário informa o CPF do responsável. O CPF vai no corpo (E1).\nRetorna 404 com `codigo` `RESPONSAVEL_NAO_CADASTRADO` e a mensagem \"Este responsável não está cadastrado. Cadastre-o para concluir o cadastro do paciente.\" (seção 6.1.1).\nFica restrita a quem cadastra ou altera pacientes, para o perfil Médico não consultar responsáveis de pacientes que não são dele.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"cpf\": \"52998224725\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /responsaveis-legais/{responsavelId}",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/responsaveis-legais/:responsavelId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "responsaveis-legais",
+        ":responsavelId"
+       ],
+       "variable": [
+        {
+         "key": "responsavelId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Consultar um responsável legal**\n\nLiberação exigida: `paciente.cadastro:visualizar`\n\nO médico só consulta o responsável de um paciente seu (RN24); nos demais casos, 404."
+     }
+    },
+    {
+     "name": "PUT /responsaveis-legais/{responsavelId}",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/responsaveis-legais/:responsavelId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "responsaveis-legais",
+        ":responsavelId"
+       ],
+       "variable": [
+        {
+         "key": "responsavelId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Alterar um responsável legal**\n\nLiberação exigida: `paciente.cadastro:editar`\n\nA alteração vale para todos os pacientes vinculados (E5). O CPF não pode ser o de outro responsável (409).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"nome\": \"texto\",\n  \"cpf\": \"52998224725\",\n  \"rg\": \"texto\",\n  \"dataNascimento\": \"2026-11-03\",\n  \"telefone\": \"11987654321\",\n  \"email\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Unidades",
+   "item": [
+    {
+     "name": "GET /unidades",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/unidades",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "unidades"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "busca",
+         "value": "texto",
+         "disabled": true
+        },
+        {
+         "key": "ativo",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listar unidades**\n\nLiberação exigida: `unidade.cadastro:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "POST /unidades",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/unidades",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "unidades"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Cadastrar unidade**\n\nLiberação exigida: `unidade.cadastro:incluir`\n\nCNPJ com dígitos válidos e sem duplicidade (409 \"Este CNPJ já está cadastrado\", RN13).\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"razaoSocial\": \"texto\",\n  \"nomeFantasia\": \"texto\",\n  \"cnpj\": \"11222333000181\",\n  \"cep\": \"01310100\",\n  \"endereco\": \"texto\",\n  \"cidade\": \"texto\",\n  \"uf\": \"AC\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /unidades/{unidadeId}",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/unidades/:unidadeId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "unidades",
+        ":unidadeId"
+       ],
+       "variable": [
+        {
+         "key": "unidadeId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Consultar unidade**\n\nLiberação exigida: `unidade.cadastro:visualizar`\n\nCampos sem liberação de visualização para o perfil não são enviados (E2 do bloco 2)."
+     }
+    },
+    {
+     "name": "PUT /unidades/{unidadeId}",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/unidades/:unidadeId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "unidades",
+        ":unidadeId"
+       ],
+       "variable": [
+        {
+         "key": "unidadeId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Alterar unidade**\n\nLiberação exigida: `unidade.cadastro:editar`\n\nValor diferente em campo sem liberação de edição retorna 403 com a lista dos campos (E2 do bloco 2). Não altera o status; use `/status`.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"razaoSocial\": \"texto\",\n  \"nomeFantasia\": \"texto\",\n  \"cnpj\": \"11222333000181\",\n  \"cep\": \"01310100\",\n  \"endereco\": \"texto\",\n  \"cidade\": \"texto\",\n  \"uf\": \"AC\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "PATCH /unidades/{unidadeId}/status",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/unidades/:unidadeId/status",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "unidades",
+        ":unidadeId",
+        "status"
+       ],
+       "variable": [
+        {
+         "key": "unidadeId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Ativar ou inativar unidade**\n\nLiberação exigida: `unidade.cadastro:editar`\n\nInativar substitui a exclusão (RN14). Ativar de novo é sempre permitido. Inativar uma unidade com consulta futura marcada retorna 409 com `codigo` `UNIDADE_COM_CONSULTAS` e a quantidade (F4). Unidade inativa não aparece para novos agendamentos; as salas dela deixam de ser oferecidas.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"ativo\": false\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Salas",
+   "item": [
+    {
+     "name": "GET /salas",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/salas",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "salas"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "busca",
+         "value": "texto",
+         "disabled": true
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "ativo",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listar salas**\n\nLiberação exigida: `sala.cadastro:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "POST /salas",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/salas",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "salas"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Cadastrar sala**\n\nLiberação exigida: `sala.cadastro:incluir`\n\nO número da sala não pode se repetir dentro da mesma unidade (409 com `codigo` `NUMERO_SALA_DUPLICADO`). A unidade precisa estar ativa.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"unidadeId\": 1,\n  \"numero\": \"texto\",\n  \"andar\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /salas/{salaId}",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/salas/:salaId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "salas",
+        ":salaId"
+       ],
+       "variable": [
+        {
+         "key": "salaId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Consultar sala**\n\nLiberação exigida: `sala.cadastro:visualizar`\n\nCampos sem liberação de visualização para o perfil não são enviados (E2 do bloco 2)."
+     }
+    },
+    {
+     "name": "PUT /salas/{salaId}",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/salas/:salaId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "salas",
+        ":salaId"
+       ],
+       "variable": [
+        {
+         "key": "salaId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Alterar sala**\n\nLiberação exigida: `sala.cadastro:editar`\n\nValor diferente em campo sem liberação de edição retorna 403 com a lista dos campos (E2 do bloco 2). Não altera o status; use `/status`. A `unidadeId` enviada deve ser a mesma da sala; para mudar de unidade, cadastre uma nova sala.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"unidadeId\": 1,\n  \"numero\": \"texto\",\n  \"andar\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "PATCH /salas/{salaId}/status",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/salas/:salaId/status",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "salas",
+        ":salaId",
+        "status"
+       ],
+       "variable": [
+        {
+         "key": "salaId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Ativar ou inativar sala**\n\nLiberação exigida: `sala.cadastro:editar`\n\nInativar substitui a exclusão (RN14). Ativar de novo é sempre permitido. Inativar uma sala com consulta futura marcada retorna 409 com `codigo` `SALA_COM_CONSULTAS` e a quantidade (F4).\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"ativo\": false\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Convênios",
+   "item": [
+    {
+     "name": "GET /convenios",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/convenios",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "convenios"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "busca",
+         "value": "texto",
+         "disabled": true
+        },
+        {
+         "key": "ativo",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listar convênios**\n\nLiberação exigida: `convenio.cadastro:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "POST /convenios",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/convenios",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "convenios"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Cadastrar convênio**\n\nLiberação exigida: `convenio.cadastro:incluir`\n\nCNPJ com dígitos válidos e sem duplicidade (409). Ao cadastrar, o sistema cria a forma de pagamento do tipo Convênio ligada a ele (F7).\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"razaoSocial\": \"texto\",\n  \"nomeFantasia\": \"texto\",\n  \"cnpj\": \"11222333000181\",\n  \"codigoAns\": \"texto\",\n  \"dataInscricao\": \"2026-11-03\",\n  \"inscricaoMunicipal\": \"texto\",\n  \"inscricaoEstadual\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /convenios/{convenioId}",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/convenios/:convenioId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "convenios",
+        ":convenioId"
+       ],
+       "variable": [
+        {
+         "key": "convenioId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Consultar convênio**\n\nLiberação exigida: `convenio.cadastro:visualizar`\n\nCampos sem liberação de visualização para o perfil não são enviados (E2 do bloco 2)."
+     }
+    },
+    {
+     "name": "PUT /convenios/{convenioId}",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/convenios/:convenioId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "convenios",
+        ":convenioId"
+       ],
+       "variable": [
+        {
+         "key": "convenioId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Alterar convênio**\n\nLiberação exigida: `convenio.cadastro:editar`\n\nValor diferente em campo sem liberação de edição retorna 403 com a lista dos campos (E2 do bloco 2). Não altera o status; use `/status`.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"razaoSocial\": \"texto\",\n  \"nomeFantasia\": \"texto\",\n  \"cnpj\": \"11222333000181\",\n  \"codigoAns\": \"texto\",\n  \"dataInscricao\": \"2026-11-03\",\n  \"inscricaoMunicipal\": \"texto\",\n  \"inscricaoEstadual\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "PATCH /convenios/{convenioId}/status",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/convenios/:convenioId/status",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "convenios",
+        ":convenioId",
+        "status"
+       ],
+       "variable": [
+        {
+         "key": "convenioId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Ativar ou inativar convênio**\n\nLiberação exigida: `convenio.cadastro:editar`\n\nInativar substitui a exclusão (RN14). Ativar de novo é sempre permitido. Inativar um convênio com consulta futura marcada por ele retorna 409 com `codigo` `CONVENIO_COM_CONSULTAS` e a quantidade (F4). Ao inativar, a forma de pagamento ligada a ele também é inativada; ao ativar, é ativada. Pacientes com carteirinha desse convênio continuam cadastrados, mas não é possível agendar por ele (RN12).\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"ativo\": false\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Formas de pagamento",
+   "item": [
+    {
+     "name": "GET /formas-pagamento",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/formas-pagamento",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "formas-pagamento"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "busca",
+         "value": "texto",
+         "disabled": true
+        },
+        {
+         "key": "tipo",
+         "value": "DINHEIRO",
+         "disabled": true
+        },
+        {
+         "key": "ativo",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listar formas de pagamento**\n\nLiberação exigida: `formapagamento.cadastro:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "POST /formas-pagamento",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/formas-pagamento",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "formas-pagamento"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Cadastrar forma de pagamento**\n\nLiberação exigida: `formapagamento.cadastro:incluir`\n\nTipo CONVENIO exige `convenioId` de um convênio ativo; os demais tipos não aceitam `convenioId`. As formas do tipo Convênio criadas automaticamente (F7) podem ser consultadas e inativadas, mas o convênio delas não muda.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"descricao\": \"texto\",\n  \"tipo\": \"DINHEIRO\",\n  \"condicao\": \"A_VISTA\",\n  \"convenioId\": 1\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /formas-pagamento/{formaPagamentoId}",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/formas-pagamento/:formaPagamentoId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "formas-pagamento",
+        ":formaPagamentoId"
+       ],
+       "variable": [
+        {
+         "key": "formaPagamentoId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Consultar forma de pagamento**\n\nLiberação exigida: `formapagamento.cadastro:visualizar`\n\nCampos sem liberação de visualização para o perfil não são enviados (E2 do bloco 2)."
+     }
+    },
+    {
+     "name": "PUT /formas-pagamento/{formaPagamentoId}",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/formas-pagamento/:formaPagamentoId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "formas-pagamento",
+        ":formaPagamentoId"
+       ],
+       "variable": [
+        {
+         "key": "formaPagamentoId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Alterar forma de pagamento**\n\nLiberação exigida: `formapagamento.cadastro:editar`\n\nValor diferente em campo sem liberação de edição retorna 403 com a lista dos campos (E2 do bloco 2). Não altera o status; use `/status`.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"descricao\": \"texto\",\n  \"tipo\": \"DINHEIRO\",\n  \"condicao\": \"A_VISTA\",\n  \"convenioId\": 1\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "PATCH /formas-pagamento/{formaPagamentoId}/status",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/formas-pagamento/:formaPagamentoId/status",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "formas-pagamento",
+        ":formaPagamentoId",
+        "status"
+       ],
+       "variable": [
+        {
+         "key": "formaPagamentoId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Ativar ou inativar forma de pagamento**\n\nLiberação exigida: `formapagamento.cadastro:editar`\n\nInativar substitui a exclusão (RN14). Ativar de novo é sempre permitido. Forma de pagamento inativa deixa de ser oferecida no agendamento; os pagamentos já registrados não mudam.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"ativo\": false\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Colaboradores e prestadores",
+   "item": [
+    {
+     "name": "GET /colaboradores",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/colaboradores",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "colaboradores"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "busca",
+         "value": "texto",
+         "disabled": true
+        },
+        {
+         "key": "tipoVinculo",
+         "value": "CLT",
+         "disabled": true
+        },
+        {
+         "key": "ativo",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listar colaboradores e prestadores**\n\nLiberação exigida: `colaborador.cadastro:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "POST /colaboradores",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/colaboradores",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "colaboradores"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Cadastrar colaborador ou prestador**\n\nLiberação exigida: `colaborador.cadastro:incluir`\n\nCom vínculo CLT o CPF é obrigatório e a razão social e o CNPJ não são aceitos. Com vínculo MEI a razão social e o CNPJ são obrigatórios. CPF e CNPJ não podem se repetir (409, RN13). O tipo de vínculo pode ser corrigido na alteração, respeitando as mesmas regras.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"tipoVinculo\": \"CLT\",\n  \"nome\": \"texto\",\n  \"cpf\": \"52998224725\",\n  \"razaoSocial\": \"texto\",\n  \"nomeFantasia\": \"texto\",\n  \"cnpj\": \"11222333000181\",\n  \"telefone\": \"11987654321\",\n  \"email\": \"texto\",\n  \"endereco\": \"texto\",\n  \"cidade\": \"texto\",\n  \"uf\": \"AC\",\n  \"cargo\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /colaboradores/{colaboradorId}",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/colaboradores/:colaboradorId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "colaboradores",
+        ":colaboradorId"
+       ],
+       "variable": [
+        {
+         "key": "colaboradorId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Consultar colaborador ou prestador**\n\nLiberação exigida: `colaborador.cadastro:visualizar`\n\nCampos sem liberação de visualização para o perfil não são enviados (E2 do bloco 2)."
+     }
+    },
+    {
+     "name": "PUT /colaboradores/{colaboradorId}",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/colaboradores/:colaboradorId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "colaboradores",
+        ":colaboradorId"
+       ],
+       "variable": [
+        {
+         "key": "colaboradorId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Alterar colaborador ou prestador**\n\nLiberação exigida: `colaborador.cadastro:editar`\n\nValor diferente em campo sem liberação de edição retorna 403 com a lista dos campos (E2 do bloco 2). Não altera o status; use `/status`.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"tipoVinculo\": \"CLT\",\n  \"nome\": \"texto\",\n  \"cpf\": \"52998224725\",\n  \"razaoSocial\": \"texto\",\n  \"nomeFantasia\": \"texto\",\n  \"cnpj\": \"11222333000181\",\n  \"telefone\": \"11987654321\",\n  \"email\": \"texto\",\n  \"endereco\": \"texto\",\n  \"cidade\": \"texto\",\n  \"uf\": \"AC\",\n  \"cargo\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "PATCH /colaboradores/{colaboradorId}/status",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/colaboradores/:colaboradorId/status",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "colaboradores",
+        ":colaboradorId",
+        "status"
+       ],
+       "variable": [
+        {
+         "key": "colaboradorId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Ativar ou inativar colaborador ou prestador**\n\nLiberação exigida: `colaborador.cadastro:editar`\n\nInativar substitui a exclusão (RN14). Ativar de novo é sempre permitido. Colaboradores e prestadores não têm consultas, então a inativação não tem bloqueio.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"ativo\": false\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Especialidades",
+   "item": [
+    {
+     "name": "GET /especialidades",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/especialidades",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "especialidades"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "busca",
+         "value": "texto",
+         "disabled": true
+        },
+        {
+         "key": "ativo",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listar especialidades**\n\nLiberação exigida: `especialidade.cadastro:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "POST /especialidades",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/especialidades",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "especialidades"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Cadastrar especialidade**\n\nLiberação exigida: `especialidade.cadastro:incluir`\n\nO nome não pode se repetir (409 \"Esta especialidade já está cadastrada\"). Somente o administrador e os perfis com esta liberação cadastram especialidades (F1).\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"nome\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /especialidades/{especialidadeId}",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/especialidades/:especialidadeId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "especialidades",
+        ":especialidadeId"
+       ],
+       "variable": [
+        {
+         "key": "especialidadeId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Consultar especialidade**\n\nLiberação exigida: `especialidade.cadastro:visualizar`\n\nCampos sem liberação de visualização para o perfil não são enviados (E2 do bloco 2)."
+     }
+    },
+    {
+     "name": "PUT /especialidades/{especialidadeId}",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/especialidades/:especialidadeId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "especialidades",
+        ":especialidadeId"
+       ],
+       "variable": [
+        {
+         "key": "especialidadeId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Alterar especialidade**\n\nLiberação exigida: `especialidade.cadastro:editar`\n\nValor diferente em campo sem liberação de edição retorna 403 com a lista dos campos (E2 do bloco 2). Não altera o status; use `/status`.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"nome\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "PATCH /especialidades/{especialidadeId}/status",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/especialidades/:especialidadeId/status",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "especialidades",
+        ":especialidadeId",
+        "status"
+       ],
+       "variable": [
+        {
+         "key": "especialidadeId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Ativar ou inativar especialidade**\n\nLiberação exigida: `especialidade.cadastro:editar`\n\nInativar substitui a exclusão (RN14). Ativar de novo é sempre permitido. Inativar uma especialidade com consulta futura marcada retorna 409 com `codigo` `ESPECIALIDADE_COM_CONSULTAS` e a quantidade (F4). Especialidade inativa deixa de ser oferecida para novos cadastros de profissional e novos agendamentos; os vínculos e as consultas existentes permanecem.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"ativo\": false\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Profissionais",
+   "item": [
+    {
+     "name": "GET /profissionais",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/profissionais",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "profissionais"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "busca",
+         "value": "texto",
+         "disabled": true
+        },
+        {
+         "key": "especialidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "ativo",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listar profissionais**\n\nLiberação exigida: `profissional.cadastro:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "POST /profissionais",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/profissionais",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "profissionais"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Cadastrar profissional**\n\nLiberação exigida: `profissional.cadastro:incluir`\n\nRegras:\n- CPF com dígitos válidos e sem duplicidade (409).\n- Registro (CRM ou CRP), número e UF do conselho sem duplicidade (409 com `codigo` `CONSELHO_DUPLICADO`, RN13).\n- Ao menos uma especialidade da lista fixa e uma unidade ativa (RN11).\n- Expediente (`horarios`) obrigatório, com as regras de `PUT /profissionais/{profissionalId}/horarios`.\n- O cadastro do profissional não cria usuário. O acesso ao sistema é dado no cadastro de usuário, que aponta para o profissional (bloco 1).\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"nome\": \"texto\",\n  \"cpf\": \"52998224725\",\n  \"rg\": \"texto\",\n  \"dataNascimento\": \"2026-11-03\",\n  \"telefone\": \"11987654321\",\n  \"email\": \"texto\",\n  \"endereco\": \"texto\",\n  \"cidade\": \"texto\",\n  \"uf\": \"AC\",\n  \"escolaridade\": \"texto\",\n  \"registroProfissional\": \"CRM\",\n  \"numeroConselho\": \"texto\",\n  \"ufConselho\": \"AC\",\n  \"especialidadeIds\": [\n    1\n  ],\n  \"unidadeIds\": [\n    1\n  ],\n  \"horarios\": [\n    {\n      \"unidadeId\": 1,\n      \"diaSemana\": 1,\n      \"tipo\": \"ATENDIMENTO\",\n      \"horaInicio\": \"08:00\",\n      \"horaFim\": \"12:00\"\n    }\n  ]\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /profissionais/{profissionalId}",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/profissionais/:profissionalId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "profissionais",
+        ":profissionalId"
+       ],
+       "variable": [
+        {
+         "key": "profissionalId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Consultar profissional**\n\nLiberação exigida: `profissional.cadastro:visualizar`\n\nCampos sem liberação de visualização para o perfil não são enviados (E2 do bloco 2)."
+     }
+    },
+    {
+     "name": "PUT /profissionais/{profissionalId}",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/profissionais/:profissionalId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "profissionais",
+        ":profissionalId"
+       ],
+       "variable": [
+        {
+         "key": "profissionalId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Alterar profissional**\n\nLiberação exigida: `profissional.cadastro:editar`\n\nNão altera o expediente (use `/horarios`) nem o status (use `/status`).\nRetirar uma especialidade ou unidade com consulta futura marcada que a use retorna 409 com `codigo` `VINCULO_EM_USO` e a lista em `erros` (RN11). Retirar uma unidade também exige que o expediente dela seja removido antes.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"nome\": \"texto\",\n  \"cpf\": \"52998224725\",\n  \"rg\": \"texto\",\n  \"dataNascimento\": \"2026-11-03\",\n  \"telefone\": \"11987654321\",\n  \"email\": \"texto\",\n  \"endereco\": \"texto\",\n  \"cidade\": \"texto\",\n  \"uf\": \"AC\",\n  \"escolaridade\": \"texto\",\n  \"registroProfissional\": \"CRM\",\n  \"numeroConselho\": \"texto\",\n  \"ufConselho\": \"AC\",\n  \"especialidadeIds\": [\n    1\n  ],\n  \"unidadeIds\": [\n    1\n  ]\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "PATCH /profissionais/{profissionalId}/status",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/profissionais/:profissionalId/status",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "profissionais",
+        ":profissionalId",
+        "status"
+       ],
+       "variable": [
+        {
+         "key": "profissionalId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Ativar ou inativar profissional**\n\nLiberação exigida: `profissional.cadastro:editar`\n\nInativar substitui a exclusão (RN14). Com consulta futura marcada, retorna 409 com `codigo` `PROFISSIONAL_COM_CONSULTAS` e a quantidade (F4).\nA resposta traz `quantidadePacientes`: pacientes que continuam com este profissional como responsável. A recepção deve trocá-lo pela operação do bloco 2. Profissional inativo não recebe novos agendamentos.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"ativo\": false\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /profissionais/{profissionalId}/horarios",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/profissionais/:profissionalId/horarios",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "profissionais",
+        ":profissionalId",
+        "horarios"
+       ],
+       "variable": [
+        {
+         "key": "profissionalId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Consultar expediente e intervalos**\n\nLiberação exigida: `profissional.cadastro:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "PUT /profissionais/{profissionalId}/horarios",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/profissionais/:profissionalId/horarios",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "profissionais",
+        ":profissionalId",
+        "horarios"
+       ],
+       "variable": [
+        {
+         "key": "profissionalId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Substituir expediente e intervalos**\n\nLiberação exigida: `profissional.cadastro:editar`\n\nSubstitui a grade inteira do profissional (RN03, F3). Regras, com `codigo` `HORARIO_INVALIDO` e o detalhe em `erros`:\n- A hora final é maior que a inicial.\n- A unidade precisa ser uma das unidades do profissional.\n- Horários de ATENDIMENTO do mesmo dia não se sobrepõem, nem entre unidades diferentes (o profissional não está em dois lugares).\n- Cada INTERVALO fica dentro de um período de atendimento do mesmo dia e unidade, e os intervalos não se sobrepõem.\n\nA nova grade vale para agendamentos futuros. As consultas já marcadas **não são alteradas nem canceladas**: a resposta lista, em `consultasForaDoExpediente`, as que ficaram fora da nova grade para a recepção tratar.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"horarios\": [\n    {\n      \"unidadeId\": 1,\n      \"diaSemana\": 1,\n      \"tipo\": \"ATENDIMENTO\",\n      \"horaInicio\": \"08:00\",\n      \"horaFim\": \"12:00\"\n    }\n  ]\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Listas de apoio",
+   "item": [
+    {
+     "name": "GET /apoio/{tipo}",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/apoio/:tipo",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "apoio",
+        ":tipo"
+       ],
+       "variable": [
+        {
+         "key": "tipo",
+         "value": "profissionais"
+        }
+       ],
+       "query": [
+        {
+         "key": "incluirInativos",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "especialidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listas para preencher campos de seleção**\n\nLiberação exigida: `apoio.listas:visualizar`\n\nLista curta (código, nome e se está ativo) para as caixas de seleção das telas. Exige a liberação `apoio.listas:visualizar`, que o administrador concede a cada perfil na tela de perfis de acesso (F6). Com ela, o perfil preenche as caixas de seleção (por exemplo, a recepção escolhe convênio e profissional ao cadastrar paciente) sem precisar abrir o cadastro completo, que continua protegido pela liberação de cada tela. Não traz dados pessoais nem valores (consulta, convênio, particular).\n\nRetorna todos os registros, sem paginação, ordenados por nome. Por padrão só os ativos.\n\nFiltros que combinam (RN11): em `profissionais`, `especialidadeId` e `unidadeId` devolvem só quem atende a especialidade e a unidade escolhidas; em `salas`, `unidadeId` devolve as salas da unidade.\n"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Credenciamento",
+   "item": [
+    {
+     "name": "GET /credenciamentos",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/credenciamentos",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "credenciamentos"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "convenioId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "especialidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "situacao",
+         "value": "APROVADO",
+         "disabled": true
+        },
+        {
+         "key": "vigente",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listar os credenciamentos de todos os convênios**\n\nLiberação exigida: `convenio.credenciamento:visualizar`\n\nVisão geral para conferir, por exemplo, tudo o que a filial já tem aprovado. Combine `unidadeId`, `convenioId` e `vigente`. Ordenada por convênio, unidade e especialidade.\n"
+     }
+    },
+    {
+     "name": "GET /convenios/{convenioId}/credenciamentos",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/convenios/:convenioId/credenciamentos",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "convenios",
+        ":convenioId",
+        "credenciamentos"
+       ],
+       "variable": [
+        {
+         "key": "convenioId",
+         "value": "1"
+        }
+       ],
+       "query": [
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "especialidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "situacao",
+         "value": "APROVADO",
+         "disabled": true
+        },
+        {
+         "key": "vigente",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listar os credenciamentos de um convênio**\n\nLiberação exigida: `convenio.credenciamento:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "POST /convenios/{convenioId}/credenciamentos",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/convenios/:convenioId/credenciamentos",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "convenios",
+        ":convenioId",
+        "credenciamentos"
+       ],
+       "variable": [
+        {
+         "key": "convenioId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Incluir credenciamento**\n\nLiberação exigida: `convenio.credenciamento:incluir`\n\nRegistra a situação do convênio em **uma unidade e uma especialidade** (J2). A unidade define a cidade: Sapucaia do Sul (matriz) e Porto Alegre (filial) têm credenciamentos independentes.\n- Situação APROVADO exige `dataInicio` (400 `VIGENCIA_INVALIDA` quando falta ou quando `dataFim` é anterior).\n- Combinação convênio, unidade e especialidade já cadastrada: 409 `CREDENCIAMENTO_DUPLICADO` (use a alteração).\n- Unidade ou especialidade inativa: 400 `UNIDADE_OU_ESPECIALIDADE_INATIVA`.\n- Não há exclusão: o histórico se mantém e a situação muda por alteração (NAO_CREDENCIADO ou data de fim). Toda inclusão e alteração grava no log (RNF05).\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"unidadeId\": 1,\n  \"especialidadeId\": 1,\n  \"situacao\": \"APROVADO\",\n  \"dataInicio\": \"2026-11-03\",\n  \"dataFim\": \"2026-11-03\",\n  \"protocolo\": \"texto\",\n  \"observacao\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST /convenios/{convenioId}/credenciamentos/lote",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/convenios/:convenioId/credenciamentos/lote",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "convenios",
+        ":convenioId",
+        "credenciamentos",
+        "lote"
+       ],
+       "variable": [
+        {
+         "key": "convenioId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Incluir credenciamentos de várias especialidades**\n\nLiberação exigida: `convenio.credenciamento:incluir`\n\nFacilita o cadastro inicial: o mesmo convênio, na mesma unidade, para várias especialidades de uma vez, com a mesma situação e vigência. É tudo ou nada: se alguma combinação já existe, 409 `CREDENCIAMENTO_DUPLICADO` e nada é gravado.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"unidadeId\": 1,\n  \"especialidadeIds\": [\n    1\n  ],\n  \"situacao\": \"APROVADO\",\n  \"dataInicio\": \"2026-11-03\",\n  \"dataFim\": \"2026-11-03\",\n  \"protocolo\": \"texto\",\n  \"observacao\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "PUT /convenios/{convenioId}/credenciamentos/{credenciamentoId}",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/convenios/:convenioId/credenciamentos/:credenciamentoId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "convenios",
+        ":convenioId",
+        "credenciamentos",
+        ":credenciamentoId"
+       ],
+       "variable": [
+        {
+         "key": "convenioId",
+         "value": "1"
+        },
+        {
+         "key": "credenciamentoId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Alterar credenciamento**\n\nLiberação exigida: `convenio.credenciamento:editar`\n\nAltera situação, vigência, protocolo e observação. Vale para **novos agendamentos** e remarcações. As consultas já marcadas **não são canceladas nem alteradas** (J4): se o credenciamento deixa de valer (situação diferente de APROVADO ou fim de vigência), o servidor avisa a recepção por notificação interna e as consultas futuras afetadas aparecem em `GET /consultas/sem-credenciamento`.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"situacao\": \"APROVADO\",\n  \"dataInicio\": \"2026-11-03\",\n  \"dataFim\": \"2026-11-03\",\n  \"protocolo\": \"texto\",\n  \"observacao\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /unidades/{unidadeId}/convenios-credenciados",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/unidades/:unidadeId/convenios-credenciados",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "unidades",
+        ":unidadeId",
+        "convenios-credenciados"
+       ],
+       "variable": [
+        {
+         "key": "unidadeId",
+         "value": "1"
+        }
+       ],
+       "query": [
+        {
+         "key": "especialidadeId",
+         "value": "1",
+         "disabled": false
+        },
+        {
+         "key": "data",
+         "value": "2026-11-03",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Convênios aceitos em uma unidade e especialidade**\n\nLiberação exigida: `consulta.agendamento:visualizar`\n\nAlimenta o campo de convênio na tela de agendamento: só aparecem os convênios que a unidade (cidade) aceita para a especialidade escolhida (RN35). Se o paciente tem convênio fora da lista, a tela avisa e oferece agendar como particular ou escolher outra unidade. `data` vazia: hoje.\n"
+     }
+    },
+    {
+     "name": "GET /consultas/sem-credenciamento",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/consultas/sem-credenciamento",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "consultas",
+        "sem-credenciamento"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "convenioId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Consultas futuras por convênio sem credenciamento**\n\nLiberação exigida: `consulta.agendamento:visualizar`\n\nLista as consultas AGENDADA ou CONFIRMADA, de datas futuras, cujo convênio deixou de ter credenciamento aprovado e vigente na unidade e especialidade (suspensão, vencimento ou data de fim alterada), exceto as liberadas pelo administrador. Nada é cancelado automaticamente (J4): a recepção entra em contato com o paciente e remarca, troca para particular ou pede a liberação do administrador. O perfil Médico recebe só as próprias consultas.\n"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Agenda",
+   "item": [
+    {
+     "name": "GET /agenda/horarios-disponiveis",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/agenda/horarios-disponiveis",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "agenda",
+        "horarios-disponiveis"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "profissionalId",
+         "value": "1",
+         "disabled": false
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": false
+        },
+        {
+         "key": "dataInicial",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "dataFinal",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "duracaoMin",
+         "value": "5",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Consultar horários disponíveis**\n\nLiberação exigida: `consulta.agendamento:visualizar`\n\nDevolve os horários livres do profissional na unidade, dentro do período pedido (no máximo 31 dias). Entram só os horários que cabem no expediente de atendimento e fora dos intervalos, dos feriados nacionais, do recesso de fim de ano, de consultas já marcadas (canceladas e remarcadas não contam) e do passado (RN03, RN09, RN10). Os horários são gerados em sequência, com a duração pedida, a partir do início de cada trecho livre (G1).\nA lista é uma orientação para a tela. A gravação confere tudo de novo no servidor (RN09).\n"
+     }
+    },
+    {
+     "name": "GET /agenda/profissionais/{profissionalId}",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/agenda/profissionais/:profissionalId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "agenda",
+        "profissionais",
+        ":profissionalId"
+       ],
+       "variable": [
+        {
+         "key": "profissionalId",
+         "value": "1"
+        }
+       ],
+       "query": [
+        {
+         "key": "dataInicial",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "dataFinal",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "incluirCanceladas",
+         "value": "false",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Agenda do profissional (dia, semana ou mês)**\n\nLiberação exigida: `agenda.profissional:visualizar`\n\nEntrega o necessário para desenhar a agenda: expediente, bloqueios (intervalos, feriados e recesso) e consultas do período (no máximo 31 dias). O perfil Médico só abre a própria agenda; a de outro profissional responde 404 (RF10). O valor da consulta só vai para perfis com o campo liberado (RN20).\n"
+     }
+    },
+    {
+     "name": "GET /agenda/antecipacoes",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/agenda/antecipacoes",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "agenda",
+        "antecipacoes"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "consultaLiberadaId",
+         "value": "00000000-0000-0000-0000-000000000000",
+         "disabled": true
+        },
+        {
+         "key": "profissionalId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "inicio",
+         "value": "2026-11-03T12:00:00Z",
+         "disabled": true
+        },
+        {
+         "key": "fim",
+         "value": "2026-11-03T12:00:00Z",
+         "disabled": true
+        },
+        {
+         "key": "escopo",
+         "value": "PROFISSIONAL",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Quem pode ser antecipado em um horário livre**\n\nLiberação exigida: `consulta.agendamento:editar`\n\nAjuda a recepção a preencher um horário que ficou livre (cancelamento ou remarcação), oferecendo-o a quem espera ou tem consulta mais para a frente (G10). Só consulta: ninguém é movido. Para antecipar, a recepção liga para o paciente e, se ele aceitar, usa a remarcação (`POST /consultas/{consultaId}/remarcacao`).\n\nInforme o horário livre de uma destas formas:\n- `consultaLiberadaId`: a consulta cancelada ou remarcada que liberou o horário (a tela abre a partir da notificação interna da recepção). O profissional, a unidade e o horário vêm dela.\n- `profissionalId`, `unidadeId`, `inicio` e `fim`: um horário livre qualquer da agenda.\n\nEntram em `consultas` as consultas AGENDADA ou CONFIRMADA, posteriores ao horário livre, que **cabem** nele (duração igual ou menor), na mesma unidade, de especialidade que o profissional atende (RN11). Com `escopo` igual a `PROFISSIONAL` (padrão) só as do próprio profissional; com `ESPECIALIDADE`, também as de outros profissionais da mesma especialidade, caso em que a remarcação troca o profissional do paciente. Vêm primeiro as consultas mais distantes, que mais se beneficiam. Em `listaEspera` vêm os pacientes aguardando (RN08).\n"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Consultas",
+   "item": [
+    {
+     "name": "GET /consultas",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/consultas",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "consultas"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "dataInicial",
+         "value": "2026-11-03",
+         "disabled": true
+        },
+        {
+         "key": "dataFinal",
+         "value": "2026-11-03",
+         "disabled": true
+        },
+        {
+         "key": "pacienteId",
+         "value": "00000000-0000-0000-0000-000000000000",
+         "disabled": true
+        },
+        {
+         "key": "profissionalId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "status",
+         "value": "AGENDADA",
+         "disabled": true
+        },
+        {
+         "key": "encaixe",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listar consultas**\n\nLiberação exigida: `consulta.agendamento:visualizar`\n\nO perfil Médico recebe somente as próprias consultas.\n"
+     }
+    },
+    {
+     "name": "POST /consultas",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/consultas",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "consultas"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Agendar consulta**\n\nLiberação exigida: `consulta.agendamento:incluir`\n\nRegras conferidas no servidor, dentro de uma única transação que reserva a agenda do profissional (RN09):\n- **Paciente** ativo. **Profissional** ativo, que atende a especialidade e a unidade escolhidas (RN11, código `PROFISSIONAL_NAO_ATENDE`).\n- **Horário (RN10):** não pode estar no passado (`HORARIO_NO_PASSADO`), fora do expediente (`FORA_DO_EXPEDIENTE`) nem em intervalo, feriado nacional ou recesso (`HORARIO_BLOQUEADO`). O encaixe dispensa o expediente e os intervalos (G2).\n- **Sem sobreposição (RN09):** outra consulta do profissional no mesmo intervalo retorna 409 `HORARIO_INDISPONIVEL`. Se duas pessoas agendam ao mesmo tempo, uma delas recebe esse erro. Agenda reservada por outra operação por mais de 10 segundos retorna 409 `AGENDA_EM_USO`; a tela pode tentar de novo.\n- **Encaixe (RN03):** exige `consulta.encaixe:incluir`, nunca sobrepõe outra consulta e respeita o limite diário (409 `LIMITE_ENCAIXES_ATINGIDO`).\n- **Tipo e convênio (RN02, RN12, G3):** no tipo CONVENIO o convênio é o do cadastro do paciente e a carteirinha deve estar válida: vencida, o agendamento é recusado (400 `CARTEIRINHA_VENCIDA`) com a mensagem \"Carteirinha vencida em dd/mm/aaaa. Atualize o cadastro do paciente.\"; outro convênio exige atualizar antes o cadastro do paciente (`CONVENIO_DIVERGENTE`).\n- **Sala:** obrigatória no presencial, da unidade escolhida e ativa (RN11).\n- **Consulta online (RN04):** o servidor gera o link do Google Meet. Se não conseguir, a consulta é gravada e a resposta traz o aviso `LINK_ONLINE_NAO_GERADO`.\n- **Credenciamento do convênio (RN35):** no tipo CONVENIO, o convênio precisa ter credenciamento APROVADO e vigente na unidade e na especialidade, na data da consulta. Sem isso: 409 `CONVENIO_NAO_CREDENCIADO` (\"O convênio X não tem credenciamento aprovado para a unidade Y nesta especialidade. Agende como particular ou escolha outra unidade.\"). Só o administrador libera, enviando `liberacaoCredenciamento` com a justificativa e tendo `consulta.credenciamento:liberar`; sem essa liberação, 403 `LIBERACAO_CREDENCIAMENTO_NEGADA`. A liberação fica gravada na consulta.\n- **Aviso (RN16):** se o profissional não é o responsável atual do paciente, a resposta traz o aviso `PROFISSIONAL_NAO_RESPONSAVEL`, sem impedir o agendamento.\n- Quando o término não é informado, vale início + duração padrão. Registra o histórico de status.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"pacienteId\": \"00000000-0000-0000-0000-000000000000\",\n  \"profissionalId\": 1,\n  \"especialidadeId\": 1,\n  \"unidadeId\": 1,\n  \"modalidade\": \"PRESENCIAL\",\n  \"salaId\": 1,\n  \"tipoAtendimento\": \"PARTICULAR\",\n  \"convenioId\": 1,\n  \"valor\": 100.0,\n  \"formaPagamentoId\": 1,\n  \"liberacaoCredenciamento\": {\n    \"justificativa\": \"xxxxxxxxxx\"\n  },\n  \"inicio\": \"2026-11-03T12:00:00Z\",\n  \"fim\": \"2026-11-03T12:00:00Z\",\n  \"pagamentoConfirmado\": false,\n  \"encaixe\": false\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /consultas/{consultaId}",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/consultas/:consultaId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "consultas",
+        ":consultaId"
+       ],
+       "variable": [
+        {
+         "key": "consultaId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Consultar uma consulta**\n\nLiberação exigida: `consulta.agendamento:visualizar`\n\nO perfil Médico só abre as próprias consultas (404 nas demais). Campos sem liberação não são enviados.\n"
+     }
+    },
+    {
+     "name": "PUT /consultas/{consultaId}",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/consultas/:consultaId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "consultas",
+        ":consultaId"
+       ],
+       "variable": [
+        {
+         "key": "consultaId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Ajustar dados da consulta**\n\nLiberação exigida: `consulta.agendamento:editar`\n\nAjusta modalidade, sala, tipo, convênio, valor e forma de pagamento. Convênio novo também exige credenciamento na unidade e especialidade da consulta (RN35, 409 `CONVENIO_NAO_CREDENCIADO`). Só em consulta AGENDADA, CONFIRMADA, CHECK_IN ou EM_ATENDIMENTO; depois da conclusão o valor fica travado para não mudar os relatórios financeiros (`STATUS_NAO_PERMITE`). Versão desatualizada retorna 409 `CONSULTA_ALTERADA` (G7).\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"modalidade\": \"PRESENCIAL\",\n  \"salaId\": 1,\n  \"tipoAtendimento\": \"PARTICULAR\",\n  \"convenioId\": 1,\n  \"valor\": 100.0,\n  \"formaPagamentoId\": 1,\n  \"liberacaoCredenciamento\": {\n    \"justificativa\": \"xxxxxxxxxx\"\n  },\n  \"versao\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "PUT /consultas/{consultaId}/horario",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/consultas/:consultaId/horario",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "consultas",
+        ":consultaId",
+        "horario"
+       ],
+       "variable": [
+        {
+         "key": "consultaId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Ajustar o término da consulta**\n\nLiberação exigida: `consulta.agendamento:editar`\n\nSó o **término** muda aqui, por exemplo quando a avaliação dura mais (RN03). O novo término não pode sobrepor outra consulta do profissional (409 `HORARIO_INDISPONIVEL`). Para mudar o dia ou o início, use a remarcação (G5).\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"fim\": \"2026-11-03T12:00:00Z\",\n  \"versao\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "PATCH /consultas/{consultaId}/status",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/consultas/:consultaId/status",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "consultas",
+        ":consultaId",
+        "status"
+       ],
+       "variable": [
+        {
+         "key": "consultaId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Alterar o status da consulta**\n\nLiberação exigida: `consulta.status:editar`\n\nSomente a recepção e o administrador alteram o status (RN15). O fluxo segue para a frente, sem pular etapas e sem voltar (G6):\n\n| De | Para |\n|---|---|\n| AGENDADA | CONFIRMADA, CANCELADA, FALTA |\n| CONFIRMADA | CHECK_IN, CANCELADA, FALTA |\n| CHECK_IN | EM_ATENDIMENTO, CANCELADA |\n| EM_ATENDIMENTO | CONCLUIDA |\n\nOutra mudança retorna 409 `TRANSICAO_INVALIDA`.\n- **Pagamento na chegada (G4, RN17):** o check-in só é feito com o pagamento confirmado. Sem ele, 409 `PAGAMENTO_PENDENTE`. A recepção registra a chegada, confirma o pagamento (`/pagamento/confirmacao`) e só então o paciente é liberado para a consulta. Vale também para consulta por convênio.\n- **Carteirinha (G3):** no check-in de consulta por convênio com a carteirinha vencida, a resposta traz o aviso `CARTEIRINHA_VENCIDA` com a data de vencimento, para a recepção resolver na hora. Consulta CONCLUIDA, CANCELADA, FALTA ou REMARCADA não muda mais.\n- **Cancelamento e falta:** o motivo é obrigatório (RN06); no cancelamento informa-se também quem cancelou. Cancelar pelo **paciente** exige a antecedência mínima do parâmetro da agenda (48 horas): fora do prazo, 409 `CANCELAMENTO_FORA_DO_PRAZO`. A clínica pode cancelar a qualquer momento. Falta só depois do horário de início (`FALTA_ANTES_DO_HORARIO`).\n- **Cancelamento libera o horário:** o servidor avisa a recepção, dentro do sistema, quando há paciente na lista de espera daquele profissional ou especialidade (RN08).\n- Cada mudança grava o histórico de status.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"status\": \"CONFIRMADA\",\n  \"motivo\": \"texto\",\n  \"canceladoPor\": \"PACIENTE\",\n  \"versao\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST /consultas/{consultaId}/remarcacao",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/consultas/:consultaId/remarcacao",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "consultas",
+        ":consultaId",
+        "remarcacao"
+       ],
+       "variable": [
+        {
+         "key": "consultaId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Remarcar a consulta**\n\nLiberação exigida: `consulta.agendamento:editar`\n\nServe também para **antecipar**: se o paciente quer um horário mais cedo, a recepção remarca para o horário livre, com o motivo registrado. A recepção opera a agenda de qualquer profissional; o perfil Médico não remarca. Cria uma **nova consulta** vinculada à original (`consultaOrigemId`) e marca a original como REMARCADA, na mesma transação (RN06, G5). O motivo é obrigatório. A nova consulta repete os dados da original (paciente, especialidade, modalidade, tipo, valor e pagamento); profissional, especialidade, unidade e sala podem ser trocados. O pagamento já confirmado passa para a nova consulta. Valem as mesmas regras de horário e de sobreposição do agendamento, e a conferência do credenciamento do convênio (RN35) na nova data, unidade e especialidade; uma liberação do administrador na consulta original é mantida se a unidade e a especialidade não mudam. Só consulta AGENDADA ou CONFIRMADA pode ser remarcada. Não há antecedência mínima para remarcar. O horário liberado também avisa a lista de espera.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"novoInicio\": \"2026-11-03T12:00:00Z\",\n  \"novoFim\": \"2026-11-03T12:00:00Z\",\n  \"motivo\": \"texto\",\n  \"profissionalId\": 1,\n  \"especialidadeId\": 1,\n  \"unidadeId\": 1,\n  \"salaId\": 1,\n  \"encaixe\": false,\n  \"liberacaoCredenciamento\": {\n    \"justificativa\": \"xxxxxxxxxx\"\n  },\n  \"versao\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST /consultas/{consultaId}/pagamento/confirmacao",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/consultas/:consultaId/pagamento/confirmacao",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "consultas",
+        ":consultaId",
+        "pagamento",
+        "confirmacao"
+       ],
+       "variable": [
+        {
+         "key": "consultaId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Confirmar o pagamento**\n\nLiberação exigida: `consulta.agendamento:editar`\n\nFeita pela recepção na chegada do paciente, antes do check-in (G4). Registra a confirmação com data, hora e usuário (RN17). Pagamento já confirmado retorna 409 `PAGAMENTO_JA_CONFIRMADO`. A confirmação não é desfeita pela API.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"formaPagamentoId\": 1,\n  \"versao\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /consultas/{consultaId}/historico",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/consultas/:consultaId/historico",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "consultas",
+        ":consultaId",
+        "historico"
+       ],
+       "variable": [
+        {
+         "key": "consultaId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Histórico de status**\n\nLiberação exigida: `consulta.agendamento:visualizar`\n\n"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Lista de espera",
+   "item": [
+    {
+     "name": "GET /lista-espera",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/lista-espera",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "lista-espera"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "status",
+         "value": "AGUARDANDO",
+         "disabled": true
+        },
+        {
+         "key": "profissionalId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "especialidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listar a lista de espera**\n\nLiberação exigida: `listaespera.cadastro:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "POST /lista-espera",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/lista-espera",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "lista-espera"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Incluir paciente na lista de espera**\n\nLiberação exigida: `listaespera.cadastro:incluir`\n\nFila por profissional ou especialidade (RN08). Sem nenhum dos dois, 400. Paciente inativo não entra.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"pacienteId\": \"00000000-0000-0000-0000-000000000000\",\n  \"profissionalId\": 1,\n  \"especialidadeId\": 1,\n  \"unidadeId\": 1,\n  \"observacao\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "PATCH /lista-espera/{listaId}/status",
+     "request": {
+      "method": "PATCH",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/lista-espera/:listaId/status",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "lista-espera",
+        ":listaId",
+        "status"
+       ],
+       "variable": [
+        {
+         "key": "listaId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Encerrar item da lista de espera**\n\nLiberação exigida: `listaespera.cadastro:editar`\n\nA recepção marca o item como ATENDIDO (o paciente foi encaixado) ou CANCELADO. NOTIFICADO é definido pelo servidor quando um horário é liberado (G9). Item já encerrado retorna 409.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"status\": \"ATENDIDO\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Parâmetros da agenda",
+   "item": [
+    {
+     "name": "GET /parametros-agenda",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/parametros-agenda",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "parametros-agenda"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Consultar os parâmetros da agenda**\n\nLiberação exigida: `agenda.parametros:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "PUT /parametros-agenda",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/parametros-agenda",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "parametros-agenda"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Alterar os parâmetros da agenda**\n\nLiberação exigida: `agenda.parametros:editar`\n\nDefine duração padrão, limite de encaixes, recesso de fim de ano e antecedência de cancelamento (RN03, RN06, P27). A mudança vale para novos agendamentos; consultas já marcadas não são alteradas.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"duracaoPadraoConsultaMin\": 5,\n  \"limiteEncaixesDia\": 0,\n  \"recessoFimAnoInicio\": \"2026-11-03\",\n  \"recessoFimAnoFim\": \"2026-11-03\",\n  \"antecedenciaCancelamentoHoras\": 0\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /feriados",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/feriados",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "feriados"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "ano",
+         "value": "2000",
+         "disabled": false
+        }
+       ]
+      },
+      "description": "**Listar feriados nacionais**\n\nLiberação exigida: `agenda.parametros:visualizar`\n\nCalendário de feriados nacionais, em que a clínica fecha (RN03).\n"
+     }
+    },
+    {
+     "name": "POST /feriados",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/feriados",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "feriados"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Incluir feriado**\n\nLiberação exigida: `agenda.parametros:editar`\n\nPermite ao administrador carregar o calendário de cada ano pela tela, sem script (G8). Data repetida retorna 409 `FERIADO_DUPLICADO`.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"data\": \"2026-11-03\",\n  \"nome\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "DELETE /feriados/{data}",
+     "request": {
+      "method": "DELETE",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/feriados/:data",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "feriados",
+        ":data"
+       ],
+       "variable": [
+        {
+         "key": "data",
+         "value": "2026-11-03"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Remover feriado**\n\nLiberação exigida: `agenda.parametros:editar`\n\nFeriado não é cadastro com histórico, então a remoção é permitida. Consultas já marcadas na data não mudam.\n"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Prontuário",
+   "item": [
+    {
+     "name": "GET /pacientes/{pacienteId}/prontuario",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/pacientes/:pacienteId/prontuario",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "pacientes",
+        ":pacienteId",
+        "prontuario"
+       ],
+       "variable": [
+        {
+         "key": "pacienteId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": [
+        {
+         "key": "dataInicial",
+         "value": "2026-11-03",
+         "disabled": true
+        },
+        {
+         "key": "dataFinal",
+         "value": "2026-11-03",
+         "disabled": true
+        },
+        {
+         "key": "profissionalId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "consultaId",
+         "value": "00000000-0000-0000-0000-000000000000",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listar os registros do prontuário**\n\nLiberação exigida: `prontuario.registro:visualizar`\n\nDevolve todos os registros do paciente, inclusive os preenchidos por profissionais anteriores (RF12, RN16).\n\n**Quem acessa (H1):** a liberação `prontuario.registro:visualizar` **e** uma das condições: ser o profissional responsável atual do paciente ou ter o perfil Administrador. A recepção e os demais perfis não acessam, mesmo que alguém libere a tela por engano. Quem não cumpre responde 403 com `codigo` `ACESSO_PRONTUARIO_NEGADO` e a mensagem \"Você não é o profissional responsável por este paciente. Solicite acesso a um usuário com essa permissão ou ao administrador.\" O profissional que deixou de ser o responsável também perde o acesso (RN16).\n\n**Auditoria (H2):** cada chamada grava no log quem acessou, o paciente, a data e a hora e a quantidade de registros devolvida. A tentativa negada também é gravada.\n\nA resposta não deve ficar em cache (`Cache-Control: no-store`). Não há busca por texto: a criptografia do campo impede filtrar o conteúdo no banco (H6).\n"
+     }
+    },
+    {
+     "name": "POST /pacientes/{pacienteId}/prontuario",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/pacientes/:pacienteId/prontuario",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "pacientes",
+        ":pacienteId",
+        "prontuario"
+       ],
+       "variable": [
+        {
+         "key": "pacienteId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Incluir um registro no prontuário**\n\nLiberação exigida: `prontuario.registro:incluir`\n\nCada atendimento gera **um novo registro**, salvo de forma separada, sem sobrescrever os anteriores (RF12, RN19).\n- **Quem inclui (H3):** o profissional responsável atual do paciente, ou o administrador.\n- **Profissional responsável:** envia só `observacao` (e `consultaId`, se quiser). O servidor grava o nome e o número do conselho (CRM ou CRP, com a UF) do profissional logado e a data e a hora do salvamento. Nada disso vem do corpo da requisição. Enviar `profissionalId` ou `autorizacao` resulta em 400.\n- **Administrador:** só inclui com a solicitação do profissional e o OK do responsável legal. Por isso `profissionalId` (o profissional que solicitou, ativo, com CRM ou CRP) e `autorizacao` (quem solicitou, quem autorizou e a observação) são obrigatórios. O registro fica em nome desse profissional, marcado com `inclusaoAdministrativa`. Sem esses campos: 400.\n- **Log:** a inclusão pelo administrador grava no log o usuário, o paciente, a data e a hora, a quantidade de registros, quem solicitou, quem autorizou e a observação.\n- **Consulta (opcional):** se `consultaId` for informado, a consulta deve ser deste paciente e do profissional do registro (`CONSULTA_INVALIDA`).\n- **Paciente inativo** não recebe novos registros (409 `PACIENTE_INATIVO`); o histórico continua legível.\n- **Proteção contra duplicidade (H4):** o servidor recusa um registro idêntico ao anterior, do mesmo profissional e paciente, em menos de 2 minutos (409 `REGISTRO_DUPLICADO`). A comparação é feita pela aplicação, porque o texto é criptografado.\n- **Depois de salvo:** o médico não edita nem exclui. Só o administrador edita, com autorização, pela operação de edição. Não existe exclusão para ninguém (RN19).\n- A tela pede confirmação antes de salvar. O rascunho fica no navegador; o servidor não guarda rascunho.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"observacao\": \"texto\",\n  \"consultaId\": \"00000000-0000-0000-0000-000000000000\",\n  \"profissionalId\": 1,\n  \"autorizacao\": {\n    \"solicitadoPor\": \"texto\",\n    \"autorizadoPor\": \"texto\",\n    \"observacao\": \"xxxxxxxxxx\"\n  }\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /pacientes/{pacienteId}/prontuario/{registroId}",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/pacientes/:pacienteId/prontuario/:registroId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "pacientes",
+        ":pacienteId",
+        "prontuario",
+        ":registroId"
+       ],
+       "variable": [
+        {
+         "key": "pacienteId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+         "key": "registroId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Consultar um registro do prontuário**\n\nLiberação exigida: `prontuario.registro:visualizar`\n\nMesmas regras de acesso, auditoria e ausência de cache da listagem (H1, H2). O registro deve pertencer ao paciente informado no caminho. O acesso grava um evento no log com o código do registro.\n"
+     }
+    },
+    {
+     "name": "PUT /pacientes/{pacienteId}/prontuario/{registroId}",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/pacientes/:pacienteId/prontuario/:registroId",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "pacientes",
+        ":pacienteId",
+        "prontuario",
+        ":registroId"
+       ],
+       "variable": [
+        {
+         "key": "pacienteId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+         "key": "registroId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Editar um registro do prontuário (administrador)**\n\nLiberação exigida: `prontuario.registro:editar`\n\nSó o **administrador** edita um registro já salvo (H3), e apenas com a **solicitação do profissional e o OK do responsável legal**. Quem não é administrador recebe 403, mesmo que alguém libere a tela.\n- `autorizacao` é obrigatória: quem solicitou, quem autorizou e a observação da autorização (mínimo de 10 caracteres, sem texto clínico).\n- Só o texto (`observacao`) muda. Paciente, profissional, conselho, data, hora e vínculo com a consulta permanecem como foram salvos.\n- **Nada se perde:** o texto anterior fica guardado no histórico de correções, com o novo texto, a autorização, o administrador e a data e a hora. O registro passa a vir com `corrigido` verdadeiro.\n- **Log:** grava o usuário (administrador), o paciente, a data e a hora, a quantidade de registros alterados, quem solicitou, quem autorizou e a observação da autorização.\n- Texto igual ao atual: 409 `SEM_ALTERACAO` (conferido pela aplicação, porque o campo é criptografado).\n- A Diretoria de TI também pode corrigir direto no banco, com os mesmos dados de autorização. Essa correção aparece no mesmo histórico, com origem BANCO.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"observacao\": \"texto\",\n  \"autorizacao\": {\n    \"solicitadoPor\": \"texto\",\n    \"autorizadoPor\": \"texto\",\n    \"observacao\": \"xxxxxxxxxx\"\n  }\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET /pacientes/{pacienteId}/prontuario/{registroId}/correcoes",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/pacientes/:pacienteId/prontuario/:registroId/correcoes",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "pacientes",
+        ":pacienteId",
+        "prontuario",
+        ":registroId",
+        "correcoes"
+       ],
+       "variable": [
+        {
+         "key": "pacienteId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+         "key": "registroId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Histórico de alterações de um registro**\n\nLiberação exigida: `prontuario.correcao:visualizar`\n\nMostra, para cada alteração do registro (feita pelo administrador no sistema ou pela Diretoria de TI no banco), o texto anterior, o novo, quem solicitou, quem autorizou, a observação da autorização, quem executou e quando (RN19, H5). Restrita a quem tem `prontuario.correcao:visualizar` (administrador), porque traz o texto anterior. A listagem de registros apenas marca o registro como corrigido, sem revelar o texto antigo. O acesso também é gravado no log.\n"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Notificações internas",
+   "item": [
+    {
+     "name": "GET /notificacoes-internas",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/notificacoes-internas",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "notificacoes-internas"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "tipo",
+         "value": "HORARIO_DISPONIVEL",
+         "disabled": true
+        },
+        {
+         "key": "lida",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "consultaId",
+         "value": "00000000-0000-0000-0000-000000000000",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Listar as notificações da recepção**\n\nLiberação exigida: `notificacao.interna:visualizar`\n\nCaixa de entrada de avisos dentro do sistema. Cada usuário com a liberação da tela vê as notificações dirigidas a todos e as dirigidas a ele. Filtre por `lida` para ver só as pendentes. As notificações não são excluídas (RNF05).\n"
+     }
+    },
+    {
+     "name": "GET /notificacoes-internas/nao-lidas/contagem",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/notificacoes-internas/nao-lidas/contagem",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "notificacoes-internas",
+        "nao-lidas",
+        "contagem"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Contar as notificações não lidas**\n\nLiberação exigida: `notificacao.interna:visualizar`\n\nAlimenta o contador na barra do sistema. A tela consulta este endereço a cada minuto.\n"
+     }
+    },
+    {
+     "name": "PATCH /notificacoes-internas/{notificacaoId}/leitura",
+     "request": {
+      "method": "PATCH",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/notificacoes-internas/:notificacaoId/leitura",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "notificacoes-internas",
+        ":notificacaoId",
+        "leitura"
+       ],
+       "variable": [
+        {
+         "key": "notificacaoId",
+         "value": "1"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Marcar como lida**\n\nLiberação exigida: `notificacao.interna:editar`\n\nQuando um usuário lê, a notificação fica lida **para toda a recepção**, com o nome de quem leu e a hora, para a equipe não tratar o mesmo aviso duas vezes. Marcar de novo não muda nada.\n"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Mensagens ao paciente",
+   "item": [
+    {
+     "name": "GET /consultas/{consultaId}/notificacoes",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/consultas/:consultaId/notificacoes",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "consultas",
+        ":consultaId",
+        "notificacoes"
+       ],
+       "variable": [
+        {
+         "key": "consultaId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Mensagens enviadas ao paciente sobre a consulta**\n\nLiberação exigida: `consulta.agendamento:visualizar`\n\nMostra à recepção o que foi enviado (confirmação, lembrete, aviso de cancelamento ou remarcação), por qual canal, se foi entregue e o que o paciente respondeu. O perfil Médico só abre as próprias consultas (404 nas demais).\n"
+     }
+    },
+    {
+     "name": "POST /consultas/{consultaId}/notificacoes/reenvio",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/consultas/:consultaId/notificacoes/reenvio",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "consultas",
+        ":consultaId",
+        "notificacoes",
+        "reenvio"
+       ],
+       "variable": [
+        {
+         "key": "consultaId",
+         "value": "00000000-0000-0000-0000-000000000000"
+        }
+       ],
+       "query": []
+      },
+      "description": "**Reenviar confirmação ou lembrete**\n\nLiberação exigida: `consulta.agendamento:editar`\n\nA recepção reenvia a confirmação ou o lembrete, por exemplo quando o paciente diz que não recebeu.\n- Só em consulta AGENDADA ou CONFIRMADA e futura (409 `CONSULTA_SEM_ENVIO`).\n- Paciente sem consentimento de contato por SMS e WhatsApp não recebe (409 `SEM_CONSENTIMENTO_CONTATO`, RN27): a recepção contata por telefone.\n- Segundo reenvio do mesmo tipo em menos de 10 minutos: 409 `ENVIO_RECENTE`.\n- O reenvio é gravado no log com o usuário.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"tipo\": \"CONFIRMACAO_48H\",\n  \"canal\": \"WHATSAPP\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Parâmetros das notificações",
+   "item": [
+    {
+     "name": "GET /parametros-notificacao",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/parametros-notificacao",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "parametros-notificacao"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Consultar as antecedências das mensagens**\n\nLiberação exigida: `notificacao.parametros:visualizar`\n\n"
+     }
+    },
+    {
+     "name": "PUT /parametros-notificacao",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/parametros-notificacao",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "parametros-notificacao"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Alterar as antecedências das mensagens**\n\nLiberação exigida: `notificacao.parametros:editar`\n\nA ordem precisa ser confirmação, depois lembrete, depois aviso final (cada antecedência menor que a anterior); fora disso, 400 `PARAMETROS_INVALIDOS`. A mudança vale para os envios ainda não agendados; os já agendados mantêm o horário.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"confirmacaoAntecedenciaHoras\": 2,\n  \"lembreteAntecedenciaHoras\": 1,\n  \"alertaSemRespostaAntecedenciaHoras\": 1\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Webhooks do provedor",
+   "item": [
+    {
+     "name": "POST /webhooks/provedor/status-entrega",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Assinatura",
+        "value": "{{assinaturaWebhook}}"
+       },
+       {
+        "key": "X-Instante",
+        "value": "{{$isoTimestamp}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/webhooks/provedor/status-entrega",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "webhooks",
+        "provedor",
+        "status-entrega"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Receber o status de entrega de uma mensagem**\n\nLiberação exigida: `pública`\n\nChamado pelo provedor de SMS e WhatsApp (ou pelo adaptador dele) quando uma mensagem muda de situação. **Não usa token de usuário**: a requisição traz a assinatura no cabeçalho `X-Assinatura` (HMAC SHA-256 do corpo com o segredo combinado) e o instante no cabeçalho `X-Instante`; assinatura inválida ou instante com mais de 5 minutos de diferença: 401 `ASSINATURA_INVALIDA`.\n- Atualiza o status de entrega da mensagem (ENVIADA, ENTREGUE, LIDA ou FALHA) e a data.\n- Falha no WhatsApp: o servidor tenta o SMS. Falha nos dois canais: aviso `FALHA_ENVIO` à recepção.\n- Evento repetido (mesmo `eventoId`) ou de mensagem desconhecida responde 200, sem efeito, para o provedor não reenviar.\n- Este endereço é o contrato do sistema; a escolha do provedor (P18) só exige um adaptador que traduza o formato dele.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"eventoId\": \"texto\",\n  \"mensagemId\": \"texto\",\n  \"status\": \"ENVIADA\",\n  \"ocorridoEm\": \"2026-11-03T12:00:00Z\",\n  \"erro\": \"texto\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "auth": {
+       "type": "noauth"
+      }
+     }
+    },
+    {
+     "name": "POST /webhooks/provedor/resposta",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Assinatura",
+        "value": "{{assinaturaWebhook}}"
+       },
+       {
+        "key": "X-Instante",
+        "value": "{{$isoTimestamp}}"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/webhooks/provedor/resposta",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "webhooks",
+        "provedor",
+        "resposta"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Receber a resposta do paciente**\n\nLiberação exigida: `pública`\n\nMesma segurança do endereço de status. Interpretação da resposta (K3):\n- **Confirma** (\"sim\", \"1\", \"confirmo\", sem diferença de maiúsculas e acentos): a consulta passa de AGENDADA para CONFIRMADA, com o histórico de status. Consulta já confirmada ou em outro status: só registra a resposta.\n- **Não confirma** (\"não\", \"2\", \"não vou\"): nada muda sozinho, porque o cancelamento pelo paciente só vale com a antecedência mínima e é feito pela recepção (RN06). O servidor avisa a recepção (`RESPOSTA_PACIENTE`).\n- **Qualquer outro texto:** a recepção é avisada com o texto recebido.\n- A resposta é ligada à mensagem informada ou, sem ela, à última mensagem pendente do telefone. Sem correspondência: 200 com `IGNORADO_SEM_CORRESPONDENCIA`.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"eventoId\": \"texto\",\n  \"mensagemId\": \"texto\",\n  \"telefone\": \"texto\",\n  \"texto\": \"texto\",\n  \"recebidoEm\": \"2026-11-03T12:00:00Z\",\n  \"canal\": \"WHATSAPP\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "auth": {
+       "type": "noauth"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Dashboards",
+   "item": [
+    {
+     "name": "GET /dashboards/painel-do-dia",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/dashboards/painel-do-dia",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "dashboards",
+        "painel-do-dia"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "data",
+         "value": "2026-11-03",
+         "disabled": true
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "profissionalId",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Painel do dia**\n\nLiberação exigida: `dashboard.painel:visualizar`\n\nNunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Conta as consultas do dia por status, incluindo os encaixes. `data` vazia: hoje, no horário de Brasília. A tela atualiza consultando a cada 30 segundos (L1).\n"
+     }
+    },
+    {
+     "name": "GET /dashboards/financeiro-mensal",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/dashboards/financeiro-mensal",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "dashboards",
+        "financeiro-mensal"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "mes",
+         "value": "2026-11",
+         "disabled": true
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Financeiro do mês**\n\nLiberação exigida: `dashboard.financeiro:visualizar`\n\nNunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Soma os valores das consultas CONCLUIDAS no mês, pela data da consulta, separando particular e convênio, com comparação com o mês anterior (L2). Exige também a liberação de visualização do campo de valor (RN20); sem ela, 403 `VALOR_SEM_LIBERACAO`. `mes` vazio: o mês atual.\n"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Relatórios",
+   "item": [
+    {
+     "name": "GET /relatorios/consultas-por-profissional",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/relatorios/consultas-por-profissional",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "relatorios",
+        "consultas-por-profissional"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "dataInicial",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "dataFinal",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "profissionalId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "convenioId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tipoAtendimento",
+         "value": "PARTICULAR",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Consultas por profissional**\n\nLiberação exigida: `relatorio.consultas_profissional:visualizar`\n\nNunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Filtros do RF22 (período, profissional, unidade, convênio e tipo). Período de no máximo 366 dias; fora disso, 400 `PERIODO_INVALIDO`. Datas e horas no horário de Brasília. Cada geração é gravada no log.\n"
+     }
+    },
+    {
+     "name": "GET /relatorios/ocupacao-agenda",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/relatorios/ocupacao-agenda",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "relatorios",
+        "ocupacao-agenda"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "dataInicial",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "dataFinal",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "profissionalId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "convenioId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tipoAtendimento",
+         "value": "PARTICULAR",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Taxa de ocupação da agenda**\n\nLiberação exigida: `relatorio.ocupacao:visualizar`\n\nNunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Filtros do RF22 (período, profissional, unidade, convênio e tipo). Período de no máximo 366 dias; fora disso, 400 `PERIODO_INVALIDO`. Datas e horas no horário de Brasília. Cada geração é gravada no log. A ocupação é calculada em minutos: duração das consultas dentro do expediente dividida pelo expediente disponível, sem intervalos, feriados nacionais e recesso. Canceladas e remarcadas não contam como ocupadas. Encaixes ficam de fora do cálculo e aparecem à parte (L4).\n"
+     }
+    },
+    {
+     "name": "GET /relatorios/cancelamentos-faltas",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/relatorios/cancelamentos-faltas",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "relatorios",
+        "cancelamentos-faltas"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "dataInicial",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "dataFinal",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "profissionalId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "convenioId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tipoAtendimento",
+         "value": "PARTICULAR",
+         "disabled": true
+        },
+        {
+         "key": "visao",
+         "value": "RESUMO",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Cancelamentos e não comparecimentos**\n\nLiberação exigida: `relatorio.cancelamentos_faltas:visualizar`\n\nNunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Filtros do RF22 (período, profissional, unidade, convênio e tipo). Período de no máximo 366 dias; fora disso, 400 `PERIODO_INVALIDO`. Datas e horas no horário de Brasília. Cada geração é gravada no log. `visao` RESUMO (padrão) traz os totais por profissional; DETALHE traz também a lista paginada, com paciente, data, motivo e quem cancelou (L5).\n"
+     }
+    },
+    {
+     "name": "GET /relatorios/faturamento-por-tipo",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/relatorios/faturamento-por-tipo",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "relatorios",
+        "faturamento-por-tipo"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "dataInicial",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "dataFinal",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "profissionalId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "convenioId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tipoAtendimento",
+         "value": "PARTICULAR",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Faturamento por particular e convênio**\n\nLiberação exigida: `relatorio.faturamento_tipo:visualizar`\n\nNunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Filtros do RF22 (período, profissional, unidade, convênio e tipo). Período de no máximo 366 dias; fora disso, 400 `PERIODO_INVALIDO`. Datas e horas no horário de Brasília. Cada geração é gravada no log. Soma das consultas CONCLUIDAS, uma linha para o particular e **uma linha para cada convênio**, cada uma com a quantidade e o valor, do mesmo jeito que o particular (L6). A tela de faturamento mostra só valores e quantidades. O valor de convênio é informativo, sem guias TISS e TUSS nem glosas. Exige a liberação de visualização do valor (`VALOR_SEM_LIBERACAO`).\n"
+     }
+    },
+    {
+     "name": "GET /relatorios/faturamento-mensal",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/relatorios/faturamento-mensal",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "relatorios",
+        "faturamento-mensal"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "dataInicial",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "dataFinal",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "profissionalId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "convenioId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tipoAtendimento",
+         "value": "PARTICULAR",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Faturamento mensal**\n\nLiberação exigida: `relatorio.faturamento_mensal:visualizar`\n\nNunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Filtros do RF22 (período, profissional, unidade, convênio e tipo). Período de no máximo 366 dias; fora disso, 400 `PERIODO_INVALIDO`. Datas e horas no horário de Brasília. Cada geração é gravada no log. Uma linha por mês do período, com o particular, o total de convênios e o valor de cada convênio no mês (`porConvenio`). Mostra só valores e quantidades. Exige a liberação de visualização do valor (`VALOR_SEM_LIBERACAO`).\n"
+     }
+    },
+    {
+     "name": "GET /relatorios/prontuarios",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/relatorios/prontuarios",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "relatorios",
+        "prontuarios"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "dataInicial",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "dataFinal",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "profissionalId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "convenioId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tipoAtendimento",
+         "value": "PARTICULAR",
+         "disabled": true
+        },
+        {
+         "key": "incluirTexto",
+         "value": "false",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Relatório de prontuários**\n\nLiberação exigida: `relatorio.prontuarios:visualizar`\n\nNunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Filtros do RF22 (período, profissional, unidade, convênio e tipo). Período de no máximo 366 dias; fora disso, 400 `PERIODO_INVALIDO`. Datas e horas no horário de Brasília. Cada geração é gravada no log. Lista os registros do prontuário por paciente e profissional que os preencheu, **sem o texto clínico** (L7). Só o administrador pode pedir o texto com `incluirTexto` (403 `TEXTO_SOMENTE_ADMINISTRADOR` para os demais). A resposta não fica em cache e a geração grava no log o usuário, o período e a quantidade de registros (RNF05).\n"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Exportação",
+   "item": [
+    {
+     "name": "GET /relatorios/{relatorio}/exportacao",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/relatorios/:relatorio/exportacao",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "relatorios",
+        ":relatorio",
+        "exportacao"
+       ],
+       "variable": [
+        {
+         "key": "relatorio",
+         "value": "consultas-por-profissional"
+        }
+       ],
+       "query": [
+        {
+         "key": "formato",
+         "value": "pdf",
+         "disabled": false
+        },
+        {
+         "key": "dataInicial",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "dataFinal",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "profissionalId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "unidadeId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "convenioId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tipoAtendimento",
+         "value": "PARTICULAR",
+         "disabled": true
+        },
+        {
+         "key": "visao",
+         "value": "RESUMO",
+         "disabled": true
+        },
+        {
+         "key": "incluirTexto",
+         "value": "false",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Exportar um relatório em PDF, Excel ou CSV**\n\nLiberação exigida: `relatorio.exportacao:exportar`\n\nGera o mesmo relatório da tela, com os mesmos filtros, em arquivo (RF23). Exige duas liberações: a exportação (`relatorio.exportacao:exportar`) e a visualização do relatório escolhido; a recepção, por exemplo, pode ver um relatório sem poder exportá-lo.\n- `formato`: `pdf` (cabeçalho com a clínica, filtros, usuário e data e hora), `xlsx` ou `csv` (UTF-8 com marca de ordem, separador ponto e vírgula, para abrir direto no Excel brasileiro).\n- No máximo 10.000 linhas por arquivo; acima disso, 413 `EXPORTACAO_MUITO_GRANDE`, e o usuário reduz o período ou filtra (L8).\n- Exportar o relatório de prontuários segue a regra do texto: sem o texto clínico, salvo para o administrador com `incluirTexto`.\n- Toda exportação grava no log (ação EXPORTAR) o usuário, o relatório, os filtros e a quantidade de linhas.\n- Não fica em cache.\n"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Auditoria",
+   "item": [
+    {
+     "name": "GET /auditoria/acessos",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/auditoria/acessos",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "auditoria",
+        "acessos"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "dataInicial",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "dataFinal",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "usuarioId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "pacienteId",
+         "value": "00000000-0000-0000-0000-000000000000",
+         "disabled": true
+        },
+        {
+         "key": "acao",
+         "value": "VISUALIZAR",
+         "disabled": true
+        },
+        {
+         "key": "entidade",
+         "value": "texto",
+         "disabled": true
+        },
+        {
+         "key": "pagina",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "tamanho",
+         "value": "1",
+         "disabled": true
+        }
+       ]
+      },
+      "description": "**Consultar o log de auditoria**\n\nLiberação exigida: `auditoria.log:visualizar`\n\nMostra quem visualizou, incluiu, alterou, exportou ou acessou o quê, e quando (RNF05). Filtre por período (no máximo 366 dias), usuário, paciente, ação e entidade. Com `pacienteId`, a tela mostra quem acessou os dados de um paciente, inclusive o prontuário (quantidade de registros, inclusão e edição pelo administrador, com a autorização).\nO log é somente de inclusão: não há edição nem exclusão. Consultar o log também grava um evento VISUALIZAR (L9). Nunca disponível ao usuário vinculado a profissional (médico): 403 `MEDICO_SEM_ACESSO`.\n"
+     }
+    },
+    {
+     "name": "GET /auditoria/acessos/exportacao",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{baseUrl}}/auditoria/acessos/exportacao",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "auditoria",
+        "acessos",
+        "exportacao"
+       ],
+       "variable": [],
+       "query": [
+        {
+         "key": "dataInicial",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "dataFinal",
+         "value": "2026-11-03",
+         "disabled": false
+        },
+        {
+         "key": "usuarioId",
+         "value": "1",
+         "disabled": true
+        },
+        {
+         "key": "pacienteId",
+         "value": "00000000-0000-0000-0000-000000000000",
+         "disabled": true
+        },
+        {
+         "key": "acao",
+         "value": "VISUALIZAR",
+         "disabled": true
+        },
+        {
+         "key": "entidade",
+         "value": "texto",
+         "disabled": true
+        },
+        {
+         "key": "formato",
+         "value": "pdf",
+         "disabled": false
+        }
+       ]
+      },
+      "description": "**Exportar o log de auditoria**\n\nLiberação exigida: `auditoria.log:exportar`\n\nMesmos filtros da consulta, em PDF, XLSX ou CSV, até 10.000 linhas (413 `EXPORTACAO_MUITO_GRANDE`). A exportação grava no log a ação EXPORTAR com os filtros e a quantidade de linhas.\n"
+     }
+    }
+   ]
+  }
+ ]
+}

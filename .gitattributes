@@ -1,0 +1,8 @@
+# Normaliza o final de linha (Windows x Linux) e evita diffs falsos
+* text=auto
+*.sql text eol=crlf
+*.cs text eol=crlf
+*.png binary
+*.jpg binary
+*.pdf binary
+*.docx binary

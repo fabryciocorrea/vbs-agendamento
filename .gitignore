@@ -1,0 +1,32 @@
+# .NET
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.log
+
+# Segredos e configuração local (nunca versionar)
+appsettings.Local.json
+secrets.json
+.env
+.env.*
+
+# Node / Vite
+node_modules/
+dist/
+web/dist/
+*.tsbuildinfo
+
+# Editor e sistema
+.vscode/*
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Pacotes de entrega e arquivos temporários
+*.zip
+*.bak
+~$*

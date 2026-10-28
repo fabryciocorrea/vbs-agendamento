@@ -1,0 +1,85 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.centralizado {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.tela-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  background: #f0f2f5;
+  padding: 16px;
+}
+
+.logo-menu {
+  min-height: 72px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 600;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.logo-menu {
+  gap: 10px;
+  padding: 0 12px;
+}
+
+.logo-menu img {
+  height: 36px;
+  width: 36px;
+  object-fit: contain;
+  flex: none;
+}
+
+.logo-nome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+.logo-nome strong {
+  font-size: 16px;
+  color: #fff;
+}
+
+.logo-nome small {
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  white-space: normal;
+  color: #FECE22;
+  font-weight: 600;
+}
+
+.logo-login {
+  display: block;
+  width: 150px;
+  max-width: 60%;
+  margin: 0 auto 12px;
+}
+
+.tela-login {
+  background: #f4f6f4;
+}
