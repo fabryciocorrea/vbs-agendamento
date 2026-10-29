@@ -87,6 +87,14 @@ public static class DataBrasil
     public static DateOnly Hoje() =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, Fuso));
 
+    /// <summary>Horário de parede de Brasília (sem fuso) para UTC.</summary>
+    public static DateTime ParaUtc(DateTime brasilia) =>
+        TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(brasilia, DateTimeKind.Unspecified), Fuso);
+
+    /// <summary>UTC para o horário de parede de Brasília.</summary>
+    public static DateTime ParaBrasilia(DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Fuso);
+
     public static int Idade(DateOnly nascimento, DateOnly hoje)
     {
         var idade = hoje.Year - nascimento.Year;

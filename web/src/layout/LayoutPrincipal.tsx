@@ -14,6 +14,9 @@ import {
   TeamOutlined,
   UserOutlined,
   ContactsOutlined,
+  CalendarOutlined,
+  SettingOutlined,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../auth/AuthContext";
 import { cores } from "../tema";
@@ -32,6 +35,12 @@ interface ItemMenu {
 const ITENS: ItemMenu[] = [
   { key: "/", label: "Início", icon: <HomeOutlined /> },
   {
+    key: "/agenda",
+    label: "Agenda",
+    icon: <CalendarOutlined />,
+    tela: "agenda.profissional",
+  },
+  {
     key: "/pacientes",
     label: "Pacientes",
     icon: <SolutionOutlined />,
@@ -42,6 +51,12 @@ const ITENS: ItemMenu[] = [
     label: "Convênios",
     icon: <IdcardOutlined />,
     tela: "convenio.cadastro",
+  },
+  {
+    key: "/credenciamentos",
+    label: "Credenciamentos",
+    icon: <SafetyCertificateOutlined />,
+    tela: "convenio.credenciamento",
   },
   {
     key: "/colaboradores",
@@ -78,6 +93,12 @@ const ITENS: ItemMenu[] = [
     label: "Salas",
     icon: <ApartmentOutlined />,
     tela: "sala.cadastro",
+  },
+  {
+    key: "/parametros-agenda",
+    label: "Parâmetros da agenda",
+    icon: <SettingOutlined />,
+    tela: "agenda.parametros",
   },
   {
     key: "/perfis",

@@ -39,6 +39,11 @@ FROM DBO.PROFISSIONAL X";
                 break;
             case "unidades":
                 sql = "SELECT X.CODIGO_UNIDADE AS Id, X.NOME_FANTASIA AS Nome, X.ATIVO AS Ativo, CAST(NULL AS NVARCHAR(100)) AS Complemento FROM DBO.UNIDADE X";
+                if (f.ProfissionalId.HasValue)
+                {
+                    onde.Append(" AND EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_UNIDADE PU WHERE PU.CODIGO_UNIDADE = X.CODIGO_UNIDADE AND PU.CODIGO_PROFISSIONAL = @ProfissionalId)");
+                    p.Add("ProfissionalId", f.ProfissionalId.Value);
+                }
                 break;
             case "salas":
                 sql = @"SELECT X.CODIGO_SALA AS Id, X.NUMERO AS Nome, X.ATIVO AS Ativo,
@@ -52,6 +57,11 @@ FROM DBO.SALA X JOIN DBO.UNIDADE U ON U.CODIGO_UNIDADE = X.CODIGO_UNIDADE";
                 break;
             case "especialidades":
                 sql = "SELECT X.CODIGO_ESPECIALIDADE AS Id, X.NOME AS Nome, X.ATIVO AS Ativo, CAST(NULL AS NVARCHAR(100)) AS Complemento FROM DBO.ESPECIALIDADE X";
+                if (f.ProfissionalId.HasValue)
+                {
+                    onde.Append(" AND EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE PE WHERE PE.CODIGO_ESPECIALIDADE = X.CODIGO_ESPECIALIDADE AND PE.CODIGO_PROFISSIONAL = @ProfissionalId)");
+                    p.Add("ProfissionalId", f.ProfissionalId.Value);
+                }
                 break;
             case "convenios":
                 sql = "SELECT X.CODIGO_CONVENIO AS Id, COALESCE(X.NOME_FANTASIA, X.RAZAO_SOCIAL) AS Nome, X.ATIVO AS Ativo, CAST(NULL AS NVARCHAR(100)) AS Complemento FROM DBO.CONVENIO X";

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Button, Col, Form, Input, Modal, Row, Select, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Col, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
-import type { Convenio, Pagina } from '../../api/tipos';
+import type { Convenio, ItemApoio, Pagina } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
 import { cnpjValido, formatarCnpj, formatarDataIso, hojeIso, somenteDigitos } from '../../util/formatos';
 
@@ -20,6 +20,7 @@ interface ValoresFormulario {
   dataInscricao: string;
   inscricaoMunicipal?: string;
   inscricaoEstadual?: string;
+  especialidades: { especialidadeId?: number; valor?: number | null }[];
 }
 
 interface FormularioProps {
@@ -33,6 +34,13 @@ function FormularioConvenio({ aberto, convenio, aoFechar, aoSalvar }: Formulario
   const { message } = App.useApp();
   const [form] = Form.useForm<ValoresFormulario>();
   const [salvando, setSalvando] = useState(false);
+  const [especialidades, setEspecialidades] = useState<ItemApoio[]>([]);
+
+  useEffect(() => {
+    if (!aberto) return;
+    api.get<ItemApoio[]>('/apoio/especialidades').then(setEspecialidades).catch(() => message.error('Não foi possível carregar as especialidades.'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aberto]);
 
   async function enviar() {
     let v: ValoresFormulario;
@@ -50,7 +58,8 @@ function FormularioConvenio({ aberto, convenio, aoFechar, aoSalvar }: Formulario
       codigoAns: v.codigoAns.trim(),
       dataInscricao: v.dataInscricao,
       inscricaoMunicipal: opcional(v.inscricaoMunicipal),
-      inscricaoEstadual: opcional(v.inscricaoEstadual)
+      inscricaoEstadual: opcional(v.inscricaoEstadual),
+      especialidades: v.especialidades.map((x) => ({ especialidadeId: x.especialidadeId, valor: x.valor }))
     };
     setSalvando(true);
     try {
@@ -60,7 +69,14 @@ function FormularioConvenio({ aberto, convenio, aoFechar, aoSalvar }: Formulario
       aoSalvar();
     } catch (e) {
       if (e instanceof ApiErro && e.erros.length > 0) {
-        form.setFields(e.erros.map((x) => ({ name: x.campo as keyof ValoresFormulario, errors: [x.mensagem] })));
+        // Erros por linha vêm como "especialidades[0].valor"; viram o caminho do campo dentro da lista.
+        form.setFields(
+          e.erros.map((x) => {
+            const m = /^especialidades\[(\d+)\]\.(\w+)$/.exec(x.campo);
+            const name = m ? ['especialidades', Number(m[1]), m[2]] : x.campo;
+            return { name: name as never, errors: [x.mensagem] };
+          })
+        );
       } else if (e instanceof ApiErro && e.codigo === 'CNPJ_DUPLICADO') {
         form.setFields([{ name: 'cnpj', errors: [e.message] }]);
       } else {
@@ -98,9 +114,10 @@ function FormularioConvenio({ aberto, convenio, aoFechar, aoSalvar }: Formulario
                 codigoAns: convenio.codigoAns,
                 dataInscricao: convenio.dataInscricao.slice(0, 10),
                 inscricaoMunicipal: convenio.inscricaoMunicipal ?? '',
-                inscricaoEstadual: convenio.inscricaoEstadual ?? ''
+                inscricaoEstadual: convenio.inscricaoEstadual ?? '',
+                especialidades: convenio.especialidades.map((x) => ({ especialidadeId: x.id, valor: x.valor }))
               }
-            : undefined
+            : { especialidades: [{}] }
         }
       >
         <Form.Item name="razaoSocial" label="Razão social" rules={[{ required: true, whitespace: true, message: OBRIGATORIO }]}>
@@ -146,6 +163,51 @@ function FormularioConvenio({ aberto, convenio, aoFechar, aoSalvar }: Formulario
             </Form.Item>
           </Col>
         </Row>
+        <Typography.Text strong>Especialidades e valores da consulta</Typography.Text>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
+          Informe cada especialidade atendida pelo convênio e o valor da consulta nela. Na tela de Credenciamentos, cada unidade pode ter um valor próprio.
+        </Typography.Paragraph>
+        <Form.List name="especialidades">
+          {(campos, { add, remove }) => (
+            <>
+              {campos.map((campo) => (
+                <Row gutter={12} key={campo.key} align="top">
+                  <Col xs={24} sm={13}>
+                    <Form.Item
+                      name={[campo.name, 'especialidadeId']}
+                      label={campo.name === 0 ? 'Especialidade' : undefined}
+                      rules={[{ required: true, message: OBRIGATORIO }]}
+                    >
+                      <Select
+                        showSearch
+                        optionFilterProp="label"
+                        placeholder="Selecione"
+                        options={especialidades.map((x) => ({ value: x.id, label: x.nome }))}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={20} sm={8}>
+                    <Form.Item
+                      name={[campo.name, 'valor']}
+                      label={campo.name === 0 ? 'Valor' : undefined}
+                      rules={[{ required: true, message: OBRIGATORIO }]}
+                    >
+                      <InputNumber min={0.01} max={99999999.99} step={10} precision={2} decimalSeparator="," prefix="R$" style={{ width: '100%' }} />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={4} sm={3}>
+                    <Form.Item label={campo.name === 0 ? ' ' : undefined}>
+                      <Button icon={<DeleteOutlined />} title="Remover" disabled={campos.length === 1} onClick={() => remove(campo.name)} />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              ))}
+              <Button type="dashed" icon={<PlusOutlined />} onClick={() => add({})}>
+                Adicionar especialidade
+              </Button>
+            </>
+          )}
+        </Form.List>
       </Form>
     </Modal>
   );
@@ -213,6 +275,34 @@ export default function ConveniosPagina() {
     { title: 'Razão social', dataIndex: 'razaoSocial' },
     { title: 'CNPJ', dataIndex: 'cnpj', width: 170, render: (v: string) => formatarCnpj(v) },
     { title: 'Código ANS', dataIndex: 'codigoAns', width: 120 },
+    {
+      title: 'Especialidades',
+      render: (_, c) =>
+        c.especialidades.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {c.especialidades.map((x) => (
+              <span key={x.id}>{x.nome}</span>
+            ))}
+          </div>
+        ) : (
+          '—'
+        )
+    },
+    {
+      title: 'Valor',
+      width: 120,
+      align: 'right',
+      render: (_, c) =>
+        c.especialidades.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {c.especialidades.map((x) => (
+              <span key={x.id}>{x.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+            ))}
+          </div>
+        ) : (
+          '—'
+        )
+    },
     { title: 'Inscrição', dataIndex: 'dataInscricao', width: 110, render: (v: string) => formatarDataIso(v) },
     {
       title: 'Situação',

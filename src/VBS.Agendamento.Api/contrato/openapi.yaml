@@ -2479,6 +2479,54 @@ paths:
           $ref: '#/components/responses/NaoEncontrado'
         '409':
           $ref: '#/components/responses/Conflito'
+  /convenios/{convenioId}/valor-consulta:
+    parameters:
+    - $ref: '#/components/parameters/ConvenioId'
+    get:
+      tags:
+      - Credenciamento
+      operationId: obterValorConsultaConvenio
+      summary: Valor da consulta por convênio
+      x-permissao: consulta.agendamento:visualizar
+      description: |
+        Devolve o valor cadastrado no credenciamento do convênio para a unidade e a especialidade (usado pela tela de agendamento, somente leitura). `valor` vem vazio quando não há credenciamento cadastrado. `credenciado` indica se há credenciamento aprovado e vigente na data.
+      parameters:
+      - name: unidadeId
+        in: query
+        required: true
+        schema:
+          type: integer
+      - name: especialidadeId
+        in: query
+        required: true
+        schema:
+          type: integer
+      - name: data
+        in: query
+        description: Data da consulta. Padrão, hoje.
+        schema:
+          type: string
+          format: date
+      responses:
+        '200':
+          description: Valor do convênio.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valor:
+                    type: number
+                    format: decimal
+                    nullable: true
+                  credenciado:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
   /convenios/{convenioId}/credenciamentos/lote:
     parameters:
     - $ref: '#/components/parameters/ConvenioId'
@@ -2869,9 +2917,10 @@ paths:
         | CONFIRMADA | CHECK_IN, CANCELADA, FALTA |
         | CHECK_IN | EM_ATENDIMENTO, CANCELADA |
         | EM_ATENDIMENTO | CONCLUIDA |
+        | AGENDADA, CONFIRMADA ou CHECK_IN | CONCLUIDA (atalho), só depois do horário da consulta (409 `CONCLUSAO_ANTES_DO_HORARIO`) |
 
         Outra mudança retorna 409 `TRANSICAO_INVALIDA`.
-        - **Pagamento na chegada (G4, RN17):** o check-in só é feito com o pagamento confirmado. Sem ele, 409 `PAGAMENTO_PENDENTE`. A recepção registra a chegada, confirma o pagamento (`/pagamento/confirmacao`) e só então o paciente é liberado para a consulta. Vale também para consulta por convênio.
+        - **Pagamento na chegada (G4, RN17):** no atendimento particular, o atendimento só começa com o pagamento confirmado. Sem ele, 409 `PAGAMENTO_PENDENTE` ao passar para EM_ATENDIMENTO. Fluxo da recepção: confirma o agendamento, faz o check-in, confirma o pagamento (`/pagamento/confirmacao`) e inicia o atendimento. **Convênio:** não há pagamento na chegada; o check-in acontece com a guia pendente e o faturamento confirma a guia depois (`/consultas/{consultaId}/guia`).
         - **Carteirinha (G3):** no check-in de consulta por convênio com a carteirinha vencida, a resposta traz o aviso `CARTEIRINHA_VENCIDA` com a data de vencimento, para a recepção resolver na hora. Consulta CONCLUIDA, CANCELADA, FALTA ou REMARCADA não muda mais.
         - **Cancelamento e falta:** o motivo é obrigatório (RN06); no cancelamento informa-se também quem cancelou. Cancelar pelo **paciente** exige a antecedência mínima do parâmetro da agenda (48 horas): fora do prazo, 409 `CANCELAMENTO_FORA_DO_PRAZO`. A clínica pode cancelar a qualquer momento. Falta só depois do horário de início (`FALTA_ANTES_DO_HORARIO`).
         - **Cancelamento libera o horário:** o servidor avisa a recepção, dentro do sistema, quando há paciente na lista de espera daquele profissional ou especialidade (RN08).
@@ -2947,7 +2996,7 @@ paths:
       summary: Confirmar o pagamento
       x-permissao: consulta.agendamento:editar
       description: |
-        Feita pela recepção na chegada do paciente, antes do check-in (G4). Registra a confirmação com data, hora e usuário (RN17). Pagamento já confirmado retorna 409 `PAGAMENTO_JA_CONFIRMADO`. A confirmação não é desfeita pela API.
+        Feita pela recepção na chegada do paciente, antes do check-in (G4). Registra a confirmação com data, hora e usuário (RN17). Pagamento já confirmado retorna 409 `PAGAMENTO_JA_CONFIRMADO`. Só no atendimento particular e depois do check-in (consulta em CHECK_IN); no convênio retorna 409 `PAGAMENTO_CONVENIO_VIA_GUIA` (quem confirma é o faturamento, pela guia). Outro status retorna 409 `STATUS_NAO_PERMITE`; versão desatualizada, 409 `CONSULTA_ALTERADA`. A confirmação não é desfeita pela API. Grava no log.
       requestBody:
         required: true
         content:
@@ -2961,6 +3010,91 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Consulta'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+  /faturamento/guias:
+    get:
+      tags:
+      - Consultas
+      operationId: listarGuiasConvenio
+      summary: Listar as guias de convênio para o faturamento
+      x-permissao: faturamento.guias:visualizar
+      description: |
+        Consultas por convênio (sem as canceladas e remarcadas) com a situação da guia: PENDENTE (padrão, enquanto o faturamento não confirmar), AUTORIZADA ou NEGADA. Filtros: situação da guia, convênio, período (datas de Brasília) e busca por paciente, carteirinha ou número da guia.
+      parameters:
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum:
+          - PENDENTE
+          - AUTORIZADA
+          - NEGADA
+      - name: convenioId
+        in: query
+        schema:
+          type: integer
+      - name: dataInicial
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: dataFinal
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: busca
+        in: query
+        schema:
+          type: string
+      - $ref: '#/components/parameters/Pagina'
+      - $ref: '#/components/parameters/Tamanho'
+      responses:
+        '200':
+          description: Página de guias.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuiaPagina'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+  /consultas/{consultaId}/guia:
+    parameters:
+    - $ref: '#/components/parameters/ConsultaId'
+    patch:
+      tags:
+      - Consultas
+      operationId: atualizarGuiaConsulta
+      summary: Registrar a guia do convênio
+      x-permissao: faturamento.guias:editar
+      description: |
+        Feita pelo faturamento quando o plano de saúde aprova (ou nega) a solicitação de guia. No convênio o pagamento só vale com a guia autorizada: o atendimento (check-in e conclusão) acontece normalmente com a guia pendente, sem bloquear a recepção. AUTORIZADA exige o número da guia e confirma o pagamento da consulta; NEGADA exige o motivo; PENDENTE ou NEGADA desfaz a confirmação (correção do faturamento). Só em consulta por convênio (409 `CONSULTA_NAO_CONVENIO`) e que não esteja cancelada nem remarcada (409 `STATUS_NAO_PERMITE`). A remarcação leva a guia para a nova consulta. Grava no log.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuiaEntrada'
+      responses:
+        '200':
+          description: Guia atualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuiaItem'
         '400':
           $ref: '#/components/responses/ValidacaoErro'
         '401':
@@ -5926,6 +6060,7 @@ components:
       - cnpj
       - codigoAns
       - dataInscricao
+      - especialidades
       properties:
         razaoSocial:
           type: string
@@ -5952,6 +6087,24 @@ components:
           type: string
           maxLength: 30
           nullable: true
+        especialidades:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            required:
+            - especialidadeId
+            - valor
+            properties:
+              especialidadeId:
+                type: integer
+              valor:
+                type: number
+                format: decimal
+                minimum: 0.01
+                description: Valor da consulta do convênio nesta especialidade.
+          description: Especialidades atendidas pelo convênio (ativas), cada uma com o seu valor. O credenciamento só vale para elas.
     Convenio:
       type: object
       required:
@@ -5961,6 +6114,7 @@ components:
       - cnpj
       - codigoAns
       - dataInscricao
+      - especialidades
       properties:
         id:
           type: integer
@@ -5991,6 +6145,19 @@ components:
           type: string
           maxLength: 30
           nullable: true
+        especialidades:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              nome:
+                type: string
+              valor:
+                type: number
+                format: decimal
+          description: Especialidades atendidas pelo convênio, com o valor da consulta de cada uma.
         formaPagamentoId:
           type: integer
           nullable: true
@@ -6681,6 +6848,11 @@ components:
           type: string
           maxLength: 500
           nullable: true
+        valor:
+          type: number
+          format: decimal
+          minimum: 0
+          description: 'Valor próprio deste credenciamento (opcional). Vazio ou 0 = vale o valor da especialidade no cadastro do convênio.'
     CredenciamentoAtualizacao:
       type: object
       description: 'A unidade e a especialidade não mudam: para outra combinação, inclua um novo credenciamento.'
@@ -6714,6 +6886,11 @@ components:
           type: string
           maxLength: 500
           nullable: true
+        valor:
+          type: number
+          format: decimal
+          minimum: 0
+          description: 'Valor próprio deste credenciamento (opcional). Vazio ou 0 = vale o valor da especialidade no cadastro do convênio.'
     CredenciamentoLoteEntrada:
       type: object
       required:
@@ -6757,6 +6934,11 @@ components:
           type: string
           maxLength: 500
           nullable: true
+        valor:
+          type: number
+          format: decimal
+          minimum: 0
+          description: 'Valor próprio deste credenciamento (opcional). Vazio ou 0 = vale o valor da especialidade no cadastro do convênio.'
     Credenciamento:
       type: object
       required:
@@ -6795,6 +6977,15 @@ components:
         observacao:
           type: string
           nullable: true
+        valor:
+          type: number
+          format: decimal
+          description: Valor que vale na consulta (o próprio do credenciamento ou, se vazio, o da especialidade no convênio).
+        valorProprio:
+          type: number
+          format: decimal
+          nullable: true
+          description: Valor próprio do credenciamento; vazio quando vale o do convênio.
         vigenteHoje:
           type: boolean
           description: Verdadeiro quando a situação é APROVADO e hoje está dentro da vigência.
@@ -7152,6 +7343,11 @@ components:
           nullable: true
         pagamentoConfirmadoPor:
           $ref: '#/components/schemas/UsuarioReferencia'
+        guia:
+          allOf:
+          - $ref: '#/components/schemas/GuiaConvenio'
+          nullable: true
+          description: Guia do convênio (só em consulta por convênio).
         credenciamentoLiberado:
           allOf:
           - $ref: '#/components/schemas/CredenciamentoLiberado'
@@ -7167,6 +7363,119 @@ components:
           format: date-time
         criadoPor:
           $ref: '#/components/schemas/UsuarioReferencia'
+    GuiaConvenio:
+      type: object
+      description: Guia do convênio na consulta. Quem confirma é o faturamento.
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - PENDENTE
+          - AUTORIZADA
+          - NEGADA
+        numero:
+          type: string
+          nullable: true
+        observacao:
+          type: string
+          nullable: true
+        atualizadoEm:
+          type: string
+          format: date-time
+          nullable: true
+        atualizadoPor:
+          $ref: '#/components/schemas/UsuarioReferencia'
+    GuiaEntrada:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - PENDENTE
+          - AUTORIZADA
+          - NEGADA
+        numero:
+          type: string
+          maxLength: 30
+          nullable: true
+          description: Obrigatório quando AUTORIZADA.
+        observacao:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Obrigatória quando NEGADA (motivo da negativa).
+    GuiaItem:
+      type: object
+      required:
+      - consultaId
+      - inicio
+      - statusConsulta
+      - paciente
+      - convenio
+      - guiaStatus
+      properties:
+        consultaId:
+          type: string
+          format: uuid
+        inicio:
+          type: string
+          format: date-time
+        statusConsulta:
+          type: string
+        paciente:
+          type: string
+        convenio:
+          $ref: '#/components/schemas/Referencia'
+        numeroCarteirinha:
+          type: string
+          nullable: true
+        especialidade:
+          $ref: '#/components/schemas/Referencia'
+        profissional:
+          $ref: '#/components/schemas/Referencia'
+        valor:
+          type: number
+          format: decimal
+        guiaStatus:
+          type: string
+          enum:
+          - PENDENTE
+          - AUTORIZADA
+          - NEGADA
+        guiaNumero:
+          type: string
+          nullable: true
+        guiaObservacao:
+          type: string
+          nullable: true
+        guiaEm:
+          type: string
+          format: date-time
+          nullable: true
+        guiaPor:
+          $ref: '#/components/schemas/UsuarioReferencia'
+    GuiaPagina:
+      type: object
+      required:
+      - itens
+      - pagina
+      - tamanho
+      - total
+      properties:
+        itens:
+          type: array
+          items:
+            $ref: '#/components/schemas/GuiaItem'
+        pagina:
+          type: integer
+        tamanho:
+          type: integer
+        total:
+          type: integer
     ConsultaComAvisos:
       allOf:
       - $ref: '#/components/schemas/Consulta'

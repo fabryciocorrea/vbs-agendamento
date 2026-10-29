@@ -5,6 +5,7 @@ public sealed class FiltroApoio
     public bool IncluirInativos { get; set; }
     public int? EspecialidadeId { get; set; }
     public int? UnidadeId { get; set; }
+    public int? ProfissionalId { get; set; }
 }
 
 public sealed class ItemApoioDto

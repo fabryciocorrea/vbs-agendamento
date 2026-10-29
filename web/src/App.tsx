@@ -13,6 +13,9 @@ import PacientesPagina from "./paginas/pacientes/PacientesPagina";
 import PerfisPagina from "./paginas/perfis/PerfisPagina";
 import UsuariosPagina from "./paginas/usuarios/UsuariosPagina";
 import ColaboradoresPagina from "./paginas/colaboradores/ColaboradoresPagina";
+import ParametrosAgendaPagina from "./paginas/agenda/ParametrosAgendaPagina";
+import AgendaProfissionalPagina from "./paginas/agenda/AgendaProfissionalPagina";
+import CredenciamentosPagina from "./paginas/credenciamentos/CredenciamentosPagina";
 
 export default function App() {
   return (
@@ -55,6 +58,14 @@ export default function App() {
           element={
             <RotaProtegida tela="convenio.cadastro">
               <ConveniosPagina />
+            </RotaProtegida>
+          }
+        />
+        <Route
+          path="credenciamentos"
+          element={
+            <RotaProtegida tela="convenio.credenciamento">
+              <CredenciamentosPagina />
             </RotaProtegida>
           }
         />
@@ -103,6 +114,22 @@ export default function App() {
           element={
             <RotaProtegida tela="colaborador.cadastro">
               <ColaboradoresPagina />
+            </RotaProtegida>
+          }
+        />
+        <Route
+          path="agenda"
+          element={
+            <RotaProtegida tela="agenda.profissional">
+              <AgendaProfissionalPagina />
+            </RotaProtegida>
+          }
+        />
+        <Route
+          path="parametros-agenda"
+          element={
+            <RotaProtegida tela="agenda.parametros">
+              <ParametrosAgendaPagina />
             </RotaProtegida>
           }
         />

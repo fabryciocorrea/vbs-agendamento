@@ -7,9 +7,7 @@ export const DIAS = [
   { value: 2, label: 'Terça-feira' },
   { value: 3, label: 'Quarta-feira' },
   { value: 4, label: 'Quinta-feira' },
-  { value: 5, label: 'Sexta-feira' },
-  { value: 6, label: 'Sábado' },
-  { value: 7, label: 'Domingo' }
+  { value: 5, label: 'Sexta-feira' }
 ];
 
 const TIPOS: { value: TipoHorario; label: string }[] = [

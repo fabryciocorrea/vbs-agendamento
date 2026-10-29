@@ -484,7 +484,7 @@ WHERE CODIGO_PROFISSIONAL = @Id;", new { Ativo = d.Ativo.Value, Usuario = usuari
             else if (!unidades.Contains(h.UnidadeId.Value)) { erros.Add(new ErroCampo($"{n}.unidadeId", "A unidade não é uma das unidades do profissional")); valido = false; }
 
             if (h.DiaSemana is null) { erros.Add(new ErroCampo($"{n}.diaSemana", NaoPreenchido)); valido = false; }
-            else if (h.DiaSemana is < 1 or > 7) { erros.Add(new ErroCampo($"{n}.diaSemana", "Deve estar entre 1 (segunda) e 7 (domingo)")); valido = false; }
+            else if (h.DiaSemana is < 1 or > 5) { erros.Add(new ErroCampo($"{n}.diaSemana", "A clínica atende de segunda (1) a sexta-feira (5)")); valido = false; }
 
             if (string.IsNullOrWhiteSpace(h.Tipo)) { erros.Add(new ErroCampo($"{n}.tipo", NaoPreenchido)); valido = false; }
             else if (h.Tipo is not ("ATENDIMENTO" or "INTERVALO")) { erros.Add(new ErroCampo($"{n}.tipo", "Informe ATENDIMENTO ou INTERVALO")); valido = false; }

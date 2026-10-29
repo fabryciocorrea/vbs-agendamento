@@ -86,14 +86,18 @@ LEFT JOIN DBO.USUARIO UA ON UA.CODIGO_USUARIO = C.ATUALIZACAO_USUARIO";
         var linhas = await con.QueryAsync<Linha>(Sql.Cmd(
             SelectConvenio + onde + " ORDER BY COALESCE(C.NOME_FANTASIA, C.RAZAO_SOCIAL), C.CODIGO_CONVENIO OFFSET @Deslocamento ROWS FETCH NEXT @Tamanho ROWS ONLY;", p, ct: ct));
 
-        return new ConvenioPaginaDto { Itens = linhas.Select(ParaDto).ToList(), Pagina = f.Pagina, Tamanho = f.Tamanho, Total = total };
+        var itens = linhas.Select(ParaDto).ToList();
+        await PreencherEspecialidadesAsync(con, null, itens, ct);
+        return new ConvenioPaginaDto { Itens = itens, Pagina = f.Pagina, Tamanho = f.Tamanho, Total = total };
     }
 
     public async Task<ConvenioDto> ObterAsync(int id, CancellationToken ct)
     {
         await using var con = await _db.AbrirAsync(ct);
         var linha = await CarregarAsync(con, null, id, ct) ?? throw Erro.NaoEncontrado("Convênio não encontrado.");
-        return ParaDto(linha);
+        var dto = ParaDto(linha);
+        await PreencherEspecialidadesAsync(con, null, new List<ConvenioDto> { dto }, ct);
+        return dto;
     }
 
     // ------------------------------------------------------------- cadastro
@@ -105,6 +109,7 @@ LEFT JOIN DBO.USUARIO UA ON UA.CODIGO_USUARIO = C.ATUALIZACAO_USUARIO";
         await using var tx = (SqlTransaction)await con.BeginTransactionAsync(ct);
 
         await ConferirCnpjDuplicadoAsync(con, tx, dados.Cnpj, null, ct);
+        await ConferirEspecialidadesAsync(con, tx, dados.Especialidades, ct);
 
         int id;
         try
@@ -120,6 +125,8 @@ SELECT CAST(SCOPE_IDENTITY() AS INT);", Parametros(dados, usuario.Id, null), tx,
             throw CnpjDuplicado();
         }
 
+        await GravarEspecialidadesAsync(con, tx, id, dados.Especialidades, ct);
+
         // F7: toda vez que um convênio é cadastrado, nasce a forma de pagamento do tipo Convênio ligada a ele.
         var nome = dados.NomeFantasia ?? dados.RazaoSocial;
         var descricao = ("Convênio " + nome);
@@ -132,8 +139,10 @@ VALUES (@Descricao, 'CONVENIO', 'A_PRAZO', @Convenio, @Usuario, @Usuario);",
         await _auditoria.RegistrarAsync("INCLUIR", "CONVENIO", id, null, usuario.Id, null, con, tx, ct);
 
         var linha = await CarregarAsync(con, tx, id, ct) ?? throw new InvalidOperationException("Convênio recém-criado não encontrado.");
+        var novo = ParaDto(linha);
+        await PreencherEspecialidadesAsync(con, tx, new List<ConvenioDto> { novo }, ct);
         await tx.CommitAsync(ct);
-        return ParaDto(linha);
+        return novo;
     }
 
     // ------------------------------------------------------------ alteração
@@ -146,6 +155,7 @@ VALUES (@Descricao, 'CONVENIO', 'A_PRAZO', @Convenio, @Usuario, @Usuario);",
 
         var atual = await CarregarAsync(con, tx, id, ct) ?? throw Erro.NaoEncontrado("Convênio não encontrado.");
         await ConferirCnpjDuplicadoAsync(con, tx, dados.Cnpj, id, ct);
+        await ConferirEspecialidadesAsync(con, tx, dados.Especialidades, ct);
 
         try
         {
@@ -160,7 +170,13 @@ WHERE CODIGO_CONVENIO = @Id;", Parametros(dados, usuario.Id, id), tx, ct));
             throw CnpjDuplicado();
         }
 
+        var antesEsp = (await con.QueryAsync<EspecialidadeDoConvenioLinha>(Sql.Cmd(
+            "SELECT CODIGO_CONVENIO AS ConvenioId, CODIGO_ESPECIALIDADE AS Id, '' AS Nome, VALOR AS Valor FROM DBO.CONVENIO_ESPECIALIDADE WHERE CODIGO_CONVENIO = @Id;", new { Id = id }, tx, ct)))
+            .OrderBy(x => x.Id).Select(x => $"{x.Id}:{x.Valor:0.00}").ToList();
+        await GravarEspecialidadesAsync(con, tx, id, dados.Especialidades, ct);
+
         var alterados = new List<string>();
+        if (!antesEsp.SequenceEqual(dados.Especialidades.OrderBy(x => x.Id).Select(x => $"{x.Id}:{x.Valor:0.00}"))) alterados.Add("especialidades");
         void Dif(string campo, string? antes, string? depois) { if (!string.Equals(antes, depois, StringComparison.Ordinal)) alterados.Add(campo); }
         Dif("razaoSocial", atual.RazaoSocial, dados.RazaoSocial);
         Dif("nomeFantasia", atual.NomeFantasia, dados.NomeFantasia);
@@ -173,8 +189,10 @@ WHERE CODIGO_CONVENIO = @Id;", Parametros(dados, usuario.Id, id), tx, ct));
         await _auditoria.RegistrarAsync("EDITAR", "CONVENIO", id, null, usuario.Id, new { campos = alterados }, con, tx, ct);
 
         var nova = await CarregarAsync(con, tx, id, ct) ?? throw new InvalidOperationException("Convênio não encontrado após a alteração.");
+        var dtoNova = ParaDto(nova);
+        await PreencherEspecialidadesAsync(con, tx, new List<ConvenioDto> { dtoNova }, ct);
         await tx.CommitAsync(ct);
-        return ParaDto(nova);
+        return dtoNova;
     }
 
     // --------------------------------------------------------------- status
@@ -215,13 +233,17 @@ WHERE CODIGO_CONVENIO = @Id AND TIPO = 'CONVENIO';",
             new { campos = new[] { "ativo" }, ativo = d.Ativo.Value }, con, tx, ct);
 
         var nova = await CarregarAsync(con, tx, id, ct) ?? throw new InvalidOperationException("Convênio não encontrado após a alteração.");
+        var dtoNova = ParaDto(nova);
+        await PreencherEspecialidadesAsync(con, tx, new List<ConvenioDto> { dtoNova }, ct);
         await tx.CommitAsync(ct);
-        return ParaDto(nova);
+        return dtoNova;
     }
 
     // =========================================================== apoio
     private sealed record Dados(string RazaoSocial, string? NomeFantasia, string Cnpj, string CodigoAns, DateOnly DataInscricao,
-        string? InscricaoMunicipal, string? InscricaoEstadual);
+        string? InscricaoMunicipal, string? InscricaoEstadual, List<EspValor> Especialidades);
+
+    private sealed record EspValor(int Id, decimal Valor);
 
     private static string? Opcional(string? valor) => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
 
@@ -251,10 +273,29 @@ WHERE CODIGO_CONVENIO = @Id AND TIPO = 'CONVENIO';",
         Tamanho("inscricaoMunicipal", d.InscricaoMunicipal, 30);
         Tamanho("inscricaoEstadual", d.InscricaoEstadual, 30);
 
+        // Cada especialidade do convênio tem o seu valor de consulta (obrigatório, maior que zero).
+        var especialidades = new List<EspValor>();
+        var linhasEsp = d.Especialidades ?? new List<ConvenioEspecialidadeEntrada>();
+        if (linhasEsp.Count == 0) e.Add(new ErroCampo("especialidades", NaoPreenchido));
+        else if (linhasEsp.Count > 100) e.Add(new ErroCampo("especialidades", "No máximo 100 especialidades"));
+        for (var i = 0; i < linhasEsp.Count && linhasEsp.Count <= 100; i++)
+        {
+            var l = linhasEsp[i];
+            if (l.EspecialidadeId is null) e.Add(new ErroCampo($"especialidades[{i}].especialidadeId", NaoPreenchido));
+            else if (especialidades.Any(x => x.Id == l.EspecialidadeId)) e.Add(new ErroCampo($"especialidades[{i}].especialidadeId", "Especialidade repetida"));
+
+            if (l.Valor is null) e.Add(new ErroCampo($"especialidades[{i}].valor", NaoPreenchido));
+            else if (l.Valor <= 0) e.Add(new ErroCampo($"especialidades[{i}].valor", "Informe um valor maior que zero"));
+            else if (l.Valor >= 100_000_000m) e.Add(new ErroCampo($"especialidades[{i}].valor", "Valor acima do permitido"));
+            else if (decimal.Round(l.Valor.Value, 2) != l.Valor) e.Add(new ErroCampo($"especialidades[{i}].valor", "Use no máximo duas casas decimais"));
+
+            if (l.EspecialidadeId is not null && l.Valor is not null) especialidades.Add(new EspValor(l.EspecialidadeId.Value, l.Valor.Value));
+        }
+
         if (e.Count > 0) throw Erro.Validacao(e);
 
         return new Dados(d.RazaoSocial!.Trim(), Opcional(d.NomeFantasia), d.Cnpj!.Trim(), d.CodigoAns!.Trim(), d.DataInscricao!.Value,
-            Opcional(d.InscricaoMunicipal), Opcional(d.InscricaoEstadual));
+            Opcional(d.InscricaoMunicipal), Opcional(d.InscricaoEstadual), especialidades);
     }
 
     private static object Parametros(Dados d, int usuarioId, int? id) => new
@@ -276,6 +317,42 @@ WHERE CODIGO_CONVENIO = @Id AND TIPO = 'CONVENIO';",
 SELECT COUNT(1) FROM DBO.CONVENIO WHERE CNPJ = @Cnpj AND (@Ignorar IS NULL OR CODIGO_CONVENIO <> @Ignorar);",
             new { Cnpj = Sql.Char(cnpj, 14), Ignorar = ignorarId }, tx, ct));
         if (existe > 0) throw CnpjDuplicado();
+    }
+
+    private sealed class EspecialidadeDoConvenioLinha
+    {
+        public int ConvenioId { get; set; }
+        public int Id { get; set; }
+        public string Nome { get; set; } = string.Empty;
+        public decimal Valor { get; set; }
+    }
+
+    private static async Task ConferirEspecialidadesAsync(SqlConnection con, SqlTransaction tx, List<EspValor> lista, CancellationToken ct)
+    {
+        var ids = lista.Select(x => x.Id).ToList();
+        var achadas = await con.ExecuteScalarAsync<int>(Sql.Cmd(
+            "SELECT COUNT(1) FROM DBO.ESPECIALIDADE WHERE CODIGO_ESPECIALIDADE IN @Ids AND ATIVO = 1;", new { Ids = ids }, tx, ct));
+        if (achadas != ids.Count) throw Erro.Validacao("especialidades", "Especialidade não encontrada ou inativa");
+    }
+
+    private static async Task GravarEspecialidadesAsync(SqlConnection con, SqlTransaction tx, int convenioId, List<EspValor> lista, CancellationToken ct)
+    {
+        await con.ExecuteAsync(Sql.Cmd("DELETE FROM DBO.CONVENIO_ESPECIALIDADE WHERE CODIGO_CONVENIO = @Id;", new { Id = convenioId }, tx, ct));
+        foreach (var esp in lista)
+            await con.ExecuteAsync(Sql.Cmd(
+                "INSERT INTO DBO.CONVENIO_ESPECIALIDADE (CODIGO_CONVENIO, CODIGO_ESPECIALIDADE, VALOR) VALUES (@C, @E, @V);", new { C = convenioId, E = esp.Id, V = esp.Valor }, tx, ct));
+    }
+
+    private static async Task PreencherEspecialidadesAsync(SqlConnection con, SqlTransaction? tx, List<ConvenioDto> itens, CancellationToken ct)
+    {
+        if (itens.Count == 0) return;
+        var linhas = await con.QueryAsync<EspecialidadeDoConvenioLinha>(Sql.Cmd(@"
+SELECT CE.CODIGO_CONVENIO AS ConvenioId, E.CODIGO_ESPECIALIDADE AS Id, E.NOME AS Nome, CE.VALOR AS Valor
+FROM DBO.CONVENIO_ESPECIALIDADE CE JOIN DBO.ESPECIALIDADE E ON E.CODIGO_ESPECIALIDADE = CE.CODIGO_ESPECIALIDADE
+WHERE CE.CODIGO_CONVENIO IN @Ids ORDER BY E.NOME;", new { Ids = itens.Select(i => i.Id).ToList() }, tx, ct));
+        var lista = linhas.ToList();
+        foreach (var i in itens)
+            i.Especialidades = lista.Where(l => l.ConvenioId == i.Id).Select(l => new ConvenioEspecialidadeDto { Id = l.Id, Nome = l.Nome, Valor = l.Valor }).ToList();
     }
 
     private static ApiException CnpjDuplicado() => Erro.Conflito("Este CNPJ já está cadastrado.", "CNPJ_DUPLICADO");

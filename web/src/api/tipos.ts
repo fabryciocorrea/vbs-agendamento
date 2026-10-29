@@ -130,7 +130,26 @@ export interface Convenio {
   dataInscricao: string; // AAAA-MM-DD
   inscricaoMunicipal?: string | null;
   inscricaoEstadual?: string | null;
+  especialidades: { id: number; nome: string; valor: number }[];
   formaPagamentoId?: number | null;
+}
+
+export type SituacaoCredenciamento = 'APROVADO' | 'EM_ANALISE' | 'NAO_CREDENCIADO';
+
+export interface Credenciamento {
+  id: number;
+  convenio: Referencia;
+  unidade: { id: number; nome: string; cidade: string; uf: string };
+  especialidade: Referencia;
+  situacao: SituacaoCredenciamento;
+  dataInicio?: string | null; // AAAA-MM-DD
+  dataFim?: string | null;
+  protocolo?: string | null;
+  observacao?: string | null;
+  valor: number; // valor que vale na consulta
+  valorProprio?: number | null; // valor próprio do credenciamento (vazio = vale o do convênio)
+  vigenteHoje: boolean;
+  atualizadoEm?: string;
 }
 
 export type TipoFormaPagamento = 'DINHEIRO' | 'PIX' | 'CARTAO_CREDITO' | 'CARTAO_DEBITO' | 'CONVENIO';
