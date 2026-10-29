@@ -17,6 +17,7 @@ import {
   CalendarOutlined,
   SettingOutlined,
   SafetyCertificateOutlined,
+  DollarOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../auth/AuthContext";
 import { cores } from "../tema";
@@ -57,6 +58,12 @@ const ITENS: ItemMenu[] = [
     label: "Credenciamentos",
     icon: <SafetyCertificateOutlined />,
     tela: "convenio.credenciamento",
+  },
+  {
+    key: "/faturamento",
+    label: "Faturamento",
+    icon: <DollarOutlined />,
+    tela: "faturamento.financeiro",
   },
   {
     key: "/colaboradores",

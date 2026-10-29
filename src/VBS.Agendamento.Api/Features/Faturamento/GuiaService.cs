@@ -46,6 +46,7 @@ public sealed class GuiaService
         public DateTime? GuiaEm { get; set; }
         public int? GuiaPorId { get; set; }
         public string? GuiaPorNome { get; set; }
+        public string? LiberacaoAdmin { get; set; }
         public string TipoAtendimento { get; set; } = string.Empty;
     }
 
@@ -54,7 +55,7 @@ SELECT C.CODIGO_CONSULTA AS Codigo, C.CODIGO_PUBLIC AS ConsultaId, C.DATA_INICIO
        C.CODIGO_CONVENIO AS ConvenioId, COALESCE(CV.NOME_FANTASIA, CV.RAZAO_SOCIAL) AS ConvenioNome, C.NUMERO_CARTEIRINHA AS NumeroCarteirinha,
        C.CODIGO_ESPECIALIDADE AS EspecialidadeId, E.NOME AS EspecialidadeNome, C.CODIGO_PROFISSIONAL AS ProfissionalId, PR.NOME AS ProfissionalNome,
        C.VALOR AS Valor, C.GUIA_STATUS AS GuiaStatus, C.GUIA_NUMERO AS GuiaNumero, C.GUIA_OBSERVACAO AS GuiaObservacao, C.GUIA_DATA AS GuiaEm,
-       C.GUIA_USUARIO AS GuiaPorId, UG.NOME_COMPLETO AS GuiaPorNome, C.TIPO_ATENDIMENTO AS TipoAtendimento
+       C.GUIA_USUARIO AS GuiaPorId, UG.NOME_COMPLETO AS GuiaPorNome, C.TIPO_ATENDIMENTO AS TipoAtendimento, C.LIBERACAO_ADMIN_JUSTIFICATIVA AS LiberacaoAdmin
 FROM DBO.CONSULTA C
 JOIN DBO.PACIENTE P ON P.CODIGO_PACIENTE = C.CODIGO_PACIENTE
 JOIN DBO.CONVENIO CV ON CV.CODIGO_CONVENIO = C.CODIGO_CONVENIO
@@ -77,6 +78,7 @@ LEFT JOIN DBO.USUARIO UG ON UG.CODIGO_USUARIO = C.GUIA_USUARIO";
         GuiaNumero = l.GuiaNumero,
         GuiaObservacao = l.GuiaObservacao,
         GuiaEm = l.GuiaEm.HasValue ? DataBrasil.Utc(l.GuiaEm.Value) : null,
+        LiberacaoAdministrador = l.LiberacaoAdmin,
         GuiaPor = l.GuiaPorId.HasValue ? new UsuarioReferenciaDto { Id = l.GuiaPorId.Value, NomeCompleto = l.GuiaPorNome ?? string.Empty } : null
     };
 

@@ -71,6 +71,7 @@ public sealed class PermissoesSaida
 public sealed class UsuarioAtualSaida
 {
     public UsuarioResumoDto Usuario { get; set; } = new();
+    public bool Administrador { get; set; }
     public int? ProfissionalId { get; set; }
     public PermissoesSaida Permissoes { get; set; } = new();
 }

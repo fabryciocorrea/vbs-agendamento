@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, App, Checkbox, Form, Input, InputNumber, Modal, Radio, Select, Space, Spin, Typography } from 'antd';
+import { Alert, App, Checkbox, Form, Input, InputNumber, Modal, Radio, Select, Space, Spin } from 'antd';
 import { api, ApiErro } from '../../api/cliente';
+import { useAuth } from '../../auth/AuthContext';
+import { pedirJustificativa } from './liberacao';
 import type { ItemApoio, PacienteResumo, Pagina } from '../../api/tipos';
 import { adicionarDias, diaBrasilia, diaDaSemana, hojeBrasilia, horaBrasilia } from './datas';
 import type { AgendaSaida, Consulta, ConsultaEntrada, Slot } from './tipos';
@@ -15,6 +17,7 @@ interface Valores {
   modalidade: 'PRESENCIAL' | 'ONLINE';
   salaId?: number;
   tipoAtendimento: 'PARTICULAR' | 'CONVENIO';
+  convenioId?: number;
   formaPagamentoId?: number;
   valor: number | null;
   dia: string;
@@ -33,6 +36,8 @@ interface Props {
   aoSalvar: () => void;
 }
 
+const LIBERAVEIS = ['CONVENIO_NAO_CREDENCIADO', 'HORARIO_NO_PASSADO', 'HORARIO_BLOQUEADO', 'FORA_DO_EXPEDIENTE', 'CONVENIO_DIVERGENTE', 'CARTEIRINHA_VENCIDA'];
+
 const MENSAGENS_ERRO: Record<string, string> = {
   HORARIO_INDISPONIVEL: 'Esse horário acabou de ser ocupado. Escolha outro.',
   AGENDA_EM_USO: 'A agenda do profissional está em uso por outra operação. Tente novamente.'
@@ -40,6 +45,8 @@ const MENSAGENS_ERRO: Record<string, string> = {
 
 export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, dia, aoFechar, aoSalvar }: Props) {
   const { message, modal } = App.useApp();
+  const { sessao } = useAuth();
+  const administrador = !!sessao?.administrador;
   const [form] = Form.useForm<Valores>();
   const [salvando, setSalvando] = useState(false);
   const [erroGeral, setErroGeral] = useState('');
@@ -51,6 +58,7 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, d
   const [especialidades, setEspecialidades] = useState<ItemApoio[]>([]);
   const [salas, setSalas] = useState<ItemApoio[]>([]);
   const [formas, setFormas] = useState<ItemApoio[]>([]);
+  const [convenios, setConvenios] = useState<ItemApoio[]>([]);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [carregandoSlots, setCarregandoSlots] = useState(false);
   const [motivoSemHorario, setMotivoSemHorario] = useState('');
@@ -70,7 +78,9 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, d
   // Valor do convênio: vem do credenciamento (convênio + unidade + especialidade). Só leitura; o servidor também o aplica sozinho.
   const [valorConvenio, setValorConvenio] = useState<number | null>(null);
   const [semValorConvenio, setSemValorConvenio] = useState(false);
-  const convenioDoPaciente = paciente?.convenio?.id;
+  // O administrador pode escolher qualquer convênio; os demais perfis usam o convênio do cadastro do paciente.
+  const convenioForm = Form.useWatch('convenioId', form);
+  const convenioDoPaciente = convenioForm ?? paciente?.convenio?.id;
   useEffect(() => {
     setValorConvenio(null);
     setSemValorConvenio(false);
@@ -103,9 +113,16 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, d
       .get<ItemApoio[]>('/apoio/formas-pagamento')
       .then((l) => setFormas(l.filter((f) => f.complemento !== 'CONVENIO')))
       .catch(() => message.error('Não foi possível carregar as formas de pagamento.'));
+    api.get<ItemApoio[]>('/apoio/convenios').then(setConvenios).catch(() => message.error('Não foi possível carregar os convênios.'));
     buscarPacientes('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aberto]);
+
+  // Ao trocar o paciente, o administrador começa pelo convênio do cadastro (e pode trocar).
+  useEffect(() => {
+    form.setFieldValue('convenioId', paciente?.convenio?.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [administrador, pacienteId, paciente?.convenio?.id]);
 
   // Unidades e especialidades do profissional escolhido.
   useEffect(() => {
@@ -237,8 +254,9 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, d
       inicio = v.slotInicio;
     }
 
-    if (v.tipoAtendimento === 'CONVENIO' && !paciente?.convenio) {
-      setErroGeral('O paciente não tem convênio cadastrado. Atualize o cadastro do paciente ou agende como particular.');
+    const convenioEscolhido = v.convenioId ?? paciente?.convenio?.id;
+    if (v.tipoAtendimento === 'CONVENIO' && !convenioEscolhido) {
+      setErroGeral('Escolha o convênio.');
       return;
     }
 
@@ -250,13 +268,14 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, d
       salaId: v.modalidade === 'PRESENCIAL' ? v.salaId ?? null : null,
       modalidade: v.modalidade,
       tipoAtendimento: v.tipoAtendimento,
-      convenioId: v.tipoAtendimento === 'CONVENIO' ? paciente?.convenio?.id ?? null : null,
+      convenioId: v.tipoAtendimento === 'CONVENIO' ? convenioEscolhido ?? null : null,
       valor: v.tipoAtendimento === 'CONVENIO' ? 0 : v.valor ?? 0,
       formaPagamentoId: v.tipoAtendimento === 'CONVENIO' ? null : v.formaPagamentoId ?? null,
       inicio,
       encaixe: v.encaixe,
       pagamentoConfirmado: v.tipoAtendimento === 'CONVENIO' ? false : !!v.pagamentoConfirmado,
-      liberacaoCredenciamento: justificativa ? { justificativa } : null
+      liberacaoCredenciamento: justificativa ? { justificativa } : null,
+      liberacaoAdministrador: justificativa ? { justificativa } : null
     };
 
     setSalvando(true);
@@ -279,8 +298,14 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, d
     } catch (e) {
       if (!(e instanceof ApiErro)) {
         message.error('Erro inesperado.');
+      } else if (administrador && LIBERAVEIS.includes(e.codigo ?? '')) {
+        const aviso = ['CONVENIO_NAO_CREDENCIADO', 'CONVENIO_DIVERGENTE'].includes(e.codigo ?? '') ? 'O convênio informado não possui credenciamento ativo no sistema.' : e.message;
+        setSalvando(false);
+        void pedirJustificativa(modal, message, aviso).then((j) => {
+          if (j) void enviar(j);
+        });
       } else if (e.codigo === 'CONVENIO_NAO_CREDENCIADO') {
-        pedirLiberacao(e.message);
+        setErroGeral(e.message);
       } else if (e.erros.length > 0) {
         form.setFields(
           e.erros.map((x) => ({ name: (x.campo === 'inicio' ? 'slotInicio' : x.campo) as keyof Valores, errors: [x.mensagem] }))
@@ -295,32 +320,6 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, d
     } finally {
       setSalvando(false);
     }
-  }
-
-  function pedirLiberacao(texto: string) {
-    let justificativa = '';
-    modal.confirm({
-      title: 'Convênio sem credenciamento',
-      width: 520,
-      okText: 'Liberar e agendar',
-      cancelText: 'Voltar',
-      content: (
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <span>{texto}</span>
-          <Typography.Text type="secondary">
-            Somente o administrador pode liberar, informando a justificativa (mínimo de 10 caracteres). Ela fica gravada na consulta.
-          </Typography.Text>
-          <Input.TextArea rows={3} maxLength={500} placeholder="Justificativa da liberação" onChange={(ev) => (justificativa = ev.target.value)} />
-        </Space>
-      ),
-      onOk: async () => {
-        if (justificativa.trim().length < 10) {
-          message.warning('Informe a justificativa, com ao menos 10 caracteres.');
-          return Promise.reject(new Error('justificativa'));
-        }
-        await enviar(justificativa.trim());
-      }
-    });
   }
 
   const hoje = hojeBrasilia();
@@ -435,8 +434,21 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, d
           />
         </Form.Item>
         {tipo === 'CONVENIO' && (
-          <Form.Item label="Convênio do paciente">
-            <Input readOnly value={paciente?.convenio?.nomeFantasia ?? (paciente ? 'O paciente não tem convênio cadastrado' : 'Escolha o paciente')} />
+          <Form.Item
+            name="convenioId"
+            label="Convênio"
+            extra={
+              administrador && paciente?.convenio && convenioForm && convenioForm !== paciente.convenio.id
+                ? `Diferente do convênio do cadastro do paciente (${paciente.convenio.nomeFantasia}). Será pedida a justificativa da liberação ao agendar.`
+                : undefined
+            }
+          >
+            <Select
+              showSearch
+              optionFilterProp="label"
+              placeholder="Escolha o convênio"
+              options={convenios.map((c) => ({ value: c.id, label: c.nome }))}
+            />
           </Form.Item>
         )}
 

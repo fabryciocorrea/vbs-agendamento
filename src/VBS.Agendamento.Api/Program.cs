@@ -48,6 +48,7 @@ builder.Services.AddScoped<EspecialidadeService>();
 builder.Services.AddScoped<ConvenioService>();
 builder.Services.AddScoped<CredenciamentoService>();
 builder.Services.AddScoped<GuiaService>();
+builder.Services.AddScoped<FinanceiroService>();
 builder.Services.AddScoped<FormaPagamentoService>();
 builder.Services.AddScoped<ApoioService>();
 builder.Services.AddScoped<ProfissionalService>();

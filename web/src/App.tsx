@@ -16,6 +16,7 @@ import ColaboradoresPagina from "./paginas/colaboradores/ColaboradoresPagina";
 import ParametrosAgendaPagina from "./paginas/agenda/ParametrosAgendaPagina";
 import AgendaProfissionalPagina from "./paginas/agenda/AgendaProfissionalPagina";
 import CredenciamentosPagina from "./paginas/credenciamentos/CredenciamentosPagina";
+import FaturamentoFinanceiroPagina from "./paginas/faturamento/FaturamentoFinanceiroPagina";
 
 export default function App() {
   return (
@@ -66,6 +67,14 @@ export default function App() {
           element={
             <RotaProtegida tela="convenio.credenciamento">
               <CredenciamentosPagina />
+            </RotaProtegida>
+          }
+        />
+        <Route
+          path="faturamento"
+          element={
+            <RotaProtegida tela="faturamento.financeiro">
+              <FaturamentoFinanceiroPagina />
             </RotaProtegida>
           }
         />

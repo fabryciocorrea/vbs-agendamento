@@ -80,6 +80,7 @@ export interface Consulta extends ConsultaResumo {
     atualizadoEm?: string | null;
     atualizadoPor?: { id: number; nomeCompleto: string } | null;
   } | null;
+  liberacaoAdministrador?: { liberadoPor: { id: number; nomeCompleto: string }; justificativa: string; em: string } | null;
   credenciamentoLiberado?: { liberadoPor: { id: number; nomeCompleto: string }; justificativa: string } | null;
   criadoEm: string;
   criadoPor?: { id: number; nomeCompleto: string } | null;
@@ -109,6 +110,7 @@ export interface ConsultaEntrada {
   encaixe: boolean;
   pagamentoConfirmado: boolean;
   liberacaoCredenciamento?: { justificativa: string } | null;
+  liberacaoAdministrador?: { justificativa: string } | null;
 }
 
 export const NOMES_STATUS: Record<StatusConsulta, string> = {

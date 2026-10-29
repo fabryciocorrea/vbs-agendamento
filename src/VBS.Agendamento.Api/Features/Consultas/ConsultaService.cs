@@ -53,6 +53,7 @@ SELECT C.CODIGO_CONSULTA AS Codigo, C.CODIGO_PUBLIC AS Id, C.VERSAO AS Versao, C
        C.CREDENCIAMENTO_LIBERADO_POR AS LiberadoPorId, UL.NOME_COMPLETO AS LiberadoPorNome, C.CREDENCIAMENTO_JUSTIFICATIVA AS LiberacaoJustificativa,
        C.GUIA_STATUS AS GuiaStatus, C.GUIA_NUMERO AS GuiaNumero, C.GUIA_OBSERVACAO AS GuiaObservacao, C.GUIA_DATA AS GuiaEm,
        C.GUIA_USUARIO AS GuiaPorId, UG.NOME_COMPLETO AS GuiaPorNome,
+       C.LIBERACAO_ADMIN_USUARIO AS LibAdminId, UA.NOME_COMPLETO AS LibAdminNome, C.LIBERACAO_ADMIN_JUSTIFICATIVA AS LibAdminJustificativa, C.LIBERACAO_ADMIN_DATA AS LibAdminEm,
        C.DATA_CRIACAO AS CriadoEm, C.CRIACAO_USUARIO AS CriadoPorId, UC.NOME_COMPLETO AS CriadoPorNome
 FROM DBO.CONSULTA C
 JOIN DBO.PACIENTE P ON P.CODIGO_PACIENTE = C.CODIGO_PACIENTE
@@ -66,7 +67,8 @@ LEFT JOIN DBO.CONSULTA ORIG ON ORIG.CODIGO_CONSULTA = C.CODIGO_CONSULTA_ORIGEM
 LEFT JOIN DBO.USUARIO UP ON UP.CODIGO_USUARIO = C.PAGAMENTO_CONFIRMADO_USUARIO
 LEFT JOIN DBO.USUARIO UL ON UL.CODIGO_USUARIO = C.CREDENCIAMENTO_LIBERADO_POR
 LEFT JOIN DBO.USUARIO UC ON UC.CODIGO_USUARIO = C.CRIACAO_USUARIO
-LEFT JOIN DBO.USUARIO UG ON UG.CODIGO_USUARIO = C.GUIA_USUARIO";
+LEFT JOIN DBO.USUARIO UG ON UG.CODIGO_USUARIO = C.GUIA_USUARIO
+LEFT JOIN DBO.USUARIO UA ON UA.CODIGO_USUARIO = C.LIBERACAO_ADMIN_USUARIO";
 
     private sealed class ConsultaLinha
     {
@@ -106,6 +108,10 @@ LEFT JOIN DBO.USUARIO UG ON UG.CODIGO_USUARIO = C.GUIA_USUARIO";
         public int? LiberadoPorId { get; set; }
         public string? LiberadoPorNome { get; set; }
         public string? LiberacaoJustificativa { get; set; }
+        public int? LibAdminId { get; set; }
+        public string? LibAdminNome { get; set; }
+        public string? LibAdminJustificativa { get; set; }
+        public DateTime? LibAdminEm { get; set; }
         public string? GuiaStatus { get; set; }
         public string? GuiaNumero { get; set; }
         public string? GuiaObservacao { get; set; }
@@ -163,6 +169,14 @@ LEFT JOIN DBO.USUARIO UG ON UG.CODIGO_USUARIO = C.GUIA_USUARIO";
                 LiberadoPor = new UsuarioReferenciaDto { Id = l.LiberadoPorId.Value, NomeCompleto = l.LiberadoPorNome ?? string.Empty },
                 Justificativa = l.LiberacaoJustificativa ?? string.Empty
             } : null;
+        d.LiberacaoAdministrador = l.LibAdminId.HasValue
+            ? new LiberacaoAdministradorDto
+            {
+                LiberadoPor = new UsuarioReferenciaDto { Id = l.LibAdminId.Value, NomeCompleto = l.LibAdminNome ?? string.Empty },
+                Justificativa = l.LibAdminJustificativa ?? string.Empty,
+                Em = DataBrasil.Utc(l.LibAdminEm ?? DateTime.UtcNow)
+            }
+            : null;
         d.Guia = l.TipoAtendimento == "CONVENIO"
             ? new GuiaConvenioDto
             {
@@ -376,6 +390,7 @@ WHERE (@Prof IS NULL OR C.CODIGO_PROFISSIONAL = @Prof) AND C.DATA_INICIO < @Ate 
     public async Task<ConsultaDto> AgendarAsync(ConsultaEntrada? entrada, UsuarioAtual usuario, CancellationToken ct)
     {
         var d = Validar(entrada);
+        var liberacaoAdmin = LerLiberacaoAdmin(entrada?.LiberacaoAdministrador, usuario);
 
         // Encaixe (G2) e liberação de credenciamento (RN35) são ações separadas da inclusão comum.
         if (d.Encaixe && !await _permissoes.TemAsync(usuario.PerfilId, usuario.Administrador, "consulta.agendamento:editar", ct))
@@ -450,14 +465,13 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE WHERE CODI
         var valorConsulta = d.Valor;
         if (d.Tipo == "CONVENIO")
         {
-            if (paciente.ConvenioId != d.ConvenioId)
-                throw Erro.Regra("CONVENIO_DIVERGENTE", "O convênio escolhido não é o do cadastro do paciente. Atualize antes o cadastro do paciente.");
+            // Qualquer perfil pode escolher outro convênio; o credenciamento ativo continua exigido (RN35).
 
             var conv = await con.QueryFirstOrDefaultAsync<SituacaoLinha>(Sql.Cmd(
                 "SELECT ATIVO AS Ativo, COALESCE(NOME_FANTASIA, RAZAO_SOCIAL) AS Nome FROM DBO.CONVENIO WHERE CODIGO_CONVENIO = @Id;",
                 new { Id = d.ConvenioId }, tx, ct))
                 ?? throw Erro.Validacao("convenioId", "Convênio não encontrado");
-            if (!conv.Ativo) throw Erro.Validacao("convenioId", "O convênio está inativo");
+            if (!conv.Ativo && liberacaoAdmin is null) throw Erro.Validacao("convenioId", "O convênio está inativo");
             convenioNome = conv.Nome;
 
             // O valor da consulta por convênio vem do credenciamento (convênio + unidade + especialidade), vigente na data da consulta.
@@ -465,13 +479,14 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE WHERE CODI
                 DateOnly.FromDateTime(DataBrasil.ParaBrasilia(d.Inicio)), ct);
             valorConsulta = achado?.Valor ?? 0m;
 
-            if (paciente.ValidadeCarteirinha.HasValue && DateOnly.FromDateTime(paciente.ValidadeCarteirinha.Value) < DataBrasil.Hoje())
+            if (liberacaoAdmin is null && paciente.ConvenioId == d.ConvenioId && paciente.ValidadeCarteirinha.HasValue && DateOnly.FromDateTime(paciente.ValidadeCarteirinha.Value) < DataBrasil.Hoje())
                 throw Erro.Regra("CARTEIRINHA_VENCIDA",
                     $"Carteirinha vencida em {paciente.ValidadeCarteirinha.Value:dd/MM/yyyy}. Atualize o cadastro do paciente.");
 
             if (forma.Tipo != "CONVENIO" || forma.ConvenioId != d.ConvenioId)
                 throw Erro.Validacao("formaPagamentoId", "No atendimento por convênio, use a forma de pagamento do convênio");
-            numeroCarteirinha = paciente.NumeroCarteirinha;
+            // A carteirinha do cadastro só vale para o convênio do paciente.
+            numeroCarteirinha = paciente.ConvenioId == d.ConvenioId ? paciente.NumeroCarteirinha : null;
         }
         else if (forma.Tipo == "CONVENIO")
         {
@@ -483,7 +498,7 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE WHERE CODI
         var inicio = d.Inicio;
         var fim = d.Fim ?? inicio.AddMinutes(parametros.DuracaoPadraoConsultaMin ?? 45);
 
-        await ValidarHorarioAsync(con, tx, d.ProfissionalId, d.UnidadeId, inicio, fim, d.Encaixe, ct);
+        if (liberacaoAdmin is null) await ValidarHorarioAsync(con, tx, d.ProfissionalId, d.UnidadeId, inicio, fim, d.Encaixe, ct);
 
         // ---- gravação pela procedure (reserva da agenda, RN09, limite de encaixes, RN35)
         var p = new DynamicParameters();
@@ -520,9 +535,10 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE WHERE CODI
         }
 
         var codigo = p.Get<int>("CODIGO_CONSULTA");
+        if (liberacaoAdmin is not null) await GravarLiberacaoAdminAsync(con, tx, codigo, liberacaoAdmin, usuario.Id, ct);
 
         await _auditoria.RegistrarAsync("INCLUIR", "CONSULTA", codigo, paciente.Codigo, usuario.Id,
-            new { encaixe = d.Encaixe, tipo = d.Tipo, modalidade = d.Modalidade, liberacaoCredenciamento = d.JustificativaLiberacao is not null },
+            new { encaixe = d.Encaixe, tipo = d.Tipo, modalidade = d.Modalidade, liberacaoCredenciamento = d.JustificativaLiberacao is not null, liberacaoAdministrador = liberacaoAdmin },
             con, tx, ct);
 
         var linha = await con.QueryFirstAsync<ConsultaLinha>(Sql.Cmd(
@@ -549,6 +565,23 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE WHERE CODI
 
     // ------------------------------------------------------ status e remarcação
     private static readonly string[] StatusInformaveis = { "CONFIRMADA", "CHECK_IN", "EM_ATENDIMENTO", "CONCLUIDA", "CANCELADA", "FALTA" };
+
+    /// <summary>Liberação do administrador: devolve a justificativa validada, ou null quando não foi pedida.</summary>
+    private static string? LerLiberacaoAdmin(LiberacaoAdministradorEntrada? l, UsuarioAtual usuario)
+    {
+        if (l is null) return null;
+        if (!usuario.Administrador)
+            throw Erro.SemPermissao("Somente o administrador pode liberar esta etapa.", "LIBERACAO_ADMIN_NEGADA");
+        var j = l.Justificativa?.Trim();
+        if (string.IsNullOrEmpty(j)) throw Erro.Validacao("liberacaoAdministrador.justificativa", NaoPreenchido);
+        if (j.Length is < 10 or > 500) throw Erro.Validacao("liberacaoAdministrador.justificativa", "Informe de 10 a 500 caracteres");
+        return j;
+    }
+
+    private static async Task GravarLiberacaoAdminAsync(SqlConnection con, SqlTransaction? tx, int codigoConsulta, string justificativa, int usuarioId, CancellationToken ct) =>
+        await con.ExecuteAsync(Sql.Cmd(@"
+UPDATE DBO.CONSULTA SET LIBERACAO_ADMIN_USUARIO = @U, LIBERACAO_ADMIN_JUSTIFICATIVA = @J, LIBERACAO_ADMIN_DATA = SYSUTCDATETIME()
+WHERE CODIGO_CONSULTA = @C;", new { U = usuarioId, J = justificativa, C = codigoConsulta }, tx, ct));
 
     private static byte[] LerVersao(string? versao, List<ErroCampo> e)
     {
@@ -584,11 +617,14 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE WHERE CODI
         if (d.Status == "CANCELADA" && d.CanceladoPor is null) e.Add(new ErroCampo("canceladoPor", NaoPreenchido));
         var versao = LerVersao(d.Versao, e);
         if (e.Count > 0) throw Erro.Validacao(e);
+        var liberacao = LerLiberacaoAdmin(d.LiberacaoAdministrador, usuario);
 
         await using var con = await _db.AbrirAsync(ct);
         var atual = await CarregarParaAlterarAsync(con, null, id, usuario, ct);
 
         var p = new DynamicParameters();
+        p.Add("LIBERADO", liberacao is not null, DbType.Boolean);
+        p.Add("LIBERACAO_JUSTIFICATIVA", liberacao, DbType.String, size: 500);
         p.Add("CODIGO_CONSULTA", atual.Codigo, DbType.Int32);
         p.Add("STATUS_NOVO", d.Status, DbType.String, size: 20);
         p.Add("MOTIVO", string.IsNullOrEmpty(motivo) ? null : motivo, DbType.String, size: 500);
@@ -605,7 +641,7 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE WHERE CODI
             throw Traduzir(ex, atual.ConvenioNome, atual.UnidadeNome);
         }
 
-        await _auditoria.RegistrarAsync("EDITAR", "CONSULTA", atual.Codigo, null, usuario.Id, new { status = d.Status, de = atual.Status }, con, ct: ct);
+        await _auditoria.RegistrarAsync("EDITAR", "CONSULTA", atual.Codigo, null, usuario.Id, new { status = d.Status, de = atual.Status, liberacaoAdministrador = liberacao }, con, ct: ct);
 
         var linha = await con.QueryFirstAsync<ConsultaLinha>(Sql.Cmd(SelectConsulta + " WHERE C.CODIGO_CONSULTA = @Codigo;", new { Codigo = atual.Codigo }, ct: ct));
         return ParaConsulta(linha, usuario.EhMedico);
@@ -618,6 +654,7 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE WHERE CODI
         var e = new List<ErroCampo>();
         var versao = LerVersao(d.Versao, e);
         if (e.Count > 0) throw Erro.Validacao(e);
+        var liberacaoAdmin = LerLiberacaoAdmin(d.LiberacaoAdministrador, usuario);
 
         await using var con = await _db.AbrirAsync(ct);
         await using var tx = (SqlTransaction)await con.BeginTransactionAsync(ct);
@@ -625,7 +662,7 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE WHERE CODI
 
         if (atual.TipoAtendimento == "CONVENIO")
             throw Erro.Conflito("No convênio o pagamento é confirmado pelo faturamento, na guia.", "PAGAMENTO_CONVENIO_VIA_GUIA");
-        if (atual.Status != "CHECK_IN")
+        if (atual.Status != "CHECK_IN" && !(liberacaoAdmin is not null && (atual.Status is "AGENDADA" or "CONFIRMADA" or "EM_ATENDIMENTO")))
             throw Erro.Conflito("O pagamento é confirmado depois do check-in. Confirme o agendamento e faça o check-in primeiro.", "STATUS_NAO_PERMITE");
         if (atual.PagamentoConfirmado)
             throw Erro.Conflito("O pagamento já foi confirmado.", "PAGAMENTO_JA_CONFIRMADO");
@@ -651,7 +688,8 @@ WHERE CODIGO_CONSULTA = @Codigo AND VERSAO = @Versao;",
             throw Erro.Conflito("A consulta foi alterada por outra pessoa. Atualize a tela e tente novamente.", "CONSULTA_ALTERADA");
 
         await _auditoria.RegistrarAsync("EDITAR", "CONSULTA", atual.Codigo, null, usuario.Id,
-            new { pagamentoConfirmado = true, formaPagamentoId = formaId }, con, tx, ct);
+            new { pagamentoConfirmado = true, formaPagamentoId = formaId, liberacaoAdministrador = liberacaoAdmin }, con, tx, ct);
+        if (liberacaoAdmin is not null) await GravarLiberacaoAdminAsync(con, tx, atual.Codigo, liberacaoAdmin, usuario.Id, ct);
 
         var linha = await con.QueryFirstAsync<ConsultaLinha>(Sql.Cmd(SelectConsulta + " WHERE C.CODIGO_CONSULTA = @Codigo;", new { Codigo = atual.Codigo }, tx, ct));
         await tx.CommitAsync(ct);
@@ -674,6 +712,7 @@ WHERE CODIGO_CONSULTA = @Codigo AND VERSAO = @Versao;",
         if (string.IsNullOrEmpty(motivo)) e.Add(new ErroCampo("motivo", NaoPreenchido));
         else if (motivo.Length > 500) e.Add(new ErroCampo("motivo", "Máximo de 500 caracteres"));
         var versao = LerVersao(d.Versao, e);
+        var liberacaoAdmin = LerLiberacaoAdmin(d.LiberacaoAdministrador, usuario);
         string? justificativa = null;
         if (d.LiberacaoCredenciamento is not null)
         {
@@ -703,7 +742,7 @@ WHERE CODIGO_CONSULTA = @Codigo AND VERSAO = @Versao;",
         var parametros = await AgendaService.LerParametrosAsync(con, tx, ct);
         var inicio = novoInicio!.Value;
         var fim = novoFim ?? inicio.AddMinutes(parametros.DuracaoPadraoConsultaMin ?? 45);
-        await ValidarHorarioAsync(con, tx, profissionalId, unidadeId, inicio, fim, d.Encaixe, ct);
+        if (liberacaoAdmin is null) await ValidarHorarioAsync(con, tx, profissionalId, unidadeId, inicio, fim, d.Encaixe, ct);
 
         var p = new DynamicParameters();
         p.Add("CODIGO_CONSULTA", orig.Codigo, DbType.Int32);
@@ -740,7 +779,8 @@ UPDATE N SET N.GUIA_STATUS = O.GUIA_STATUS, N.GUIA_NUMERO = O.GUIA_NUMERO, N.GUI
 FROM DBO.CONSULTA N JOIN DBO.CONSULTA O ON O.CODIGO_CONSULTA = @Orig
 WHERE N.CODIGO_CONSULTA = @Nova;", new { Orig = orig.Codigo, Nova = codigoNova }, tx, ct));
 
-        await _auditoria.RegistrarAsync("EDITAR", "CONSULTA", orig.Codigo, null, usuario.Id, new { remarcada = true, novaConsulta = codigoNova }, con, tx, ct);
+        if (liberacaoAdmin is not null) await GravarLiberacaoAdminAsync(con, tx, codigoNova, liberacaoAdmin, usuario.Id, ct);
+        await _auditoria.RegistrarAsync("EDITAR", "CONSULTA", orig.Codigo, null, usuario.Id, new { remarcada = true, novaConsulta = codigoNova, liberacaoAdministrador = liberacaoAdmin }, con, tx, ct);
         await _auditoria.RegistrarAsync("INCLUIR", "CONSULTA", codigoNova, null, usuario.Id, new { remarcacao = true }, con, tx, ct);
 
         var linha = await con.QueryFirstAsync<ConsultaLinha>(Sql.Cmd(SelectConsulta + " WHERE C.CODIGO_CONSULTA = @Codigo;", new { Codigo = codigoNova }, tx, ct));
@@ -802,6 +842,7 @@ WHERE N.CODIGO_CONSULTA = @Nova;", new { Orig = orig.Codigo, Nova = codigoNova }
         50009 => Erro.Conflito("Cancelamento pelo paciente fora do prazo mínimo de antecedência.", "CANCELAMENTO_FORA_DO_PRAZO"),
         50010 => Erro.Conflito("A falta só pode ser registrada depois do horário da consulta.", "FALTA_ANTES_DO_HORARIO"),
         50011 => Erro.Conflito("Confirme o pagamento antes de iniciar o atendimento.", "PAGAMENTO_PENDENTE"),
+        50015 => Erro.Conflito("A guia do convênio precisa estar autorizada pelo faturamento para iniciar o atendimento e concluir a consulta.", "GUIA_NAO_AUTORIZADA"),
         50013 => Erro.Conflito("Só é possível remarcar consulta agendada ou confirmada.", "STATUS_NAO_PERMITE"),
         50014 => Erro.Conflito("A consulta só pode ser concluída diretamente depois do horário agendado.", "CONCLUSAO_ANTES_DO_HORARIO"),
         50071 => Erro.Validacao("liberacaoCredenciamento.justificativa", "Informe a justificativa da liberação"),

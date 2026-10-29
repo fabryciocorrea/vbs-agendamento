@@ -43,6 +43,7 @@ export interface PermissaoCampo {
 
 export interface UsuarioAtualSaida {
   usuario: UsuarioResumo;
+  administrador?: boolean;
   profissionalId: number | null;
   permissoes: {
     telas: PermissaoTela[];

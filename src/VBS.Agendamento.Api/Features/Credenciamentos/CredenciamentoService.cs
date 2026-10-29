@@ -328,14 +328,15 @@ SELECT CAST(SCOPE_IDENTITY() AS INT);",
     }
 
     // ------------------------------------------------- valor da consulta
-    /// <summary>Valor da consulta por convênio para a unidade e a especialidade (o credenciamento vigente na data vem primeiro).</summary>
+    /// <summary>Valor da consulta por convênio e especialidade (cadastro do convênio); o valor do credenciamento da unidade, se houver, vale primeiro. Sem credenciamento, vale o do cadastro do convênio.</summary>
     public static Task<ValorConsultaDto?> BuscarValorAsync(SqlConnection con, SqlTransaction? tx, int convenioId, int unidadeId, int especialidadeId, DateOnly data, CancellationToken ct) =>
         con.QueryFirstOrDefaultAsync<ValorConsultaDto>(Sql.Cmd(@"
 SELECT TOP (1) CASE WHEN K.VALOR > 0 THEN K.VALOR ELSE ISNULL(CE.VALOR, 0) END AS Valor,
-       CAST(CASE WHEN K.SITUACAO = 'APROVADO' AND K.DATA_INICIO <= @Data AND (K.DATA_FIM IS NULL OR K.DATA_FIM >= @Data) THEN 1 ELSE 0 END AS BIT) AS Credenciado
-FROM DBO.CREDENCIAMENTO_CONVENIO K
-LEFT JOIN DBO.CONVENIO_ESPECIALIDADE CE ON CE.CODIGO_CONVENIO = K.CODIGO_CONVENIO AND CE.CODIGO_ESPECIALIDADE = K.CODIGO_ESPECIALIDADE
-WHERE K.CODIGO_CONVENIO = @Convenio AND K.CODIGO_UNIDADE = @Unidade AND K.CODIGO_ESPECIALIDADE = @Especialidade;",
+       CAST(CASE WHEN K.CODIGO_CREDENCIAMENTO IS NOT NULL AND K.SITUACAO = 'APROVADO' AND K.DATA_INICIO <= @Data AND (K.DATA_FIM IS NULL OR K.DATA_FIM >= @Data) THEN 1 ELSE 0 END AS BIT) AS Credenciado
+FROM (SELECT @Convenio AS CODIGO_CONVENIO, @Especialidade AS CODIGO_ESPECIALIDADE) X
+LEFT JOIN DBO.CONVENIO_ESPECIALIDADE CE ON CE.CODIGO_CONVENIO = X.CODIGO_CONVENIO AND CE.CODIGO_ESPECIALIDADE = X.CODIGO_ESPECIALIDADE
+LEFT JOIN DBO.CREDENCIAMENTO_CONVENIO K ON K.CODIGO_CONVENIO = X.CODIGO_CONVENIO AND K.CODIGO_ESPECIALIDADE = X.CODIGO_ESPECIALIDADE AND K.CODIGO_UNIDADE = @Unidade
+WHERE CE.CODIGO_CONVENIO IS NOT NULL OR K.CODIGO_CREDENCIAMENTO IS NOT NULL;",
             new { Convenio = convenioId, Unidade = unidadeId, Especialidade = especialidadeId, Data = data.ToDateTime(TimeOnly.MinValue) }, tx, ct));
 
     public async Task<ValorConsultaDto> ObterValorAsync(int convenioId, int? unidadeId, int? especialidadeId, DateOnly? data, CancellationToken ct)

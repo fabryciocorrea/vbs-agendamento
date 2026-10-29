@@ -12,7 +12,10 @@ public sealed class ApoioController : ControllerBase
     public ApoioController(ApoioService servico) => _servico = servico;
 
     [HttpGet("{tipo}")]
-    [Permissao("apoio.listas:visualizar")]
+    // As listas de apoio (profissionais, unidades, formas de pagamento etc.) alimentam as telas de agenda, pacientes, convênios e faturamento:
+    // quem tem acesso a uma dessas telas consegue ler as listas, mesmo sem a tela "Listas de apoio".
+    [Permissao("apoio.listas:visualizar", "agenda.profissional:visualizar", "consulta.agendamento:visualizar", "consulta.agendamento:incluir",
+        "paciente.cadastro:visualizar", "convenio.cadastro:visualizar", "convenio.credenciamento:visualizar", "faturamento.financeiro:visualizar")]
     public async Task<ActionResult<List<ItemApoioDto>>> Listar(string tipo, [FromQuery] FiltroApoio filtro, CancellationToken ct) =>
         Ok(await _servico.ListarAsync(tipo, filtro, ct));
 }

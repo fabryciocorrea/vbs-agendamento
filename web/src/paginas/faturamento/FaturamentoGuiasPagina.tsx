@@ -30,6 +30,7 @@ interface Guia {
   guiaObservacao?: string | null;
   guiaEm?: string | null;
   guiaPor?: { id: number; nomeCompleto: string } | null;
+  liberacaoAdministrador?: string | null;
 }
 
 const NOMES_GUIA: Record<StatusGuia, { label: string; cor: string }> = {
@@ -134,10 +135,10 @@ function GuiaModal({ guia, aoFechar, aoSalvar }: { guia: Guia | null; aoFechar: 
   );
 }
 
-export default function FaturamentoGuiasPagina() {
+export default function GuiasConvenioAba() {
   const { message } = App.useApp();
   const { pode } = useAuth();
-  const podeEditar = pode('faturamento.guias', 'editar');
+  const podeEditar = pode('faturamento.financeiro', 'editar');
 
   const [dados, setDados] = useState<Pagina<Guia>>({ itens: [], pagina: 1, tamanho: TAMANHO, total: 0 });
   const [carregando, setCarregando] = useState(false);
@@ -201,6 +202,11 @@ export default function FaturamentoGuiasPagina() {
         <>
           <Tag color={NOMES_GUIA[g.guiaStatus].cor}>{NOMES_GUIA[g.guiaStatus].label}</Tag>
           {g.guiaNumero && <div style={{ fontSize: 12 }}>nº {g.guiaNumero}</div>}
+          {g.liberacaoAdministrador && (
+            <div style={{ fontSize: 12 }} title={g.liberacaoAdministrador}>
+              <Tag color="volcano">Liberada pelo administrador</Tag>
+            </div>
+          )}
         </>
       )
     },
@@ -213,10 +219,6 @@ export default function FaturamentoGuiasPagina() {
 
   return (
     <>
-      <Typography.Title level={3} style={{ marginTop: 0 }}>
-        Faturamento de guias
-      </Typography.Title>
-
       <Space style={{ marginBottom: 16 }} wrap>
         <Select<StatusGuia>
           allowClear

@@ -21,7 +21,7 @@ public static class CatalogoTelas
         ("dashboard.financeiro", "Painel financeiro", "Dashboards"),
         ("dashboard.painel", "Painel do dia", "Dashboards"),
         ("especialidade.cadastro", "Cadastro de especialidades", "Cadastros"),
-        ("faturamento.guias", "Faturamento de guias de convênio", "Faturamento"),
+        ("faturamento.financeiro", "Faturamento (resumo, convênio e particular)", "Faturamento"),
         ("formapagamento.cadastro", "Cadastro de formas de pagamento", "Cadastros"),
         ("listaespera.cadastro", "Lista de espera", "Agenda"),
         ("notificacao.interna", "Notificações internas", "Notificações"),

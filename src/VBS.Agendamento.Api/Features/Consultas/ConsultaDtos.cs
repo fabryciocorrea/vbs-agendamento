@@ -33,8 +33,21 @@ public sealed class LiberacaoCredenciamentoEntrada
     public string? Justificativa { get; set; }
 }
 
+public sealed class LiberacaoAdministradorEntrada
+{
+    public string? Justificativa { get; set; }
+}
+
+public sealed class LiberacaoAdministradorDto
+{
+    public UsuarioReferenciaDto LiberadoPor { get; set; } = new();
+    public string Justificativa { get; set; } = string.Empty;
+    public DateTime Em { get; set; }
+}
+
 public sealed class StatusEntrada
 {
+    public LiberacaoAdministradorEntrada? LiberacaoAdministrador { get; set; }
     public string? Status { get; set; }
     public string? Motivo { get; set; }
     public string? CanceladoPor { get; set; }
@@ -43,12 +56,14 @@ public sealed class StatusEntrada
 
 public sealed class PagamentoConfirmacaoEntrada
 {
+    public LiberacaoAdministradorEntrada? LiberacaoAdministrador { get; set; }
     public int? FormaPagamentoId { get; set; }
     public string? Versao { get; set; }
 }
 
 public sealed class RemarcacaoEntrada
 {
+    public LiberacaoAdministradorEntrada? LiberacaoAdministrador { get; set; }
     public DateTime? NovoInicio { get; set; }
     public DateTime? NovoFim { get; set; }
     public string? Motivo { get; set; }
@@ -88,6 +103,7 @@ public sealed class ConsultaEntrada
     public bool Encaixe { get; set; }
     public bool PagamentoConfirmado { get; set; }
     public LiberacaoCredenciamentoEntrada? LiberacaoCredenciamento { get; set; }
+    public LiberacaoAdministradorEntrada? LiberacaoAdministrador { get; set; }
 }
 
 public class ConsultaResumoDto
@@ -120,6 +136,8 @@ public sealed class ConsultaDto : ConsultaResumoDto
     public UsuarioReferenciaDto? PagamentoConfirmadoPor { get; set; }
     public Guid? ConsultaOrigemId { get; set; }
     public CredenciamentoLiberadoDto? CredenciamentoLiberado { get; set; }
+    /// <summary>Liberação do administrador de uma regra operacional (guia, pagamento, horário etc.), com justificativa.</summary>
+    public LiberacaoAdministradorDto? LiberacaoAdministrador { get; set; }
     /// <summary>Guia do convênio (só em consulta por convênio).</summary>
     public GuiaConvenioDto? Guia { get; set; }
     public DateTime CriadoEm { get; set; }

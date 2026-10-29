@@ -121,6 +121,12 @@ function DetalheConsulta({ id, aoFechar, aoAlterar }: { id: string | null; aoFec
               {consulta.credenciamentoLiberado.liberadoPor.nomeCompleto}: {consulta.credenciamentoLiberado.justificativa}
             </Descriptions.Item>
           )}
+          {consulta.liberacaoAdministrador && (
+            <Descriptions.Item label="Liberação do administrador">
+              <Tag color="volcano">Liberada</Tag> {consulta.liberacaoAdministrador.liberadoPor.nomeCompleto} em {formatarDataHora(consulta.liberacaoAdministrador.em)}:{' '}
+              {consulta.liberacaoAdministrador.justificativa}
+            </Descriptions.Item>
+          )}
           <Descriptions.Item label="Agendada em">
             {formatarDataHora(consulta.criadoEm)}
             {consulta.criadoPor ? ` por ${consulta.criadoPor.nomeCompleto}` : ''}

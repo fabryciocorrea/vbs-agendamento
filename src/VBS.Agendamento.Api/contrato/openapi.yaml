@@ -2920,7 +2920,7 @@ paths:
         | AGENDADA, CONFIRMADA ou CHECK_IN | CONCLUIDA (atalho), só depois do horário da consulta (409 `CONCLUSAO_ANTES_DO_HORARIO`) |
 
         Outra mudança retorna 409 `TRANSICAO_INVALIDA`.
-        - **Pagamento na chegada (G4, RN17):** no atendimento particular, o atendimento só começa com o pagamento confirmado. Sem ele, 409 `PAGAMENTO_PENDENTE` ao passar para EM_ATENDIMENTO. Fluxo da recepção: confirma o agendamento, faz o check-in, confirma o pagamento (`/pagamento/confirmacao`) e inicia o atendimento. **Convênio:** não há pagamento na chegada; o check-in acontece com a guia pendente e o faturamento confirma a guia depois (`/consultas/{consultaId}/guia`).
+        - **Pagamento na chegada (G4, RN17):** no atendimento particular, o atendimento só começa com o pagamento confirmado. Sem ele, 409 `PAGAMENTO_PENDENTE` ao passar para EM_ATENDIMENTO. Fluxo da recepção: confirma o agendamento, faz o check-in, confirma o pagamento (`/pagamento/confirmacao`) e inicia o atendimento. **Convênio:** não há pagamento na chegada; o check-in acontece com a guia pendente, mas o atendimento só começa (e a consulta só conclui) com a guia AUTORIZADA pelo faturamento (`/consultas/{consultaId}/guia`); guia pendente ou negada retorna 409 `GUIA_NAO_AUTORIZADA`. O administrador pode liberar esta e as demais regras operacionais (convênio diferente do cadastro do paciente, convênio inativo, carteirinha vencida, pagamento pendente, antecedência do cancelamento, falta ou conclusão antes do horário, pular etapas do fluxo de consulta ativa) enviando `liberacaoAdministrador.justificativa`; consulta em status final (CONCLUIDA, CANCELADA, FALTA, REMARCADA) não muda.
         - **Carteirinha (G3):** no check-in de consulta por convênio com a carteirinha vencida, a resposta traz o aviso `CARTEIRINHA_VENCIDA` com a data de vencimento, para a recepção resolver na hora. Consulta CONCLUIDA, CANCELADA, FALTA ou REMARCADA não muda mais.
         - **Cancelamento e falta:** o motivo é obrigatório (RN06); no cancelamento informa-se também quem cancelou. Cancelar pelo **paciente** exige a antecedência mínima do parâmetro da agenda (48 horas): fora do prazo, 409 `CANCELAMENTO_FORA_DO_PRAZO`. A clínica pode cancelar a qualquer momento. Falta só depois do horário de início (`FALTA_ANTES_DO_HORARIO`).
         - **Cancelamento libera o horário:** o servidor avisa a recepção, dentro do sistema, quando há paciente na lista de espera daquele profissional ou especialidade (RN08).
@@ -3020,13 +3020,184 @@ paths:
           $ref: '#/components/responses/NaoEncontrado'
         '409':
           $ref: '#/components/responses/Conflito'
+  /faturamento/resumo:
+    get:
+      tags:
+      - Consultas
+      operationId: resumoFinanceiro
+      summary: Resumo financeiro do faturamento
+      x-permissao: faturamento.financeiro:visualizar
+      description: |
+        Totais das consultas **concluídas** no período (data da consulta, horário de Brasília; no máximo 1 ano). Particular: total, recebido (pagamento confirmado pela recepção) e sem pagamento confirmado. Convênio: total e quebra por situação da guia (autorizada, pendente, negada). Só informações financeiras. Grava no log (VISUALIZAR).
+      parameters:
+      - name: dataInicial
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: dataFinal
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: unidadeId
+        in: query
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Resumo do período.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumoFinanceiro'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+  /faturamento/particulares:
+    get:
+      tags:
+      - Consultas
+      operationId: listarParticularesFaturamento
+      summary: Listar as consultas particulares e a situação do pagamento
+      x-permissao: faturamento.financeiro:visualizar
+      description: |
+        Consultas particulares (sem canceladas, remarcadas e faltas) com a situação do pagamento, para o faturamento acompanhar. A confirmação do pagamento é feita pela recepção, depois do check-in (`/consultas/{consultaId}/pagamento/confirmacao`).
+      parameters:
+      - name: pagamento
+        in: query
+        schema:
+          type: string
+          enum:
+          - PENDENTE
+          - CONFIRMADO
+      - name: unidadeId
+        in: query
+        schema:
+          type: integer
+      - name: dataInicial
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: dataFinal
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: busca
+        in: query
+        schema:
+          type: string
+      - $ref: '#/components/parameters/Pagina'
+      - $ref: '#/components/parameters/Tamanho'
+      responses:
+        '200':
+          description: Página de consultas particulares.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  itens:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        consultaId:
+                          type: string
+                          format: uuid
+                        inicio:
+                          type: string
+                          format: date-time
+                        statusConsulta:
+                          type: string
+                        paciente:
+                          type: string
+                        profissional:
+                          type: string
+                        especialidade:
+                          type: string
+                        unidade:
+                          type: string
+                        valor:
+                          type: number
+                          format: decimal
+                        formaPagamento:
+                          type: string
+                        pagamentoConfirmado:
+                          type: boolean
+                        pagamentoConfirmadoEm:
+                          type: string
+                          format: date-time
+                          nullable: true
+                        pagamentoConfirmadoPor:
+                          type: string
+                          nullable: true
+                  pagina:
+                    type: integer
+                  tamanho:
+                    type: integer
+                  total:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+  /faturamento/exportacao:
+    get:
+      tags:
+      - Consultas
+      operationId: exportarFaturamento
+      summary: Exportar o faturamento em CSV
+      x-permissao: faturamento.financeiro:exportar
+      description: |
+        Uma linha por consulta concluída no período (data, hora, paciente, profissional, especialidade, unidade, tipo, convênio, valor, forma de pagamento, pagamento confirmado, guia e número da guia). CSV com separador ponto e vírgula e UTF-8 com BOM, para abrir no Excel. Grava no log (EXPORTAR).
+      parameters:
+      - name: dataInicial
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: dataFinal
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: unidadeId
+        in: query
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Arquivo CSV.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
   /faturamento/guias:
     get:
       tags:
       - Consultas
       operationId: listarGuiasConvenio
       summary: Listar as guias de convênio para o faturamento
-      x-permissao: faturamento.guias:visualizar
+      x-permissao: faturamento.financeiro:visualizar
       description: |
         Consultas por convênio (sem as canceladas e remarcadas) com a situação da guia: PENDENTE (padrão, enquanto o faturamento não confirmar), AUTORIZADA ou NEGADA. Filtros: situação da guia, convênio, período (datas de Brasília) e busca por paciente, carteirinha ou número da guia.
       parameters:
@@ -3079,7 +3250,7 @@ paths:
       - Consultas
       operationId: atualizarGuiaConsulta
       summary: Registrar a guia do convênio
-      x-permissao: faturamento.guias:editar
+      x-permissao: faturamento.financeiro:editar
       description: |
         Feita pelo faturamento quando o plano de saúde aprova (ou nega) a solicitação de guia. No convênio o pagamento só vale com a guia autorizada: o atendimento (check-in e conclusão) acontece normalmente com a guia pendente, sem bloquear a recepção. AUTORIZADA exige o número da guia e confirma o pagamento da consulta; NEGADA exige o motivo; PENDENTE ou NEGADA desfaz a confirmação (correção do faturamento). Só em consulta por convênio (409 `CONSULTA_NAO_CONVENIO`) e que não esteja cancelada nem remarcada (409 `STATUS_NAO_PERMITE`). A remarcação leva a guia para a nova consulta. Grava no log.
       requestBody:
@@ -4978,6 +5149,9 @@ components:
       - usuario
       - permissoes
       properties:
+        administrador:
+          type: boolean
+          description: Indica o perfil Administrador (pode liberar regras operacionais com justificativa).
         usuario:
           $ref: '#/components/schemas/UsuarioResumo'
         profissionalId:
@@ -7070,6 +7244,11 @@ components:
       - formaPagamentoId
       - inicio
       properties:
+        liberacaoAdministrador:
+          allOf:
+          - $ref: '#/components/schemas/LiberacaoAdministradorEntrada'
+          nullable: true
+          description: Liberação do administrador de uma regra operacional que bloqueou a operação. Só o administrador (403 `LIBERACAO_ADMIN_NEGADA`); a justificativa fica na consulta e no log.
         pacienteId:
           type: string
           format: uuid
@@ -7343,6 +7522,11 @@ components:
           nullable: true
         pagamentoConfirmadoPor:
           $ref: '#/components/schemas/UsuarioReferencia'
+        liberacaoAdministrador:
+          allOf:
+          - $ref: '#/components/schemas/LiberacaoAdministrador'
+          nullable: true
+          description: Última liberação do administrador nesta consulta, com a justificativa.
         guia:
           allOf:
           - $ref: '#/components/schemas/GuiaConvenio'
@@ -7363,6 +7547,86 @@ components:
           format: date-time
         criadoPor:
           $ref: '#/components/schemas/UsuarioReferencia'
+    QuantidadeValor:
+      type: object
+      required:
+      - quantidade
+      - valor
+      properties:
+        quantidade:
+          type: integer
+        valor:
+          type: number
+          format: decimal
+    ResumoFinanceiro:
+      type: object
+      required:
+      - dataInicial
+      - dataFinal
+      - concluidas
+      - valorTotal
+      - particular
+      - convenio
+      properties:
+        dataInicial:
+          type: string
+          format: date
+        dataFinal:
+          type: string
+          format: date
+        unidadeId:
+          type: integer
+          nullable: true
+        concluidas:
+          type: integer
+        valorTotal:
+          type: number
+          format: decimal
+        particular:
+          type: object
+          properties:
+            quantidade:
+              type: integer
+            total:
+              type: number
+              format: decimal
+            recebido:
+              $ref: '#/components/schemas/QuantidadeValor'
+            naoConfirmado:
+              $ref: '#/components/schemas/QuantidadeValor'
+        convenio:
+          type: object
+          properties:
+            quantidade:
+              type: integer
+            total:
+              type: number
+              format: decimal
+            autorizado:
+              $ref: '#/components/schemas/QuantidadeValor'
+            pendente:
+              $ref: '#/components/schemas/QuantidadeValor'
+            negado:
+              $ref: '#/components/schemas/QuantidadeValor'
+    LiberacaoAdministradorEntrada:
+      type: object
+      required:
+      - justificativa
+      properties:
+        justificativa:
+          type: string
+          minLength: 10
+          maxLength: 500
+    LiberacaoAdministrador:
+      type: object
+      properties:
+        liberadoPor:
+          $ref: '#/components/schemas/UsuarioReferencia'
+        justificativa:
+          type: string
+        em:
+          type: string
+          format: date-time
     GuiaConvenio:
       type: object
       description: Guia do convênio na consulta. Quem confirma é o faturamento.
@@ -7503,6 +7767,11 @@ components:
       - status
       - versao
       properties:
+        liberacaoAdministrador:
+          allOf:
+          - $ref: '#/components/schemas/LiberacaoAdministradorEntrada'
+          nullable: true
+          description: Liberação do administrador de uma regra operacional que bloqueou a operação. Só o administrador (403 `LIBERACAO_ADMIN_NEGADA`); a justificativa fica na consulta e no log.
         status:
           type: string
           enum:
@@ -7534,6 +7803,11 @@ components:
       - motivo
       - versao
       properties:
+        liberacaoAdministrador:
+          allOf:
+          - $ref: '#/components/schemas/LiberacaoAdministradorEntrada'
+          nullable: true
+          description: Liberação do administrador de uma regra operacional que bloqueou a operação. Só o administrador (403 `LIBERACAO_ADMIN_NEGADA`); a justificativa fica na consulta e no log.
         novoInicio:
           type: string
           format: date-time
@@ -7574,6 +7848,11 @@ components:
       required:
       - versao
       properties:
+        liberacaoAdministrador:
+          allOf:
+          - $ref: '#/components/schemas/LiberacaoAdministradorEntrada'
+          nullable: true
+          description: Liberação do administrador de uma regra operacional que bloqueou a operação. Só o administrador (403 `LIBERACAO_ADMIN_NEGADA`); a justificativa fica na consulta e no log.
         formaPagamentoId:
           type: integer
           nullable: true

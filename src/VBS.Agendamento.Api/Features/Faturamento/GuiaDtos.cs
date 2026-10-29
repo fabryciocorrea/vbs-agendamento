@@ -24,6 +24,8 @@ public sealed class FiltroGuias
 
 public sealed class GuiaItemDto
 {
+    /// <summary>Justificativa quando o administrador liberou o atendimento sem a guia autorizada.</summary>
+    public string? LiberacaoAdministrador { get; set; }
     public Guid ConsultaId { get; set; }
     public DateTime Inicio { get; set; }
     public string StatusConsulta { get; set; } = string.Empty;

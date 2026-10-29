@@ -171,6 +171,7 @@ WHERE U.CODIGO_USUARIO = @Id;", new { Id = usuario.Id }, ct: ct))
                 NomeCompleto = u.NomeCompleto,
                 Perfil = new PerfilReferenciaDto { Id = u.PerfilId, Nome = u.PerfilNome }
             },
+            Administrador = usuario.Administrador,
             ProfissionalId = usuario.ProfissionalId,
             Permissoes = await _permissoes.ListarAsync(usuario.PerfilId, usuario.Administrador, ct)
         };
