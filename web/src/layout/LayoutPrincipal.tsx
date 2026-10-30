@@ -18,6 +18,7 @@ import {
   SettingOutlined,
   SafetyCertificateOutlined,
   DollarOutlined,
+  ClockCircleOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../auth/AuthContext";
 import { cores } from "../tema";
@@ -40,6 +41,12 @@ const ITENS: ItemMenu[] = [
     label: "Agenda",
     icon: <CalendarOutlined />,
     tela: "agenda.profissional",
+  },
+  {
+    key: "/lista-espera",
+    label: "Lista de espera",
+    icon: <ClockCircleOutlined />,
+    tela: "listaespera.cadastro",
   },
   {
     key: "/pacientes",

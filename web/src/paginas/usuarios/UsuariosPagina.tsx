@@ -5,6 +5,7 @@ import { EditOutlined, KeyOutlined, PlusOutlined, PoweroffOutlined, UnlockOutlin
 import { api, ApiErro } from '../../api/cliente';
 import type { Pagina, PerfilResumo, Usuario } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
+import BotaoExcluir from '../../componentes/BotaoExcluir';
 import UsuarioFormulario from './UsuarioFormulario';
 import SenhaModal from './SenhaModal';
 
@@ -123,7 +124,7 @@ export default function UsuariosPagina() {
     { title: 'Último acesso', width: 140, render: (_, u) => formatarDataHora(u.ultimoLoginEm) },
     {
       title: 'Ações',
-      width: 170,
+      width: 210,
       render: (_, u) =>
         podeEditar && (
           <Space>
@@ -145,6 +146,7 @@ export default function UsuariosPagina() {
               title={u.ativo ? 'Inativar' : 'Ativar'}
               onClick={() => alterarStatus(u)}
             />
+            <BotaoExcluir artigoTipo="o usuário" nome={u.nomeCompleto} caminho={`/usuarios/${u.id}`} aoExcluir={carregar} />
           </Space>
         )
     }

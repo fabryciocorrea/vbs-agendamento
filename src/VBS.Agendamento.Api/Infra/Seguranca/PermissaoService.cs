@@ -18,12 +18,13 @@ public sealed class PermissaoService : IPermissaoService
     private readonly IConexaoFactory _db;
     public PermissaoService(IConexaoFactory db) => _db = db;
 
-    // As cinco ações que a tabela PERFIL_TELA_PERMISSAO sabe guardar.
+    // As seis ações que a tabela PERFIL_TELA_PERMISSAO sabe guardar.
     private static string? Coluna(string acao) => acao switch
     {
         "visualizar" => "PODE_VISUALIZAR",
         "incluir" => "PODE_INCLUIR",
         "editar" => "PODE_EDITAR",
+        "cancelar" => "PODE_CANCELAR",
         "excluir" => "PODE_EXCLUIR",
         "exportar" => "PODE_EXPORTAR",
         _ => null
@@ -62,7 +63,7 @@ WHERE PT.CODIGO_PERFIL = @Perfil AND T.CODIGO = @Tela AND PT.{coluna} = 1;";
         {
             telas = await con.QueryAsync<PermissaoTelaDto>(Sql.Cmd(@"
 SELECT ID_TELA_SISTEMA AS TelaId, CODIGO AS TelaCodigo, CAST(1 AS BIT) AS PodeVisualizar, CAST(1 AS BIT) AS PodeIncluir,
-       CAST(1 AS BIT) AS PodeEditar, CAST(1 AS BIT) AS PodeExcluir, CAST(1 AS BIT) AS PodeExportar
+       CAST(1 AS BIT) AS PodeEditar, CAST(1 AS BIT) AS PodeCancelar, CAST(1 AS BIT) AS PodeExcluir, CAST(1 AS BIT) AS PodeExportar
 FROM DBO.TELA_SISTEMA ORDER BY ID_TELA_SISTEMA;", ct: ct));
 
             campos = await con.QueryAsync<PermissaoCampoDto>(Sql.Cmd(@"
@@ -73,7 +74,7 @@ FROM DBO.CAMPO_SISTEMA ORDER BY ID_CAMPO_SISTEMA;", ct: ct));
         {
             telas = await con.QueryAsync<PermissaoTelaDto>(Sql.Cmd(@"
 SELECT PT.CODIGO_TELA AS TelaId, T.CODIGO AS TelaCodigo, PT.PODE_VISUALIZAR AS PodeVisualizar, PT.PODE_INCLUIR AS PodeIncluir,
-       PT.PODE_EDITAR AS PodeEditar, PT.PODE_EXCLUIR AS PodeExcluir, PT.PODE_EXPORTAR AS PodeExportar
+       PT.PODE_EDITAR AS PodeEditar, PT.PODE_CANCELAR AS PodeCancelar, PT.PODE_EXCLUIR AS PodeExcluir, PT.PODE_EXPORTAR AS PodeExportar
 FROM DBO.PERFIL_TELA_PERMISSAO PT
 JOIN DBO.TELA_SISTEMA T ON T.ID_TELA_SISTEMA = PT.CODIGO_TELA
 WHERE PT.CODIGO_PERFIL = @Perfil ORDER BY PT.CODIGO_TELA;", new { Perfil = perfilId }, ct: ct));

@@ -3,6 +3,7 @@ import { App, Input, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { api, ApiErro } from '../../api/cliente';
 import type { ItemApoio, Pagina } from '../../api/tipos';
+import LinkPaciente from '../../componentes/LinkPaciente';
 import { formatarDataHora } from '../../util/formatos';
 import { CORES_STATUS, NOMES_STATUS } from '../agenda/tipos';
 import type { StatusConsulta } from '../agenda/tipos';
@@ -14,6 +15,7 @@ interface Particular {
   consultaId: string;
   inicio: string;
   statusConsulta: StatusConsulta;
+  pacienteId: string;
   paciente: string;
   profissional: string;
   especialidade: string;
@@ -75,7 +77,7 @@ export default function ParticularesAba() {
 
   const colunas: TableColumnsType<Particular> = [
     { title: 'Data e hora', width: 150, render: (_, c) => formatarDataHora(c.inicio) },
-    { title: 'Paciente', dataIndex: 'paciente' },
+    { title: 'Paciente', render: (_, c) => <LinkPaciente id={c.pacienteId} nome={c.paciente} aoSalvar={() => void carregar()} /> },
     { title: 'Profissional', dataIndex: 'profissional' },
     { title: 'Especialidade', dataIndex: 'especialidade' },
     { title: 'Unidade', dataIndex: 'unidade' },

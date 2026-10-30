@@ -5,6 +5,7 @@ import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons'
 import { api, ApiErro } from '../../api/cliente';
 import type { Especialidade, Pagina } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
+import BotaoExcluir from '../../componentes/BotaoExcluir';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -148,7 +149,7 @@ export default function EspecialidadesPagina() {
     },
     {
       title: 'Ações',
-      width: 130,
+      width: 170,
       render: (_, e) =>
         podeEditar && (
           <Space>
@@ -168,6 +169,7 @@ export default function EspecialidadesPagina() {
               title={e.ativo ? 'Inativar' : 'Ativar'}
               onClick={() => alterarStatus(e)}
             />
+            <BotaoExcluir artigoTipo="a especialidade" nome={e.nome} caminho={`/especialidades/${e.id}`} aviso="Os vínculos com profissionais, convênios e credenciamentos saem junto." aoExcluir={carregar} />
           </Space>
         )
     }

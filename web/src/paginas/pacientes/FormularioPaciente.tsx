@@ -121,7 +121,6 @@ export default function FormularioPaciente({ aberto, paciente, cpfInicial, aoFec
   );
 
   const menor = ehMenorDeIdade(dataNascimento);
-  const temResponsavel = !!responsavel;
 
   // Ao mudar a data de nascimento, a obrigatoriedade de telefone e e-mail muda; limpa avisos antigos desses campos.
   useEffect(() => {
@@ -392,7 +391,7 @@ export default function FormularioPaciente({ aberto, paciente, cpfInicial, aoFec
               label="CPF"
               normalize={(v: string) => formatarCpf(v)}
               rules={[
-                { required: !estrangeiro && !(menor && temResponsavel), message: OBRIGATORIO },
+                { required: !estrangeiro, message: OBRIGATORIO },
                 { validator: (_, v: string) => (!v || cpfValido(v) ? Promise.resolve() : Promise.reject(new Error('CPF inválido.'))) }
               ]}
               extra={estrangeiro ? 'Opcional para estrangeiro com documento.' : undefined}

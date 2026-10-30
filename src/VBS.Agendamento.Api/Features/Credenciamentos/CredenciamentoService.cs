@@ -28,7 +28,7 @@ public sealed class CredenciamentoService
 SELECT K.CODIGO_CREDENCIAMENTO AS Id, K.CODIGO_CONVENIO AS ConvenioId, COALESCE(C.NOME_FANTASIA, C.RAZAO_SOCIAL) AS ConvenioNome,
        K.CODIGO_UNIDADE AS UnidadeId, U.NOME_FANTASIA AS UnidadeNome, U.CIDADE AS UnidadeCidade, U.UF AS UnidadeUf,
        K.CODIGO_ESPECIALIDADE AS EspecialidadeId, E.NOME AS EspecialidadeNome,
-       K.SITUACAO AS Situacao, K.DATA_INICIO AS DataInicio, K.DATA_FIM AS DataFim, K.PROTOCOLO AS Protocolo, K.OBSERVACAO AS Observacao, K.VALOR AS ValorProprio,
+       K.SITUACAO AS Situacao, K.ATIVO AS Ativo, K.DATA_INICIO AS DataInicio, K.DATA_FIM AS DataFim, K.PROTOCOLO AS Protocolo, K.OBSERVACAO AS Observacao, K.VALOR AS ValorProprio,
        CASE WHEN K.VALOR > 0 THEN K.VALOR ELSE ISNULL(CE.VALOR, 0) END AS Valor,
        K.DATA_ATUALIZACAO AS AtualizadoEm
 FROM DBO.CREDENCIAMENTO_CONVENIO K
@@ -49,6 +49,7 @@ LEFT JOIN DBO.CONVENIO_ESPECIALIDADE CE ON CE.CODIGO_CONVENIO = K.CODIGO_CONVENI
         public int EspecialidadeId { get; set; }
         public string EspecialidadeNome { get; set; } = string.Empty;
         public string Situacao { get; set; } = string.Empty;
+        public bool Ativo { get; set; }
         public DateTime? DataInicio { get; set; }
         public DateTime? DataFim { get; set; }
         public string? Protocolo { get; set; }
@@ -81,13 +82,14 @@ LEFT JOIN DBO.CONVENIO_ESPECIALIDADE CE ON CE.CODIGO_CONVENIO = K.CODIGO_CONVENI
             Unidade = new UnidadeCredenciamentoDto { Id = l.UnidadeId, Nome = l.UnidadeNome, Cidade = l.UnidadeCidade, Uf = l.UnidadeUf },
             Especialidade = new ReferenciaDto { Id = l.EspecialidadeId, Nome = l.EspecialidadeNome },
             Situacao = l.Situacao,
+            Ativo = l.Ativo,
             DataInicio = inicio,
             DataFim = fim,
             Protocolo = l.Protocolo,
             Observacao = l.Observacao,
             Valor = l.Valor,
             ValorProprio = l.ValorProprio > 0 ? l.ValorProprio : null,
-            VigenteHoje = l.Situacao == "APROVADO" && inicio.HasValue && inicio.Value <= hoje && (!fim.HasValue || fim.Value >= hoje),
+            VigenteHoje = l.Ativo && l.Situacao == "APROVADO" && inicio.HasValue && inicio.Value <= hoje && (!fim.HasValue || fim.Value >= hoje),
             AtualizadoEm = DataBrasil.Utc(l.AtualizadoEm)
         };
     }
@@ -107,9 +109,10 @@ LEFT JOIN DBO.CONVENIO_ESPECIALIDADE CE ON CE.CODIGO_CONVENIO = K.CODIGO_CONVENI
         if (f.UnidadeId.HasValue) { onde.Append(" AND K.CODIGO_UNIDADE = @UnidadeId"); p.Add("UnidadeId", f.UnidadeId.Value); }
         if (f.EspecialidadeId.HasValue) { onde.Append(" AND K.CODIGO_ESPECIALIDADE = @EspecialidadeId"); p.Add("EspecialidadeId", f.EspecialidadeId.Value); }
         if (!string.IsNullOrWhiteSpace(f.Situacao)) { onde.Append(" AND K.SITUACAO = @Situacao"); p.Add("Situacao", f.Situacao); }
+        if (f.Ativo.HasValue) { onde.Append(" AND K.ATIVO = @Ativo"); p.Add("Ativo", f.Ativo.Value); }
         if (f.Vigente == true)
         {
-            onde.Append(" AND K.SITUACAO = 'APROVADO' AND K.DATA_INICIO <= @Hoje AND (K.DATA_FIM IS NULL OR K.DATA_FIM >= @Hoje)");
+            onde.Append(" AND K.ATIVO = 1 AND K.SITUACAO = 'APROVADO' AND K.DATA_INICIO <= @Hoje AND (K.DATA_FIM IS NULL OR K.DATA_FIM >= @Hoje)");
             p.Add("Hoje", DataBrasil.Hoje().ToDateTime(TimeOnly.MinValue));
         }
 
@@ -201,14 +204,55 @@ LEFT JOIN DBO.CONVENIO_ESPECIALIDADE CE ON CE.CODIGO_CONVENIO = K.CODIGO_CONVENI
         var atual = await CarregarAsync(con, tx, id, ct);
         if (atual is null || atual.ConvenioId != convenioId) throw Erro.NaoEncontrado("Credenciamento não encontrado.");
 
-        await con.ExecuteAsync(Sql.Cmd(@"
+        // Troca de convênio, unidade ou especialidade: quem pode editar o credenciamento (o administrador sempre) pode corrigir a chave.
+        var novoConvenio = d.ConvenioId ?? atual.ConvenioId;
+        var novaUnidade = d.UnidadeId ?? atual.UnidadeId;
+        var novaEspecialidade = d.EspecialidadeId ?? atual.EspecialidadeId;
+        var trocouChave = novoConvenio != atual.ConvenioId || novaUnidade != atual.UnidadeId || novaEspecialidade != atual.EspecialidadeId;
+        if (trocouChave)
+        {
+            await ConferirConvenioAsync(con, tx, novoConvenio, ct);
+            if (novoConvenio != atual.ConvenioId)
+            {
+                var convAtivo = await con.ExecuteScalarAsync<bool>(Sql.Cmd("SELECT ATIVO FROM DBO.CONVENIO WHERE CODIGO_CONVENIO = @Id;", new { Id = novoConvenio }, tx, ct));
+                if (!convAtivo) throw Erro.Regra("CONVENIO_INATIVO", "O convênio escolhido está inativo.");
+            }
+            await ConferirUnidadeEspecialidadesAsync(con, tx, novoConvenio, novaUnidade, new[] { novaEspecialidade }, ct, id);
+        }
+
+        try
+        {
+            await con.ExecuteAsync(Sql.Cmd(@"
 UPDATE DBO.CREDENCIAMENTO_CONVENIO
-SET SITUACAO = @Situacao, DATA_INICIO = @DataInicio, DATA_FIM = @DataFim, PROTOCOLO = @Protocolo, OBSERVACAO = @Observacao, VALOR = @Valor,
+SET CODIGO_CONVENIO = @Convenio, CODIGO_UNIDADE = @Unidade, CODIGO_ESPECIALIDADE = @Especialidade,
+    SITUACAO = @Situacao, DATA_INICIO = @DataInicio, DATA_FIM = @DataFim, PROTOCOLO = @Protocolo, OBSERVACAO = @Observacao, VALOR = @Valor,
     DATA_ATUALIZACAO = SYSUTCDATETIME(), ATUALIZACAO_USUARIO = @Usuario
-WHERE CODIGO_CREDENCIAMENTO = @Id;", Parametros(v, usuario.Id, id), tx, ct));
+WHERE CODIGO_CREDENCIAMENTO = @Id;",
+                new
+                {
+                    Id = id,
+                    Convenio = novoConvenio,
+                    Unidade = novaUnidade,
+                    Especialidade = novaEspecialidade,
+                    v.Situacao,
+                    DataInicio = v.DataInicio?.ToDateTime(TimeOnly.MinValue),
+                    DataFim = v.DataFim?.ToDateTime(TimeOnly.MinValue),
+                    v.Protocolo,
+                    v.Observacao,
+                    v.Valor,
+                    Usuario = usuario.Id
+                }, tx, ct));
+        }
+        catch (SqlException ex) when (ex.Number is 2601 or 2627)
+        {
+            throw Duplicado();
+        }
 
         var alterados = new List<string>();
         void Dif(string campo, string? antes, string? depois) { if (!string.Equals(antes, depois, StringComparison.Ordinal)) alterados.Add(campo); }
+        if (novoConvenio != atual.ConvenioId) alterados.Add("convenio");
+        if (novaUnidade != atual.UnidadeId) alterados.Add("unidade");
+        if (novaEspecialidade != atual.EspecialidadeId) alterados.Add("especialidade");
         Dif("situacao", atual.Situacao, v.Situacao);
         Dif("dataInicio", atual.DataInicio?.ToString("yyyy-MM-dd"), v.DataInicio?.ToString("yyyy-MM-dd"));
         Dif("dataFim", atual.DataFim?.ToString("yyyy-MM-dd"), v.DataFim?.ToString("yyyy-MM-dd"));
@@ -216,6 +260,32 @@ WHERE CODIGO_CREDENCIAMENTO = @Id;", Parametros(v, usuario.Id, id), tx, ct));
         Dif("observacao", atual.Observacao, v.Observacao);
         if (atual.ValorProprio != v.Valor) alterados.Add("valor");
         await _auditoria.RegistrarAsync("EDITAR", "CREDENCIAMENTO_CONVENIO", id, null, usuario.Id, new { campos = alterados }, con, tx, ct);
+
+        var nova = await CarregarAsync(con, tx, id, ct) ?? throw new InvalidOperationException("Credenciamento não encontrado após a alteração.");
+        await tx.CommitAsync(ct);
+        return ParaDto(nova);
+    }
+
+    // ------------------------------------------------- inativar / ativar
+    /// <summary>Credenciamento inativo não vale para agendar (como se não existisse). Não cancela nem altera consultas; a recepção é avisada pelo gatilho.</summary>
+    public async Task<CredenciamentoDto> AlterarStatusAsync(int convenioId, int id, CredenciamentoStatusEntrada? d, UsuarioAtual usuario, CancellationToken ct)
+    {
+        if (d?.Ativo is null) throw Erro.Validacao("ativo", NaoPreenchido);
+
+        await using var con = await _db.AbrirAsync(ct);
+        await using var tx = (SqlTransaction)await con.BeginTransactionAsync(ct);
+
+        var atual = await CarregarAsync(con, tx, id, ct);
+        if (atual is null || atual.ConvenioId != convenioId) throw Erro.NaoEncontrado("Credenciamento não encontrado.");
+
+        if (atual.Ativo != d.Ativo.Value)
+        {
+            await con.ExecuteAsync(Sql.Cmd(@"
+UPDATE DBO.CREDENCIAMENTO_CONVENIO SET ATIVO = @Ativo, DATA_ATUALIZACAO = SYSUTCDATETIME(), ATUALIZACAO_USUARIO = @Usuario
+WHERE CODIGO_CREDENCIAMENTO = @Id;", new { Id = id, Ativo = d.Ativo.Value, Usuario = usuario.Id }, tx, ct));
+            await _auditoria.RegistrarAsync("EDITAR", "CREDENCIAMENTO_CONVENIO", id, null, usuario.Id,
+                new { campos = new[] { "ativo" }, ativo = d.Ativo.Value }, con, tx, ct);
+        }
 
         var nova = await CarregarAsync(con, tx, id, ct) ?? throw new InvalidOperationException("Credenciamento não encontrado após a alteração.");
         await tx.CommitAsync(ct);
@@ -245,6 +315,12 @@ WHERE CODIGO_CREDENCIAMENTO = @Id;", Parametros(v, usuario.Id, id), tx, ct));
         var vigencia = new List<ErroCampo>();
         if (situacao == "APROVADO" && inicio is null) vigencia.Add(new ErroCampo("dataInicio", "Informe o início da vigência para credenciamento aprovado"));
         if (inicio is not null && fim is not null && fim < inicio) vigencia.Add(new ErroCampo("dataFim", "O fim da vigência não pode ser anterior ao início"));
+        // Datas fora de uma faixa razoável costumam ser erro de digitação (ex.: 01/01/0026 ou 2206).
+        var hoje = DataBrasil.Hoje();
+        if (inicio is not null && inicio < new DateOnly(2000, 1, 1)) vigencia.Add(new ErroCampo("dataInicio", "Início da vigência inválido (anterior a 01/01/2000)"));
+        if (inicio is not null && inicio > hoje.AddYears(2)) vigencia.Add(new ErroCampo("dataInicio", "Início da vigência inválido (mais de 2 anos à frente)"));
+        if (fim is not null && fim < new DateOnly(2000, 1, 1)) vigencia.Add(new ErroCampo("dataFim", "Fim da vigência inválido (anterior a 01/01/2000)"));
+        if (fim is not null && fim > hoje.AddYears(30)) vigencia.Add(new ErroCampo("dataFim", "Fim da vigência inválido (mais de 30 anos à frente)"));
 
         if (e.Count > 0) throw Erro.Validacao(e);
         if (vigencia.Count > 0) throw Erro.Regra("VIGENCIA_INVALIDA", vigencia[0].Mensagem, vigencia);
@@ -271,7 +347,7 @@ WHERE CODIGO_CREDENCIAMENTO = @Id;", Parametros(v, usuario.Id, id), tx, ct));
         if (existe == 0) throw Erro.NaoEncontrado("Convênio não encontrado.");
     }
 
-    private static async Task ConferirUnidadeEspecialidadesAsync(SqlConnection con, SqlTransaction tx, int convenioId, int unidadeId, IReadOnlyList<int> especialidades, CancellationToken ct)
+    private static async Task ConferirUnidadeEspecialidadesAsync(SqlConnection con, SqlTransaction tx, int convenioId, int unidadeId, IReadOnlyList<int> especialidades, CancellationToken ct, int? ignorarId = null)
     {
         var uni = await con.QueryFirstOrDefaultAsync<SituacaoLinha>(Sql.Cmd(
             "SELECT ATIVO AS Ativo FROM DBO.UNIDADE WHERE CODIGO_UNIDADE = @Id;", new { Id = unidadeId }, tx, ct))
@@ -293,8 +369,9 @@ WHERE CODIGO_CREDENCIAMENTO = @Id;", Parametros(v, usuario.Id, id), tx, ct));
         // Combinações já cadastradas (409 e nada é gravado).
         var duplicadas = await con.ExecuteScalarAsync<int>(Sql.Cmd(@"
 SELECT COUNT(1) FROM DBO.CREDENCIAMENTO_CONVENIO
-WHERE CODIGO_CONVENIO = @Convenio AND CODIGO_UNIDADE = @Unidade AND CODIGO_ESPECIALIDADE IN @Ids;",
-            new { Convenio = convenioId, Unidade = unidadeId, Ids = especialidades }, tx, ct));
+WHERE CODIGO_CONVENIO = @Convenio AND CODIGO_UNIDADE = @Unidade AND CODIGO_ESPECIALIDADE IN @Ids
+  AND (@Ignorar IS NULL OR CODIGO_CREDENCIAMENTO <> @Ignorar);",
+            new { Convenio = convenioId, Unidade = unidadeId, Ids = especialidades, Ignorar = ignorarId }, tx, ct));
         if (duplicadas > 0) throw Duplicado();
     }
 
@@ -335,7 +412,7 @@ SELECT TOP (1) CASE WHEN K.VALOR > 0 THEN K.VALOR ELSE ISNULL(CE.VALOR, 0) END A
        CAST(CASE WHEN K.CODIGO_CREDENCIAMENTO IS NOT NULL AND K.SITUACAO = 'APROVADO' AND K.DATA_INICIO <= @Data AND (K.DATA_FIM IS NULL OR K.DATA_FIM >= @Data) THEN 1 ELSE 0 END AS BIT) AS Credenciado
 FROM (SELECT @Convenio AS CODIGO_CONVENIO, @Especialidade AS CODIGO_ESPECIALIDADE) X
 LEFT JOIN DBO.CONVENIO_ESPECIALIDADE CE ON CE.CODIGO_CONVENIO = X.CODIGO_CONVENIO AND CE.CODIGO_ESPECIALIDADE = X.CODIGO_ESPECIALIDADE
-LEFT JOIN DBO.CREDENCIAMENTO_CONVENIO K ON K.CODIGO_CONVENIO = X.CODIGO_CONVENIO AND K.CODIGO_ESPECIALIDADE = X.CODIGO_ESPECIALIDADE AND K.CODIGO_UNIDADE = @Unidade
+LEFT JOIN DBO.CREDENCIAMENTO_CONVENIO K ON K.CODIGO_CONVENIO = X.CODIGO_CONVENIO AND K.CODIGO_ESPECIALIDADE = X.CODIGO_ESPECIALIDADE AND K.CODIGO_UNIDADE = @Unidade AND K.ATIVO = 1
 WHERE CE.CODIGO_CONVENIO IS NOT NULL OR K.CODIGO_CREDENCIAMENTO IS NOT NULL;",
             new { Convenio = convenioId, Unidade = unidadeId, Especialidade = especialidadeId, Data = data.ToDateTime(TimeOnly.MinValue) }, tx, ct));
 

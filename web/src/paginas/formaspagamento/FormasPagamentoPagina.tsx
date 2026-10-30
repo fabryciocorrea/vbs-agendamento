@@ -5,6 +5,7 @@ import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons'
 import { api, ApiErro } from '../../api/cliente';
 import type { CondicaoFormaPagamento, Convenio, FormaPagamento, Pagina, TipoFormaPagamento } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
+import BotaoExcluir from '../../componentes/BotaoExcluir';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -209,7 +210,7 @@ export default function FormasPagamentoPagina() {
     },
     {
       title: 'Ações',
-      width: 110,
+      width: 150,
       render: (_, f) =>
         podeEditar && (
           <Space>
@@ -229,6 +230,7 @@ export default function FormasPagamentoPagina() {
               title={f.ativo ? 'Inativar' : 'Ativar'}
               onClick={() => alterarStatus(f)}
             />
+            <BotaoExcluir artigoTipo="a forma de pagamento" nome={f.descricao} caminho={`/formas-pagamento/${f.id}`} aoExcluir={carregar} />
           </Space>
         )
     }

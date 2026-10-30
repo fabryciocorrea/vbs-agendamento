@@ -43,4 +43,9 @@ public sealed class CredenciamentosController : ControllerBase
     [Permissao("convenio.credenciamento:editar")]
     public async Task<ActionResult<CredenciamentoDto>> Atualizar(int convenioId, int credenciamentoId, [FromBody] CredenciamentoAtualizacao? entrada, CancellationToken ct) =>
         Ok(await _servico.AtualizarAsync(convenioId, credenciamentoId, entrada, User.ObterUsuarioAtual(), ct));
+
+    [HttpPatch("convenios/{convenioId:int}/credenciamentos/{credenciamentoId:int}/status")]
+    [Permissao("convenio.credenciamento:editar")]
+    public async Task<ActionResult<CredenciamentoDto>> AlterarStatus(int convenioId, int credenciamentoId, [FromBody] CredenciamentoStatusEntrada? entrada, CancellationToken ct) =>
+        Ok(await _servico.AlterarStatusAsync(convenioId, credenciamentoId, entrada, User.ObterUsuarioAtual(), ct));
 }

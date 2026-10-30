@@ -5,6 +5,7 @@ import { EditOutlined, PlusOutlined, PoweroffOutlined, SearchOutlined } from '@a
 import { api, ApiErro } from '../../api/cliente';
 import type { ItemApoio, Pagina, Paciente, PacienteResumo } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
+import BotaoExcluir from '../../componentes/BotaoExcluir';
 import { cpfValido, formatarCpf, formatarDataIso, formatarTelefone, somenteDigitos } from '../../util/formatos';
 import FormularioPaciente from './FormularioPaciente';
 
@@ -220,7 +221,7 @@ export default function PacientesPagina() {
     },
     {
       title: 'Ações',
-      width: 100,
+      width: 140,
       render: (_, r) =>
         podeEditar && (
           <Space>
@@ -232,6 +233,7 @@ export default function PacientesPagina() {
               title={r.ativo ? 'Inativar' : 'Ativar'}
               onClick={() => alterarStatus(r)}
             />
+            <BotaoExcluir artigoTipo="o paciente" nome={r.nome} caminho={`/pacientes/${r.id}`} aoExcluir={carregar} />
           </Space>
         )
     }

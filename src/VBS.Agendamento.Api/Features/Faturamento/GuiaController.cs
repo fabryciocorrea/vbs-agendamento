@@ -9,7 +9,12 @@ namespace VBS.Agendamento.Api.Features.Faturamento;
 public sealed class GuiaController : ControllerBase
 {
     private readonly GuiaService _servico;
-    public GuiaController(GuiaService servico) => _servico = servico;
+    private readonly IPermissaoService _permissoes;
+    public GuiaController(GuiaService servico, IPermissaoService permissoes)
+    {
+        _servico = servico;
+        _permissoes = permissoes;
+    }
 
     [HttpGet("faturamento/guias")]
     [Permissao("faturamento.financeiro:visualizar")]
@@ -17,7 +22,12 @@ public sealed class GuiaController : ControllerBase
         Ok(await _servico.ListarAsync(filtro, ct));
 
     [HttpPatch("consultas/{consultaId:guid}/guia")]
-    [Permissao("faturamento.financeiro:editar")]
-    public async Task<ActionResult<GuiaItemDto>> Atualizar(Guid consultaId, [FromBody] GuiaEntrada? entrada, CancellationToken ct) =>
-        Ok(await _servico.AtualizarAsync(consultaId, entrada, User.ObterUsuarioAtual(), ct));
+    [Permissao("faturamento.financeiro:editar", "faturamento.financeiro:cancelar")]
+    public async Task<ActionResult<GuiaItemDto>> Atualizar(Guid consultaId, [FromBody] GuiaEntrada? entrada, CancellationToken ct)
+    {
+        // Cancelar a guia tem liberação própria; as demais situações usam "editar".
+        var usuario = User.ObterUsuarioAtual();
+        await _permissoes.ExigirAsync(usuario, entrada?.Status == "CANCELADA" ? "faturamento.financeiro:cancelar" : "faturamento.financeiro:editar", ct);
+        return Ok(await _servico.AtualizarAsync(consultaId, entrada, usuario, ct));
+    }
 }

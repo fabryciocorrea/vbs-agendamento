@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { App, Button, Card, Checkbox, Descriptions, Modal, Segmented, Select, Space, Spin, Tag, Typography } from 'antd';
+import { App, Button, Card, Descriptions, Modal, Segmented, Select, Space, Spin, Tag, Typography } from 'antd';
 import { LeftOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { ItemApoio } from '../../api/tipos';
@@ -22,7 +22,7 @@ import {
 import AcoesConsulta from './AcoesConsulta';
 import NovaConsultaModal from './NovaConsultaModal';
 import { CORES_STATUS, NOMES_STATUS } from './tipos';
-import type { AgendaSaida, Consulta, ConsultaResumo } from './tipos';
+import type { AgendaSaida, Consulta, ConsultaResumo, StatusConsulta } from './tipos';
 
 type Visao = 'dia' | 'semana' | 'mes';
 
@@ -71,6 +71,7 @@ function DetalheConsulta({ id, aoFechar, aoAlterar }: { id: string | null; aoFec
         <Descriptions column={1} size="small" bordered>
           <Descriptions.Item label="Situação">
             <Tag color={CORES_STATUS[consulta.status]}>{NOMES_STATUS[consulta.status]}</Tag>
+            {consulta.remarcada && <Tag color="purple">Remarcada</Tag>}
             {consulta.encaixe && <Tag color="orange">Encaixe</Tag>}
           </Descriptions.Item>
           <Descriptions.Item label="Paciente">{consulta.paciente.nome}</Descriptions.Item>
@@ -102,10 +103,14 @@ function DetalheConsulta({ id, aoFechar, aoAlterar }: { id: string | null; aoFec
           <Descriptions.Item label="Forma de pagamento">{consulta.formaPagamento.nome}</Descriptions.Item>
           {consulta.tipoAtendimento === 'CONVENIO' ? (
             <Descriptions.Item label="Guia do convênio">
-              {consulta.guia?.status === 'AUTORIZADA' ? (
+              {consulta.status === 'CANCELADA' && consulta.guia?.status === 'AUTORIZADA' ? (
+                <Tag color="orange">Autorizada - faturamento deve cancelar a guia</Tag>
+              ) : consulta.guia?.status === 'AUTORIZADA' ? (
                 <Tag color="green">Autorizada{consulta.guia.numero ? ` - nº ${consulta.guia.numero}` : ''}</Tag>
               ) : consulta.guia?.status === 'NEGADA' ? (
                 <Tag color="red">Negada</Tag>
+              ) : consulta.guia?.status === 'CANCELADA' || consulta.status === 'CANCELADA' ? (
+                <Tag color="default">Guia cancelada</Tag>
               ) : (
                 <Tag color="gold">Aguardando o faturamento</Tag>
               )}
@@ -158,7 +163,7 @@ export default function AgendaProfissionalPagina() {
   const [unidadeId, setUnidadeId] = useState<number | undefined>(undefined);
   const [visao, setVisao] = useState<Visao>('semana');
   const [base, setBase] = useState<string>(hojeBrasilia());
-  const [canceladas, setCanceladas] = useState(false);
+  const [situacao, setSituacao] = useState<StatusConsulta | undefined>(undefined);
   const [agenda, setAgenda] = useState<AgendaSaida | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [novaAberta, setNovaAberta] = useState(false);
@@ -187,7 +192,8 @@ export default function AgendaProfissionalPagina() {
           dataInicial: lista[0],
           dataFinal: lista[lista.length - 1],
           unidadeId,
-          incluirCanceladas: canceladas
+          // Traz também as canceladas e remarcadas; a tela esconde as remarcadas do horário antigo, salvo no filtro "Remarcada".
+          incluirCanceladas: true
         })
       );
     } catch (e) {
@@ -196,7 +202,7 @@ export default function AgendaProfissionalPagina() {
     } finally {
       setCarregando(false);
     }
-  }, [profissionalId, lista, unidadeId, canceladas, message]);
+  }, [profissionalId, lista, unidadeId, message]);
 
   useEffect(() => {
     void carregar();
@@ -217,7 +223,7 @@ export default function AgendaProfissionalPagina() {
   const fecharDetalhe = useCallback(() => setDetalheId(null), []);
 
   function porDia(dia: string) {
-    const consultas = (agenda?.consultas ?? []).filter((c) => diaBrasilia(c.inicio) === dia);
+    const consultas = (agenda?.consultas ?? []).filter((c) => diaBrasilia(c.inicio) === dia && (situacao ? c.status === situacao : c.status !== 'REMARCADA'));
     const expediente = (agenda?.expediente ?? []).filter((e) => diaBrasilia(e.inicio) === dia);
     const bloqueios = (agenda?.bloqueios ?? []).filter((b) => diaBrasilia(b.inicio) === dia);
     return { consultas, expediente, bloqueios };
@@ -306,6 +312,7 @@ export default function AgendaProfissionalPagina() {
           <Tag color={CORES_STATUS[c.status]} style={{ marginInlineEnd: 0 }}>
             {NOMES_STATUS[c.status]}
           </Tag>
+          {c.remarcada && <Tag color="purple" style={{ marginInlineEnd: 0 }}>Remarcada</Tag>}
           {c.encaixe && <Tag color="orange" style={{ marginInlineEnd: 0 }}>Encaixe</Tag>}
         </Space>
         <div>{c.paciente.nome}</div>
@@ -365,9 +372,14 @@ export default function AgendaProfissionalPagina() {
           )}
           <Button icon={<RightOutlined />} onClick={() => mover(1)} title="Próximo" />
         </Space.Compact>
-        <Checkbox checked={canceladas} onChange={(e) => setCanceladas(e.target.checked)}>
-          Mostrar canceladas e remarcadas
-        </Checkbox>
+        <Select<StatusConsulta>
+          allowClear
+          style={{ width: 200 }}
+          placeholder="Todas as situações"
+          value={situacao}
+          onChange={setSituacao}
+          options={(Object.keys(NOMES_STATUS) as StatusConsulta[]).map((v) => ({ value: v, label: NOMES_STATUS[v] }))}
+        />
       </Space>
 
       <Spin spinning={carregando}>

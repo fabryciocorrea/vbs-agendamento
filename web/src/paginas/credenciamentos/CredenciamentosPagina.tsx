@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { App, Alert, Button, Checkbox, Col, Form, Input, Modal, Row, Select, Space, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { Convenio, Credenciamento, ItemApoio, Pagina, SituacaoCredenciamento } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
+import BotaoExcluir from '../../componentes/BotaoExcluir';
+import LinkConvenio from '../../componentes/LinkConvenio';
 import { formatarDataIso } from '../../util/formatos';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
@@ -16,9 +18,20 @@ const SITUACOES: { value: SituacaoCredenciamento; label: string; cor?: string }[
   { value: 'NAO_CREDENCIADO', label: 'Não credenciado', cor: 'red' }
 ];
 
+type FiltroAtivo = 'todos' | 'ativos' | 'inativos';
+
+const DATA_MINIMA = '2000-01-01';
+
+function somarAnos(anos: number): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + anos);
+  return d.toISOString().slice(0, 10);
+}
+
 interface Valores {
   convenioId: number;
   unidadeId: number;
+  especialidadeId?: number;
   especialidadeIds: number[];
   situacao: SituacaoCredenciamento;
   dataInicio?: string;
@@ -36,7 +49,7 @@ interface FormularioProps {
 }
 
 function FormularioCredenciamento({ aberto, credenciamento, convenios, aoFechar, aoSalvar }: FormularioProps) {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [form] = Form.useForm<Valores>();
   const [salvando, setSalvando] = useState(false);
   const [erroGeral, setErroGeral] = useState('');
@@ -45,12 +58,21 @@ function FormularioCredenciamento({ aberto, credenciamento, convenios, aoFechar,
   const situacao = Form.useWatch('situacao', form);
   const convenioSel = Form.useWatch('convenioId', form);
   const [idsDoConvenio, setIdsDoConvenio] = useState<number[] | null>(null);
+  const inicioSel = Form.useWatch('dataInicio', form);
+  const fimSel = Form.useWatch('dataFim', form);
+  const primeiraCarga = useRef(true);
 
   // Só as especialidades cadastradas no convênio podem ser credenciadas.
   useEffect(() => {
     setIdsDoConvenio(null);
     if (!convenioSel) return;
-    form.setFieldValue('especialidadeIds', []);
+    // Na edição, a especialidade só é limpa quando o convênio é trocado (não na abertura da janela).
+    if (credenciamento) {
+      if (!primeiraCarga.current && convenioSel !== credenciamento.convenio.id) form.setFieldValue('especialidadeId', undefined);
+      primeiraCarga.current = false;
+    } else {
+      form.setFieldValue('especialidadeIds', []);
+    }
     api
       .get<Convenio>(`/convenios/${convenioSel}`)
       .then((c) => setIdsDoConvenio(c.especialidades.map((x) => x.id)))
@@ -61,6 +83,7 @@ function FormularioCredenciamento({ aberto, credenciamento, convenios, aoFechar,
   useEffect(() => {
     if (!aberto) return;
     setErroGeral('');
+    primeiraCarga.current = true;
     api.get<ItemApoio[]>('/apoio/unidades').then(setUnidades).catch(() => message.error('Não foi possível carregar as unidades.'));
     api.get<ItemApoio[]>('/apoio/especialidades').then(setEspecialidades).catch(() => message.error('Não foi possível carregar as especialidades.'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -82,10 +105,38 @@ function FormularioCredenciamento({ aberto, credenciamento, convenios, aoFechar,
       protocolo: opcional(v.protocolo),
       observacao: opcional(v.observacao)
     };
+    if (credenciamento && (v.convenioId !== credenciamento.convenio.id || v.unidadeId !== credenciamento.unidade.id || v.especialidadeId !== credenciamento.especialidade.id)) {
+      const nome = (lista: ItemApoio[], id?: number) => lista.find((x) => x.id === id)?.nome ?? '';
+      const confirmou = await new Promise<boolean>((resolve) =>
+        modal.confirm({
+          title: 'Trocar convênio, unidade ou especialidade?',
+          content: (
+            <div>
+              <div>De: {credenciamento.convenio.nome} / {credenciamento.unidade.nome} / {credenciamento.especialidade.nome}</div>
+              <div>Para: {nome(convenios, v.convenioId)} / {nome(unidades, v.unidadeId)} / {nome(especialidades, v.especialidadeId)}</div>
+              <div style={{ marginTop: 8 }}>
+                O credenciamento deixa de valer para a combinação anterior. Consultas futuras já agendadas nela ficam sem credenciamento
+                (nenhuma é cancelada) e a recepção é avisada.
+              </div>
+            </div>
+          ),
+          okText: 'Trocar e salvar',
+          cancelText: 'Voltar',
+          onOk: () => resolve(true),
+          onCancel: () => resolve(false)
+        })
+      );
+      if (!confirmou) return;
+    }
     setSalvando(true);
     try {
       if (credenciamento) {
-        await api.put(`/convenios/${credenciamento.convenio.id}/credenciamentos/${credenciamento.id}`, comum);
+        await api.put(`/convenios/${credenciamento.convenio.id}/credenciamentos/${credenciamento.id}`, {
+          ...comum,
+          convenioId: v.convenioId,
+          unidadeId: v.unidadeId,
+          especialidadeId: v.especialidadeId
+        });
         message.success('Credenciamento atualizado.');
       } else {
         await api.post(`/convenios/${v.convenioId}/credenciamentos/lote`, {
@@ -129,6 +180,9 @@ function FormularioCredenciamento({ aberto, credenciamento, convenios, aoFechar,
         initialValues={
           cr
             ? {
+                convenioId: cr.convenio.id,
+                unidadeId: cr.unidade.id,
+                especialidadeId: cr.especialidade.id,
                 situacao: cr.situacao,
                 dataInicio: cr.dataInicio?.slice(0, 10) ?? '',
                 dataFim: cr.dataFim?.slice(0, 10) ?? '',
@@ -140,51 +194,47 @@ function FormularioCredenciamento({ aberto, credenciamento, convenios, aoFechar,
       >
         {erroGeral && <Alert type="error" showIcon message={erroGeral} style={{ marginBottom: 16 }} />}
 
+        <Form.Item name="convenioId" label="Convênio" rules={[{ required: true, message: OBRIGATORIO }]}>
+          <Select
+            showSearch
+            optionFilterProp="label"
+            placeholder="Selecione"
+            options={convenios.filter((c) => c.ativo || c.id === cr?.convenio.id).map((c) => ({ value: c.id, label: c.nome }))}
+          />
+        </Form.Item>
+        <Form.Item name="unidadeId" label="Unidade (define a cidade)" rules={[{ required: true, message: OBRIGATORIO }]}>
+          <Select
+            showSearch
+            optionFilterProp="label"
+            placeholder="Selecione"
+            options={[...unidades.filter((u) => u.id !== cr?.unidade.id), ...(cr ? [{ id: cr.unidade.id, nome: cr.unidade.nome }] : [])].map((u) => ({ value: u.id, label: u.nome }))}
+          />
+        </Form.Item>
         {cr ? (
-          <>
-            <Form.Item label="Convênio">
-              <Input readOnly value={cr.convenio.nome} />
-            </Form.Item>
-            <Row gutter={16}>
-              <Col xs={24} sm={12}>
-                <Form.Item label="Unidade">
-                  <Input readOnly value={`${cr.unidade.nome} (${cr.unidade.cidade}/${cr.unidade.uf})`} />
-                </Form.Item>
-              </Col>
-              <Col xs={24} sm={12}>
-                <Form.Item label="Especialidade">
-                  <Input readOnly value={cr.especialidade.nome} />
-                </Form.Item>
-              </Col>
-            </Row>
-          </>
+          <Form.Item name="especialidadeId" label="Especialidade" rules={[{ required: true, message: OBRIGATORIO }]}>
+            <Select
+              showSearch
+              optionFilterProp="label"
+              placeholder="Selecione"
+              options={especialidades
+                .filter((x) => x.id === cr.especialidade.id || idsDoConvenio === null || idsDoConvenio.includes(x.id))
+                .map((x) => ({ value: x.id, label: x.nome }))}
+            />
+          </Form.Item>
         ) : (
-          <>
-            <Form.Item name="convenioId" label="Convênio" rules={[{ required: true, message: OBRIGATORIO }]}>
-              <Select
-                showSearch
-                optionFilterProp="label"
-                placeholder="Selecione"
-                options={convenios.filter((c) => c.ativo).map((c) => ({ value: c.id, label: c.nome }))}
-              />
-            </Form.Item>
-            <Form.Item name="unidadeId" label="Unidade (define a cidade)" rules={[{ required: true, message: OBRIGATORIO }]}>
-              <Select placeholder="Selecione" options={unidades.map((u) => ({ value: u.id, label: u.nome }))} />
-            </Form.Item>
-            <Form.Item
-              name="especialidadeIds"
-              label="Especialidades"
-              extra="Você pode escolher várias: todas recebem a mesma situação e vigência."
-              rules={[{ required: true, type: 'array', min: 1, message: OBRIGATORIO }]}
-            >
-              <Select
-                mode="multiple"
-                optionFilterProp="label"
-                placeholder="Selecione"
-                options={especialidades.filter((x) => idsDoConvenio === null || idsDoConvenio.includes(x.id)).map((x) => ({ value: x.id, label: x.nome }))}
-              />
-            </Form.Item>
-          </>
+          <Form.Item
+            name="especialidadeIds"
+            label="Especialidades"
+            extra="Você pode escolher várias: todas recebem a mesma situação e vigência."
+            rules={[{ required: true, type: 'array', min: 1, message: OBRIGATORIO }]}
+          >
+            <Select
+              mode="multiple"
+              optionFilterProp="label"
+              placeholder="Selecione"
+              options={especialidades.filter((x) => idsDoConvenio === null || idsDoConvenio.includes(x.id)).map((x) => ({ value: x.id, label: x.nome }))}
+            />
+          </Form.Item>
         )}
 
         <Form.Item name="situacao" label="Situação" rules={[{ required: true, message: OBRIGATORIO }]}>
@@ -192,16 +242,44 @@ function FormularioCredenciamento({ aberto, credenciamento, convenios, aoFechar,
         </Form.Item>
         <Row gutter={16}>
           <Col xs={24} sm={12}>
-            <Form.Item name="dataInicio" label="Início da vigência" rules={[{ required: situacao === 'APROVADO', message: OBRIGATORIO }]}>
-              <Input type="date" />
+            <Form.Item
+              name="dataInicio"
+              label="Início da vigência"
+              rules={[
+                { required: situacao === 'APROVADO', message: OBRIGATORIO },
+                {
+                  validator: (_, v?: string) =>
+                    !v || (v >= DATA_MINIMA && v <= somarAnos(2)) ? Promise.resolve() : Promise.reject(new Error('Data de início inválida'))
+                }
+              ]}
+            >
+              <Input type="date" min={DATA_MINIMA} />
             </Form.Item>
           </Col>
           <Col xs={24} sm={12}>
-            <Form.Item name="dataFim" label="Fim da vigência" extra="Vazio: sem prazo.">
-              <Input type="date" />
+            <Form.Item
+              name="dataFim"
+              label="Fim da vigência"
+              extra="Vazio: sem prazo."
+              dependencies={['dataInicio']}
+              rules={[
+                {
+                  validator: (_, v?: string) => {
+                    if (!v) return Promise.resolve();
+                    if (v < DATA_MINIMA || v > somarAnos(30)) return Promise.reject(new Error('Data de fim inválida'));
+                    if (inicioSel && v < inicioSel) return Promise.reject(new Error('O fim não pode ser anterior ao início'));
+                    return Promise.resolve();
+                  }
+                }
+              ]}
+            >
+              <Input type="date" min={DATA_MINIMA} />
             </Form.Item>
           </Col>
         </Row>
+        {situacao === 'APROVADO' && fimSel && fimSel < new Date().toISOString().slice(0, 10) && (
+          <Alert type="warning" showIcon message="Essa vigência já terminou: o credenciamento não vale hoje." style={{ marginBottom: 16 }} />
+        )}
         <Form.Item name="protocolo" label="Protocolo / nº do credenciamento">
           <Input maxLength={50} />
         </Form.Item>
@@ -214,7 +292,7 @@ function FormularioCredenciamento({ aberto, credenciamento, convenios, aoFechar,
 }
 
 export default function CredenciamentosPagina() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { pode } = useAuth();
   const podeIncluir = pode('convenio.credenciamento', 'incluir');
   const podeEditar = pode('convenio.credenciamento', 'editar');
@@ -230,6 +308,7 @@ export default function CredenciamentosPagina() {
   const [especialidadeId, setEspecialidadeId] = useState<number | undefined>();
   const [situacao, setSituacao] = useState<SituacaoCredenciamento | undefined>();
   const [vigente, setVigente] = useState(false);
+  const [filtroAtivo, setFiltroAtivo] = useState<FiltroAtivo>('todos');
   const [formAberto, setFormAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<Credenciamento | null>(null);
 
@@ -250,6 +329,7 @@ export default function CredenciamentosPagina() {
           especialidadeId,
           situacao,
           vigente: vigente ? true : undefined,
+          ativo: filtroAtivo === 'todos' ? undefined : filtroAtivo === 'ativos',
           pagina,
           tamanho: TAMANHO
         })
@@ -259,7 +339,7 @@ export default function CredenciamentosPagina() {
     } finally {
       setCarregando(false);
     }
-  }, [convenioId, unidadeId, especialidadeId, situacao, vigente, pagina, message]);
+  }, [convenioId, unidadeId, especialidadeId, situacao, vigente, filtroAtivo, pagina, message]);
 
   useEffect(() => {
     void carregar();
@@ -270,8 +350,29 @@ export default function CredenciamentosPagina() {
     setPagina(1);
   };
 
+  function alterarStatus(c: Credenciamento) {
+    const inativar = c.ativo;
+    modal.confirm({
+      title: inativar ? 'Inativar credenciamento' : 'Ativar credenciamento',
+      content: inativar
+        ? `Inativar o credenciamento de "${c.convenio.nome}" (${c.unidade.nome}, ${c.especialidade.nome})? Ele deixa de valer para novos agendamentos. Consultas futuras já agendadas não são canceladas e a recepção é avisada.`
+        : `Ativar o credenciamento de "${c.convenio.nome}" (${c.unidade.nome}, ${c.especialidade.nome})? Ele volta a valer conforme a situação e a vigência.`,
+      okText: inativar ? 'Inativar' : 'Ativar',
+      cancelText: 'Cancelar',
+      onOk: async () => {
+        try {
+          await api.patch(`/convenios/${c.convenio.id}/credenciamentos/${c.id}/status`, { ativo: !c.ativo });
+          message.success(inativar ? 'Credenciamento inativado.' : 'Credenciamento ativado.');
+          await carregar();
+        } catch (e) {
+          message.error(e instanceof ApiErro ? e.message : 'Erro inesperado.');
+        }
+      }
+    });
+  }
+
   const colunas: TableColumnsType<Credenciamento> = [
-    { title: 'Convênio', render: (_, c) => c.convenio.nome },
+    { title: 'Convênio', render: (_, c) => <LinkConvenio id={c.convenio.id} nome={c.convenio.nome} aoSalvar={() => void carregar()} /> },
     { title: 'Unidade', render: (_, c) => `${c.unidade.nome} (${c.unidade.cidade}/${c.unidade.uf})` },
     { title: 'Especialidade', render: (_, c) => c.especialidade.nome },
     {
@@ -295,19 +396,40 @@ export default function CredenciamentosPagina() {
     },
     { title: 'Protocolo', dataIndex: 'protocolo', width: 140, render: (v?: string | null) => v ?? '—' },
     {
+      title: 'Cadastro',
+      width: 100,
+      render: (_, c) => (c.ativo ? <Tag color="green">Ativo</Tag> : <Tag>Inativo</Tag>)
+    },
+    {
       title: 'Ações',
-      width: 80,
+      width: 150,
       render: (_, c) =>
         podeEditar && (
-          <Button
-            size="small"
-            icon={<EditOutlined />}
-            title="Editar"
-            onClick={() => {
-              setEmEdicao(c);
-              setFormAberto(true);
-            }}
-          />
+          <Space>
+            <Button
+              size="small"
+              icon={<EditOutlined />}
+              title="Editar"
+              onClick={() => {
+                setEmEdicao(c);
+                setFormAberto(true);
+              }}
+            />
+            <Button
+              size="small"
+              danger={c.ativo}
+              icon={<PoweroffOutlined />}
+              title={c.ativo ? 'Inativar' : 'Ativar'}
+              onClick={() => alterarStatus(c)}
+            />
+            <BotaoExcluir
+              artigoTipo="o credenciamento"
+              nome={`${c.convenio.nome} / ${c.unidade.nome} / ${c.especialidade.nome}`}
+              caminho={`/convenios/${c.convenio.id}/credenciamentos/${c.id}`}
+              aviso="Consultas futuras nessa combinação passarão a aparecer como sem credenciamento."
+              aoExcluir={carregar}
+            />
+          </Space>
         )
     }
   ];
@@ -368,6 +490,19 @@ export default function CredenciamentosPagina() {
           value={situacao}
           onChange={filtrar(setSituacao)}
           options={SITUACOES.map((s) => ({ value: s.value, label: s.label }))}
+        />
+        <Select<FiltroAtivo>
+          value={filtroAtivo}
+          style={{ width: 160 }}
+          onChange={(v) => {
+            setFiltroAtivo(v);
+            setPagina(1);
+          }}
+          options={[
+            { value: 'todos', label: 'Todos' },
+            { value: 'ativos', label: 'Somente ativos' },
+            { value: 'inativos', label: 'Somente inativos' }
+          ]}
         />
         <Checkbox
           checked={vigente}

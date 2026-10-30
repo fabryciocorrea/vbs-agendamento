@@ -5,7 +5,7 @@ namespace VBS.Agendamento.Api.Features.Faturamento;
 
 public sealed class GuiaEntrada
 {
-    /// <summary>PENDENTE, AUTORIZADA ou NEGADA.</summary>
+    /// <summary>PENDENTE, AUTORIZADA, NEGADA ou CANCELADA (guia autorizada só aceita CANCELADA; o motivo é obrigatório).</summary>
     public string? Status { get; set; }
     public string? Numero { get; set; }
     public string? Observacao { get; set; }
@@ -29,6 +29,7 @@ public sealed class GuiaItemDto
     public Guid ConsultaId { get; set; }
     public DateTime Inicio { get; set; }
     public string StatusConsulta { get; set; } = string.Empty;
+    public Guid PacienteId { get; set; }
     public string Paciente { get; set; } = string.Empty;
     public ReferenciaDto Convenio { get; set; } = new();
     public string? NumeroCarteirinha { get; set; }

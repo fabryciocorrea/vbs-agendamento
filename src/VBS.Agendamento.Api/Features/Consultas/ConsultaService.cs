@@ -140,6 +140,7 @@ LEFT JOIN DBO.USUARIO UA ON UA.CODIGO_USUARIO = C.LIBERACAO_ADMIN_USUARIO";
         d.Convenio = l.ConvenioId.HasValue ? new ReferenciaDto { Id = l.ConvenioId.Value, Nome = l.ConvenioNome ?? string.Empty } : null;
         d.Valor = ocultarValor ? null : l.Valor;
         d.Encaixe = l.Encaixe;
+        d.Remarcada = l.ConsultaOrigemId.HasValue;
     }
 
     private static ConsultaResumoDto ParaResumo(ConsultaLinha l, bool ocultarValor)
@@ -843,6 +844,7 @@ WHERE N.CODIGO_CONSULTA = @Nova;", new { Orig = orig.Codigo, Nova = codigoNova }
         50010 => Erro.Conflito("A falta só pode ser registrada depois do horário da consulta.", "FALTA_ANTES_DO_HORARIO"),
         50011 => Erro.Conflito("Confirme o pagamento antes de iniciar o atendimento.", "PAGAMENTO_PENDENTE"),
         50015 => Erro.Conflito("A guia do convênio precisa estar autorizada pelo faturamento para iniciar o atendimento e concluir a consulta.", "GUIA_NAO_AUTORIZADA"),
+        50016 => Erro.Conflito("A guia do convênio já foi autorizada. O faturamento precisa cancelar a guia antes de cancelar a consulta.", "GUIA_AUTORIZADA_CANCELAR_ANTES"),
         50013 => Erro.Conflito("Só é possível remarcar consulta agendada ou confirmada.", "STATUS_NAO_PERMITE"),
         50014 => Erro.Conflito("A consulta só pode ser concluída diretamente depois do horário agendado.", "CONCLUSAO_ANTES_DO_HORARIO"),
         50071 => Erro.Validacao("liberacaoCredenciamento.justificativa", "Informe a justificativa da liberação"),

@@ -11,11 +11,14 @@ namespace VBS.Agendamento.Api.Features.Faturamento;
 /// <summary>
 /// Guias do convênio. No convênio o pagamento só vale quando o plano aprova a guia, e quem confirma é o faturamento.
 /// Guia AUTORIZADA confirma o pagamento da consulta; PENDENTE ou NEGADA desfaz essa confirmação (correção do faturamento).
+/// Guia AUTORIZADA só pode ser CANCELADA (ex.: o paciente faltou ou cancelou). Guia CANCELADA não muda mais.
+/// Consulta com guia autorizada só pode ser cancelada depois que o faturamento cancelar a guia (procedure, erro 50016).
+/// Consulta cancelada cancela sozinha a guia pendente ou negada.
 /// </summary>
 public sealed class GuiaService
 {
     private const string NaoPreenchido = "Campo Não Preenchido";
-    private static readonly string[] StatusGuia = { "PENDENTE", "AUTORIZADA", "NEGADA" };
+    private static readonly string[] StatusGuia = { "PENDENTE", "AUTORIZADA", "NEGADA", "CANCELADA" };
     private readonly IConexaoFactory _db;
     private readonly IAuditoria _auditoria;
 
@@ -31,6 +34,7 @@ public sealed class GuiaService
         public Guid ConsultaId { get; set; }
         public DateTime Inicio { get; set; }
         public string StatusConsulta { get; set; } = string.Empty;
+        public Guid PacienteId { get; set; }
         public string Paciente { get; set; } = string.Empty;
         public int ConvenioId { get; set; }
         public string ConvenioNome { get; set; } = string.Empty;
@@ -51,7 +55,7 @@ public sealed class GuiaService
     }
 
     private const string Select = @"
-SELECT C.CODIGO_CONSULTA AS Codigo, C.CODIGO_PUBLIC AS ConsultaId, C.DATA_INICIO AS Inicio, C.STATUS AS StatusConsulta, P.NOME AS Paciente,
+SELECT C.CODIGO_CONSULTA AS Codigo, C.CODIGO_PUBLIC AS ConsultaId, C.DATA_INICIO AS Inicio, C.STATUS AS StatusConsulta, P.CODIGO_PUBLIC AS PacienteId, P.NOME AS Paciente,
        C.CODIGO_CONVENIO AS ConvenioId, COALESCE(CV.NOME_FANTASIA, CV.RAZAO_SOCIAL) AS ConvenioNome, C.NUMERO_CARTEIRINHA AS NumeroCarteirinha,
        C.CODIGO_ESPECIALIDADE AS EspecialidadeId, E.NOME AS EspecialidadeNome, C.CODIGO_PROFISSIONAL AS ProfissionalId, PR.NOME AS ProfissionalNome,
        C.VALOR AS Valor, C.GUIA_STATUS AS GuiaStatus, C.GUIA_NUMERO AS GuiaNumero, C.GUIA_OBSERVACAO AS GuiaObservacao, C.GUIA_DATA AS GuiaEm,
@@ -68,6 +72,7 @@ LEFT JOIN DBO.USUARIO UG ON UG.CODIGO_USUARIO = C.GUIA_USUARIO";
         ConsultaId = l.ConsultaId,
         Inicio = DataBrasil.Utc(l.Inicio),
         StatusConsulta = l.StatusConsulta,
+        PacienteId = l.PacienteId,
         Paciente = l.Paciente,
         Convenio = new ReferenciaDto { Id = l.ConvenioId, Nome = l.ConvenioNome },
         NumeroCarteirinha = l.NumeroCarteirinha,
@@ -93,8 +98,8 @@ LEFT JOIN DBO.USUARIO UG ON UG.CODIGO_USUARIO = C.GUIA_USUARIO";
         if (erros.Count > 0) throw Erro.Validacao(erros);
 
         var p = new DynamicParameters();
-        // Só consultas por convênio que ainda contam (canceladas e remarcadas saem; a nova consulta é que vale).
-        var onde = new StringBuilder(" WHERE C.TIPO_ATENDIMENTO = 'CONVENIO' AND C.STATUS NOT IN ('CANCELADA', 'REMARCADA')");
+        // Todas as consultas por convênio, inclusive as canceladas (guia cancelada). Só as remarcadas saem: a nova consulta é que vale.
+        var onde = new StringBuilder(" WHERE C.TIPO_ATENDIMENTO = 'CONVENIO' AND C.STATUS <> 'REMARCADA'");
         if (!string.IsNullOrWhiteSpace(f.Status))
         {
             onde.Append(f.Status == "PENDENTE" ? " AND ISNULL(C.GUIA_STATUS, 'PENDENTE') = 'PENDENTE'" : " AND C.GUIA_STATUS = @Status");
@@ -137,11 +142,12 @@ LEFT JOIN DBO.USUARIO UG ON UG.CODIGO_USUARIO = C.GUIA_USUARIO";
         var numero = d.Numero?.Trim();
         var obs = d.Observacao?.Trim();
         if (string.IsNullOrWhiteSpace(d.Status)) e.Add(new ErroCampo("status", NaoPreenchido));
-        else if (!StatusGuia.Contains(d.Status)) e.Add(new ErroCampo("status", "Informe PENDENTE, AUTORIZADA ou NEGADA"));
+        else if (!StatusGuia.Contains(d.Status)) e.Add(new ErroCampo("status", "Informe PENDENTE, AUTORIZADA, NEGADA ou CANCELADA"));
         if (numero is { Length: > 30 }) e.Add(new ErroCampo("numero", "Máximo de 30 caracteres"));
         if (obs is { Length: > 500 }) e.Add(new ErroCampo("observacao", "Máximo de 500 caracteres"));
         if (d.Status == "AUTORIZADA" && string.IsNullOrEmpty(numero)) e.Add(new ErroCampo("numero", NaoPreenchido));
         if (d.Status == "NEGADA" && string.IsNullOrEmpty(obs)) e.Add(new ErroCampo("observacao", "Informe o motivo da negativa"));
+        if (d.Status == "CANCELADA" && string.IsNullOrEmpty(obs)) e.Add(new ErroCampo("observacao", "Informe o motivo do cancelamento da guia"));
         if (e.Count > 0) throw Erro.Validacao(e);
 
         await using var con = await _db.AbrirAsync(ct);
@@ -152,10 +158,22 @@ LEFT JOIN DBO.USUARIO UG ON UG.CODIGO_USUARIO = C.GUIA_USUARIO";
             ?? throw Erro.NaoEncontrado("Consulta não encontrada.");
         if (atual.TipoAtendimento != "CONVENIO")
             throw Erro.Conflito("A guia só existe em consulta por convênio.", "CONSULTA_NAO_CONVENIO");
-        if (atual.StatusConsulta is "CANCELADA" or "REMARCADA")
-            throw Erro.Conflito("Consulta cancelada ou remarcada não tem guia para confirmar.", "STATUS_NAO_PERMITE");
+        if (atual.StatusConsulta == "REMARCADA")
+            throw Erro.Conflito("Consulta remarcada não tem guia para confirmar.", "STATUS_NAO_PERMITE");
+        // Consulta cancelada só aceita o cancelamento da guia que já estava autorizada.
+        if (atual.StatusConsulta == "CANCELADA" && !(atual.GuiaStatus == "AUTORIZADA" && d.Status == "CANCELADA"))
+            throw Erro.Conflito("Consulta cancelada: só é possível cancelar a guia que estava autorizada.", "STATUS_NAO_PERMITE");
+
+        var guiaAtual = atual.GuiaStatus ?? "PENDENTE";
+        if (guiaAtual == "CANCELADA")
+            throw Erro.Conflito("A guia está cancelada e não pode mais ser alterada.", "GUIA_CANCELADA");
+        if (guiaAtual == "AUTORIZADA" && d.Status != "CANCELADA")
+            throw Erro.Conflito("Guia autorizada só pode ser cancelada.", "GUIA_AUTORIZADA_SO_CANCELA");
+        if (d.Status == "CANCELADA" && !usuario.Administrador && atual.StatusConsulta is "EM_ATENDIMENTO" or "CONCLUIDA")
+            throw Erro.Conflito("A consulta já foi atendida: somente o administrador cancela a guia.", "STATUS_NAO_PERMITE");
 
         var autorizada = d.Status == "AUTORIZADA";
+        var guiaNumero = d.Status == "CANCELADA" ? atual.GuiaNumero : (string.IsNullOrEmpty(numero) ? null : numero);
         await con.ExecuteAsync(Sql.Cmd(@"
 UPDATE DBO.CONSULTA
 SET GUIA_STATUS = @Status, GUIA_NUMERO = @Numero, GUIA_OBSERVACAO = @Obs, GUIA_DATA = SYSUTCDATETIME(), GUIA_USUARIO = @Usuario,
@@ -164,7 +182,7 @@ SET GUIA_STATUS = @Status, GUIA_NUMERO = @Numero, GUIA_OBSERVACAO = @Obs, GUIA_D
     PAGAMENTO_CONFIRMADO_USUARIO = CASE WHEN @Pago = 1 THEN @Usuario ELSE NULL END,
     DATA_ATUALIZACAO = SYSUTCDATETIME()
 WHERE CODIGO_CONSULTA = @Codigo;",
-            new { Status = d.Status, Numero = string.IsNullOrEmpty(numero) ? null : numero, Obs = string.IsNullOrEmpty(obs) ? null : obs, Usuario = usuario.Id, Pago = autorizada, Codigo = atual.Codigo }, tx, ct));
+            new { Status = d.Status, Numero = guiaNumero, Obs = string.IsNullOrEmpty(obs) ? null : obs, Usuario = usuario.Id, Pago = autorizada, Codigo = atual.Codigo }, tx, ct));
 
         await _auditoria.RegistrarAsync("EDITAR", "CONSULTA", atual.Codigo, null, usuario.Id,
             new { guia = d.Status, de = atual.GuiaStatus ?? "PENDENTE" }, con, tx, ct);

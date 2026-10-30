@@ -13,6 +13,7 @@ const ATIVAS = ['AGENDADA', 'CONFIRMADA', 'CHECK_IN', 'EM_ATENDIMENTO'];
 /** Bloqueios que o administrador pode liberar informando uma justificativa (fica gravada na consulta e no log). */
 const CODIGOS_STATUS = [
   'GUIA_NAO_AUTORIZADA',
+  'GUIA_AUTORIZADA_CANCELAR_ANTES',
   'PAGAMENTO_PENDENTE',
   'CANCELAMENTO_FORA_DO_PRAZO',
   'FALTA_ANTES_DO_HORARIO',
@@ -299,10 +300,12 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
   const ativa = ATIVAS.includes(consulta.status);
   const vencida = new Date(consulta.inicio).getTime() <= Date.now();
   const podeStatus = pode('consulta.status', 'editar');
+  const podeCancelarConsulta = pode('consulta.status', 'cancelar');
   const podeRemarcar = pode('consulta.agendamento', 'editar');
   const inicial = consulta.status === 'AGENDADA' || consulta.status === 'CONFIRMADA';
 
   const guiaPendente = !admin && consulta.tipoAtendimento === 'CONVENIO' && (consulta.guia?.status ?? 'PENDENTE') !== 'AUTORIZADA';
+  const textoGuia = consulta.guia?.status === 'CANCELADA' ? 'A guia está cancelada' : 'Aguardando a autorização da guia pelo faturamento';
   const concluir = ((ativa && (vencida || admin)) || consulta.status === 'EM_ATENDIMENTO') && podeStatus;
   const proximo =
     !podeStatus ? null
@@ -312,7 +315,7 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
     : null;
   const naoConcluido = inicial && (vencida || admin) && podeStatus;
   const remarcar = inicial && podeRemarcar;
-  const cancelar = ativa && (consulta.status !== 'EM_ATENDIMENTO' || admin) && podeStatus;
+  const cancelar = ativa && (consulta.status !== 'EM_ATENDIMENTO' || admin) && podeCancelarConsulta;
 
   const confirmarPag = (consulta.status === 'CHECK_IN' || (admin && ativa)) && consulta.tipoAtendimento === 'PARTICULAR' && !consulta.pagamentoConfirmado && podeRemarcar;
 
@@ -392,7 +395,7 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
             icon={proximo.icone}
             onClick={avancar}
             disabled={proximo.status === 'EM_ATENDIMENTO' && guiaPendente}
-            title={proximo.status === 'EM_ATENDIMENTO' && guiaPendente ? 'Aguardando a autorização da guia pelo faturamento' : undefined}
+            title={proximo.status === 'EM_ATENDIMENTO' && guiaPendente ? textoGuia : undefined}
           >
             {proximo.texto}
           </Button>
@@ -408,7 +411,7 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
             icon={<CheckOutlined />}
             onClick={confirmarConclusao}
             disabled={guiaPendente}
-            title={guiaPendente ? 'Aguardando a autorização da guia pelo faturamento' : undefined}
+            title={guiaPendente ? textoGuia : undefined}
           >
             Concluído
           </Button>
@@ -425,7 +428,7 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
         )}
         {cancelar && (
           <Button danger icon={<StopOutlined />} onClick={() => setMotivo('CANCELADA')}>
-            Cancelado
+            Cancelar
           </Button>
         )}
       </Space>

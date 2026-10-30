@@ -3,7 +3,7 @@ import { App } from 'antd';
 import { api, definirAoPerderSessao, guardarToken, obterToken } from '../api/cliente';
 import type { SessaoSaida, UsuarioAtualSaida } from '../api/tipos';
 
-export type Acao = 'visualizar' | 'incluir' | 'editar' | 'excluir' | 'exportar';
+export type Acao = 'visualizar' | 'incluir' | 'editar' | 'cancelar' | 'excluir' | 'exportar';
 
 interface AuthValor {
   sessao: UsuarioAtualSaida | null;
@@ -71,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         case 'visualizar': return p.podeVisualizar;
         case 'incluir': return p.podeIncluir;
         case 'editar': return p.podeEditar;
+        case 'cancelar': return p.podeCancelar ?? false;
         case 'excluir': return p.podeExcluir;
         case 'exportar': return p.podeExportar;
       }

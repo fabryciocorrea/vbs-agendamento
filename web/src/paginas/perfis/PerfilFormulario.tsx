@@ -11,11 +11,12 @@ interface ValoresFormulario {
   descricao?: string;
 }
 
-/** v = visualizar, i = incluir, e = editar, x = excluir, p = exportar. */
+/** v = visualizar, i = incluir, e = editar, c = cancelar, x = excluir, p = exportar. */
 interface MarcasTela {
   v: boolean;
   i: boolean;
   e: boolean;
+  c: boolean;
   x: boolean;
   p: boolean;
 }
@@ -31,11 +32,12 @@ const ACOES: { chave: AcaoTela; titulo: string }[] = [
   { chave: 'v', titulo: 'Visualizar' },
   { chave: 'i', titulo: 'Incluir' },
   { chave: 'e', titulo: 'Editar' },
+  { chave: 'c', titulo: 'Cancelar' },
   { chave: 'x', titulo: 'Excluir' },
   { chave: 'p', titulo: 'Exportar' }
 ];
 
-const SEM_MARCAS: MarcasTela = { v: false, i: false, e: false, x: false, p: false };
+const SEM_MARCAS: MarcasTela = { v: false, i: false, e: false, c: false, x: false, p: false };
 
 interface Props {
   aberto: boolean;
@@ -66,7 +68,7 @@ export default function PerfilFormulario({ aberto, perfil, aoFechar, aoSalvar }:
         const t: Record<number, MarcasTela> = {};
         const c: Record<number, MarcasCampo> = {};
         for (const x of atual?.permissoes.telas ?? []) {
-          t[x.telaId] = { v: x.podeVisualizar, i: x.podeIncluir, e: x.podeEditar, x: x.podeExcluir, p: x.podeExportar };
+          t[x.telaId] = { v: x.podeVisualizar, i: x.podeIncluir, e: x.podeEditar, c: x.podeCancelar ?? false, x: x.podeExcluir, p: x.podeExportar };
         }
         for (const x of atual?.permissoes.campos ?? []) c[x.campoId] = { v: x.podeVisualizar, e: x.podeEditar };
         setMarcasTelas(t);
@@ -115,22 +117,18 @@ export default function PerfilFormulario({ aberto, perfil, aoFechar, aoSalvar }:
 
   function marcarTudo(marcado: boolean) {
     const t: Record<number, MarcasTela> = {};
-    for (const tela of telas) t[tela.id] = marcado ? { v: true, i: true, e: true, x: true, p: true } : { ...SEM_MARCAS };
+    for (const tela of telas) t[tela.id] = marcado ? { v: true, i: true, e: true, c: true, x: true, p: true } : { ...SEM_MARCAS };
     setMarcasTelas(t);
     const c: Record<number, MarcasCampo> = {};
     for (const tela of telas) for (const campo of tela.campos) c[campo.id] = marcado ? { v: true, e: true } : { v: false, e: false };
     setMarcasCampos(c);
   }
 
-  function marcarColuna(acao: AcaoTela, marcado: boolean) {
-    for (const tela of telas) alterarTela(tela.id, acao, marcado);
-  }
-
   const corpo = useMemo(
     () => ({
       telas: telas.map((t) => {
         const m = marcasDe(t.id);
-        return { telaId: t.id, podeVisualizar: m.v, podeIncluir: m.i, podeEditar: m.e, podeExcluir: m.x, podeExportar: m.p };
+        return { telaId: t.id, podeVisualizar: m.v, podeIncluir: m.i, podeEditar: m.e, podeCancelar: m.c, podeExcluir: m.x, podeExportar: m.p };
       }),
       campos: telas.flatMap((t) =>
         t.campos.map((c) => {
@@ -195,32 +193,15 @@ export default function PerfilFormulario({ aberto, perfil, aoFechar, aoSalvar }:
     {
       title: 'Tela',
       render: (_, t) => (
-        <Space direction="vertical" size={0}>
-          <span>{t.nome}</span>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {t.codigo}
-          </Typography.Text>
-        </Space>
+        <span>{t.nome}</span>
       )
     },
     { title: 'Módulo', dataIndex: 'modulo', width: 130, render: (m: string) => <Tag>{m}</Tag> },
     ...ACOES.map((a) => ({
       title: (
-        <Space direction="vertical" size={0} style={{ textAlign: 'center' }}>
-          <span>{a.titulo}</span>
-          {!protegido && (
-            <Space size={4}>
-              <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }} onClick={() => marcarColuna(a.chave, true)}>
-                todos
-              </Button>
-              <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }} onClick={() => marcarColuna(a.chave, false)}>
-                nenhum
-              </Button>
-            </Space>
-          )}
-        </Space>
+        <span>{a.titulo}</span>
       ),
-      width: 100,
+      width: 90,
       align: 'center' as const,
       render: (_: unknown, t: TelaSistema) => (
         <Checkbox
@@ -280,7 +261,7 @@ export default function PerfilFormulario({ aberto, perfil, aoFechar, aoSalvar }:
           )}
         </Space>
         <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>
-          Marcar incluir, editar, excluir ou exportar libera também visualizar. Telas sem nenhuma marca ficam sem acesso para este perfil.
+          Marcar incluir, editar, cancelar, excluir ou exportar libera também visualizar. Editar altera dados; cancelar libera o cancelamento. Telas sem nenhuma marca ficam sem acesso para este perfil.
         </Typography.Paragraph>
 
         <Table<TelaSistema>

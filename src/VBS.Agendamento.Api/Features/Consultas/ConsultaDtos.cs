@@ -78,7 +78,7 @@ public sealed class RemarcacaoEntrada
 
 public sealed class GuiaConvenioDto
 {
-    /// <summary>PENDENTE, AUTORIZADA ou NEGADA. Quem confirma é o faturamento.</summary>
+    /// <summary>PENDENTE, AUTORIZADA, NEGADA ou CANCELADA. Quem confirma é o faturamento.</summary>
     public string Status { get; set; } = "PENDENTE";
     public string? Numero { get; set; }
     public string? Observacao { get; set; }
@@ -123,6 +123,8 @@ public class ConsultaResumoDto
     public ReferenciaDto? Convenio { get; set; }
     public decimal? Valor { get; set; }
     public bool Encaixe { get; set; }
+    /// <summary>Verdadeiro quando esta consulta nasceu de uma remarcação (a original ficou REMARCADA no horário antigo).</summary>
+    public bool Remarcada { get; set; }
 }
 
 public sealed class ConsultaDto : ConsultaResumoDto

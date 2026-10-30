@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, App, Button, Form, Input, Modal, Radio, Select, Space, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { EditOutlined } from '@ant-design/icons';
+import { EditOutlined, StopOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
-import type { ItemApoio, Pagina } from '../../api/tipos';
+import type { ItemApoio, Pagina, Paciente } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
 import { formatarDataHora } from '../../util/formatos';
+import FormularioPaciente from '../pacientes/FormularioPaciente';
 import { CORES_STATUS, NOMES_STATUS } from '../agenda/tipos';
 import type { StatusConsulta } from '../agenda/tipos';
 
@@ -13,12 +14,13 @@ const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
 const REAIS = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
-type StatusGuia = 'PENDENTE' | 'AUTORIZADA' | 'NEGADA';
+type StatusGuia = 'PENDENTE' | 'AUTORIZADA' | 'NEGADA' | 'CANCELADA';
 
 interface Guia {
   consultaId: string;
   inicio: string;
   statusConsulta: StatusConsulta;
+  pacienteId: string;
   paciente: string;
   convenio: { id: number; nome: string };
   numeroCarteirinha?: string | null;
@@ -36,7 +38,8 @@ interface Guia {
 const NOMES_GUIA: Record<StatusGuia, { label: string; cor: string }> = {
   PENDENTE: { label: 'Pendente', cor: 'gold' },
   AUTORIZADA: { label: 'Autorizada', cor: 'green' },
-  NEGADA: { label: 'Negada', cor: 'red' }
+  NEGADA: { label: 'Negada', cor: 'red' },
+  CANCELADA: { label: 'Cancelada', cor: 'default' }
 };
 
 interface Valores {
@@ -45,12 +48,26 @@ interface Valores {
   observacao?: string;
 }
 
-function GuiaModal({ guia, aoFechar, aoSalvar }: { guia: Guia | null; aoFechar: () => void; aoSalvar: () => void }) {
+function GuiaModal({ guia, podeEditar, podeCancelar, aoFechar, aoSalvar }: { guia: Guia | null; podeEditar: boolean; podeCancelar: boolean; aoFechar: () => void; aoSalvar: () => void }) {
   const { message } = App.useApp();
   const [form] = Form.useForm<Valores>();
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
   const status = Form.useWatch('status', form);
+  // Guia autorizada só pode ser cancelada (o paciente pode faltar e a guia precisa ser cancelada no plano).
+  const soCancelar = guia?.guiaStatus === 'AUTORIZADA';
+  const opcoes = soCancelar
+    ? [{ value: 'CANCELADA', label: 'Cancelada' }]
+    : [
+        ...(podeEditar
+          ? [
+              { value: 'AUTORIZADA', label: 'Autorizada' },
+              { value: 'NEGADA', label: 'Negada' },
+              { value: 'PENDENTE', label: 'Pendente' }
+            ]
+          : []),
+        ...(podeCancelar ? [{ value: 'CANCELADA', label: 'Cancelada' }] : [])
+      ];
 
   async function enviar() {
     if (!guia) return;
@@ -84,9 +101,10 @@ function GuiaModal({ guia, aoFechar, aoSalvar }: { guia: Guia | null; aoFechar: 
   return (
     <Modal
       open={!!guia}
-      title="Guia do convênio"
-      okText="Salvar"
-      cancelText="Cancelar"
+      title={soCancelar ? 'Cancelar guia do convênio' : 'Guia do convênio'}
+      okText={soCancelar ? 'Cancelar guia' : 'Salvar'}
+      okButtonProps={soCancelar ? { danger: true } : undefined}
+      cancelText="Fechar"
       confirmLoading={salvando}
       onOk={() => void enviar()}
       onCancel={aoFechar}
@@ -99,7 +117,7 @@ function GuiaModal({ guia, aoFechar, aoSalvar }: { guia: Guia | null; aoFechar: 
           layout="vertical"
           requiredMark
           preserve={false}
-          initialValues={{ status: guia.guiaStatus, numero: guia.guiaNumero ?? '', observacao: guia.guiaObservacao ?? '' }}
+          initialValues={{ status: opcoes.some((o) => o.value === guia.guiaStatus) ? guia.guiaStatus : opcoes[0]?.value, numero: guia.guiaNumero ?? '', observacao: guia.guiaObservacao ?? '' }}
         >
           {erro && <Alert type="error" showIcon message={erro} style={{ marginBottom: 16 }} />}
           <p style={{ marginTop: 0 }}>
@@ -108,23 +126,33 @@ function GuiaModal({ guia, aoFechar, aoSalvar }: { guia: Guia | null; aoFechar: 
             <br />
             {guia.especialidade.nome} com {guia.profissional.nome}, em {formatarDataHora(guia.inicio)}
           </p>
+          {soCancelar && (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message={
+                guia.statusConsulta === 'CANCELADA'
+                  ? `A consulta foi cancelada. Cancele a guia${guia.guiaNumero ? ` nº ${guia.guiaNumero}` : ''} no convênio e registre aqui.`
+                  : `Guia autorizada${guia.guiaNumero ? ` (nº ${guia.guiaNumero})` : ''}: a única ação possível é cancelar. Use quando o paciente não vier ou a guia perder a validade.`
+              }
+            />
+          )}
           <Form.Item name="status" label="Situação da guia" rules={[{ required: true, message: OBRIGATORIO }]}>
             <Radio.Group
               optionType="button"
-              options={[
-                { value: 'AUTORIZADA', label: 'Autorizada' },
-                { value: 'NEGADA', label: 'Negada' },
-                { value: 'PENDENTE', label: 'Pendente' }
-              ]}
+              options={opcoes}
             />
           </Form.Item>
-          <Form.Item name="numero" label="Número da guia" rules={[{ required: status === 'AUTORIZADA', whitespace: true, message: OBRIGATORIO }]}>
-            <Input maxLength={30} />
-          </Form.Item>
+          {status !== 'CANCELADA' && (
+            <Form.Item name="numero" label="Número da guia" rules={[{ required: status === 'AUTORIZADA', whitespace: true, message: OBRIGATORIO }]}>
+              <Input maxLength={30} />
+            </Form.Item>
+          )}
           <Form.Item
             name="observacao"
-            label={status === 'NEGADA' ? 'Motivo da negativa' : 'Observação'}
-            rules={[{ required: status === 'NEGADA', whitespace: true, message: OBRIGATORIO }]}
+            label={status === 'NEGADA' ? 'Motivo da negativa' : status === 'CANCELADA' ? 'Motivo do cancelamento' : 'Observação'}
+            rules={[{ required: status === 'NEGADA' || status === 'CANCELADA', whitespace: true, message: OBRIGATORIO }]}
           >
             <Input.TextArea rows={3} maxLength={500} showCount />
           </Form.Item>
@@ -139,12 +167,24 @@ export default function GuiasConvenioAba() {
   const { message } = App.useApp();
   const { pode } = useAuth();
   const podeEditar = pode('faturamento.financeiro', 'editar');
+  const podeCancelar = pode('faturamento.financeiro', 'cancelar');
+  const podeVerPaciente = pode('paciente.cadastro', 'visualizar');
+  const [pacienteAberto, setPacienteAberto] = useState<Paciente | null>(null);
+
+  // Abre o cadastro do paciente numa janela sobre o faturamento, sem sair desta tela (a consulta fica registrada no log).
+  async function abrirPaciente(id: string) {
+    try {
+      setPacienteAberto(await api.get<Paciente>(`/pacientes/${id}`));
+    } catch (e) {
+      message.error(e instanceof ApiErro ? e.message : 'Não foi possível abrir o cadastro do paciente.');
+    }
+  }
 
   const [dados, setDados] = useState<Pagina<Guia>>({ itens: [], pagina: 1, tamanho: TAMANHO, total: 0 });
   const [carregando, setCarregando] = useState(false);
   const [pagina, setPagina] = useState(1);
   const [convenios, setConvenios] = useState<ItemApoio[]>([]);
-  const [status, setStatus] = useState<StatusGuia | undefined>('PENDENTE');
+  const [status, setStatus] = useState<StatusGuia | undefined>(undefined);
   const [convenioId, setConvenioId] = useState<number | undefined>();
   const [de, setDe] = useState('');
   const [ate, setAte] = useState('');
@@ -188,7 +228,17 @@ export default function GuiasConvenioAba() {
 
   const colunas: TableColumnsType<Guia> = [
     { title: 'Data e hora', width: 150, render: (_, g) => formatarDataHora(g.inicio) },
-    { title: 'Paciente', dataIndex: 'paciente' },
+    {
+      title: 'Paciente',
+      render: (_, g) =>
+        podeVerPaciente ? (
+          <Button type="link" style={{ padding: 0, height: 'auto', whiteSpace: 'normal', textAlign: 'left' }} title="Abrir o cadastro do paciente" onClick={() => void abrirPaciente(g.pacienteId)}>
+            {g.paciente}
+          </Button>
+        ) : (
+          g.paciente
+        )
+    },
     { title: 'Convênio', render: (_, g) => g.convenio.nome },
     { title: 'Carteirinha', dataIndex: 'numeroCarteirinha', width: 130, render: (v?: string | null) => v ?? '—' },
     { title: 'Especialidade', render: (_, g) => g.especialidade.nome },
@@ -213,7 +263,17 @@ export default function GuiasConvenioAba() {
     {
       title: 'Ações',
       width: 80,
-      render: (_, g) => podeEditar && <Button size="small" icon={<EditOutlined />} title="Registrar guia" onClick={() => setEmEdicao(g)} />
+      render: (_, g) =>
+        g.guiaStatus !== 'CANCELADA' &&
+        (g.guiaStatus === 'AUTORIZADA' ? podeCancelar : podeEditar || podeCancelar) && (
+          <Button
+            size="small"
+            danger={g.guiaStatus === 'AUTORIZADA'}
+            icon={g.guiaStatus === 'AUTORIZADA' ? <StopOutlined /> : <EditOutlined />}
+            title={g.guiaStatus === 'AUTORIZADA' ? 'Cancelar guia' : 'Registrar guia'}
+            onClick={() => setEmEdicao(g)}
+          />
+        )
     }
   ];
 
@@ -222,14 +282,15 @@ export default function GuiasConvenioAba() {
       <Space style={{ marginBottom: 16 }} wrap>
         <Select<StatusGuia>
           allowClear
-          placeholder="Guia"
+          placeholder="Situação da guia"
           style={{ width: 160 }}
           value={status}
           onChange={filtrar(setStatus)}
           options={[
             { value: 'PENDENTE', label: 'Pendentes' },
             { value: 'AUTORIZADA', label: 'Autorizadas' },
-            { value: 'NEGADA', label: 'Negadas' }
+            { value: 'NEGADA', label: 'Negadas' },
+            { value: 'CANCELADA', label: 'Canceladas' }
           ]}
         />
         <Select
@@ -280,8 +341,20 @@ export default function GuiasConvenioAba() {
         }}
       />
 
+      <FormularioPaciente
+        aberto={!!pacienteAberto}
+        paciente={pacienteAberto}
+        aoFechar={() => setPacienteAberto(null)}
+        aoSalvar={() => {
+          setPacienteAberto(null);
+          void carregar();
+        }}
+      />
+
       <GuiaModal
         guia={emEdicao}
+        podeEditar={podeEditar}
+        podeCancelar={podeCancelar}
         aoFechar={() => setEmEdicao(null)}
         aoSalvar={() => {
           setEmEdicao(null);

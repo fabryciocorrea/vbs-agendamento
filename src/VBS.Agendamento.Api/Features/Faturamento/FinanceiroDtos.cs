@@ -60,6 +60,7 @@ public sealed class ParticularItemDto
     public Guid ConsultaId { get; set; }
     public DateTime Inicio { get; set; }
     public string StatusConsulta { get; set; } = string.Empty;
+    public Guid PacienteId { get; set; }
     public string Paciente { get; set; } = string.Empty;
     public string Profissional { get; set; } = string.Empty;
     public string Especialidade { get; set; } = string.Empty;

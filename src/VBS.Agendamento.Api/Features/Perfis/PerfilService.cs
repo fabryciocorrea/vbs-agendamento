@@ -272,15 +272,15 @@ SELECT CAST(SCOPE_IDENTITY() AS INT);", new { Nome = nome, Descricao = descricao
     private static async Task GravarPermissoesAsync(SqlConnection con, SqlTransaction tx, int perfilId, PermissoesEntrada p, CancellationToken ct)
     {
         // Só grava linha quando há alguma liberação: tela ou campo sem linha significa "não liberado".
-        foreach (var t in p.Telas!.Where(t => t.PodeVisualizar || t.PodeIncluir || t.PodeEditar || t.PodeExcluir || t.PodeExportar))
+        foreach (var t in p.Telas!.Where(t => t.PodeVisualizar || t.PodeIncluir || t.PodeEditar || t.PodeCancelar || t.PodeExcluir || t.PodeExportar))
         {
             await con.ExecuteAsync(Sql.Cmd(@"
-INSERT INTO DBO.PERFIL_TELA_PERMISSAO (CODIGO_PERFIL, CODIGO_TELA, PODE_VISUALIZAR, PODE_INCLUIR, PODE_EDITAR, PODE_EXCLUIR, PODE_EXPORTAR)
-VALUES (@Perfil, @Tela, @Visualizar, @Incluir, @Editar, @Excluir, @Exportar);",
+INSERT INTO DBO.PERFIL_TELA_PERMISSAO (CODIGO_PERFIL, CODIGO_TELA, PODE_VISUALIZAR, PODE_INCLUIR, PODE_EDITAR, PODE_CANCELAR, PODE_EXCLUIR, PODE_EXPORTAR)
+VALUES (@Perfil, @Tela, @Visualizar, @Incluir, @Editar, @Cancelar, @Excluir, @Exportar);",
                 new
                 {
                     Perfil = perfilId, Tela = t.TelaId, Visualizar = t.PodeVisualizar, Incluir = t.PodeIncluir,
-                    Editar = t.PodeEditar, Excluir = t.PodeExcluir, Exportar = t.PodeExportar
+                    Editar = t.PodeEditar, Cancelar = t.PodeCancelar, Excluir = t.PodeExcluir, Exportar = t.PodeExportar
                 }, tx, ct));
         }
 
@@ -319,7 +319,7 @@ VALUES (@Perfil, @Campo, @Visualizar, @Editar);",
             // O Administrador tem acesso total, inclusive às telas criadas depois (RN21).
             telas = await con.QueryAsync<PermissaoTelaDto>(Sql.Cmd(@"
 SELECT ID_TELA_SISTEMA AS TelaId, CODIGO AS TelaCodigo, CAST(1 AS BIT) AS PodeVisualizar, CAST(1 AS BIT) AS PodeIncluir,
-       CAST(1 AS BIT) AS PodeEditar, CAST(1 AS BIT) AS PodeExcluir, CAST(1 AS BIT) AS PodeExportar
+       CAST(1 AS BIT) AS PodeEditar, CAST(1 AS BIT) AS PodeCancelar, CAST(1 AS BIT) AS PodeExcluir, CAST(1 AS BIT) AS PodeExportar
 FROM DBO.TELA_SISTEMA ORDER BY ID_TELA_SISTEMA;", null, tx, ct));
             campos = await con.QueryAsync<PermissaoCampoDto>(Sql.Cmd(@"
 SELECT ID_CAMPO_SISTEMA AS CampoId, CODIGO AS CampoCodigo, CAST(1 AS BIT) AS PodeVisualizar, CAST(1 AS BIT) AS PodeEditar
@@ -329,7 +329,7 @@ FROM DBO.CAMPO_SISTEMA ORDER BY ID_CAMPO_SISTEMA;", null, tx, ct));
         {
             telas = await con.QueryAsync<PermissaoTelaDto>(Sql.Cmd(@"
 SELECT PT.CODIGO_TELA AS TelaId, T.CODIGO AS TelaCodigo, PT.PODE_VISUALIZAR AS PodeVisualizar, PT.PODE_INCLUIR AS PodeIncluir,
-       PT.PODE_EDITAR AS PodeEditar, PT.PODE_EXCLUIR AS PodeExcluir, PT.PODE_EXPORTAR AS PodeExportar
+       PT.PODE_EDITAR AS PodeEditar, PT.PODE_CANCELAR AS PodeCancelar, PT.PODE_EXCLUIR AS PodeExcluir, PT.PODE_EXPORTAR AS PodeExportar
 FROM DBO.PERFIL_TELA_PERMISSAO PT
 JOIN DBO.TELA_SISTEMA T ON T.ID_TELA_SISTEMA = PT.CODIGO_TELA
 WHERE PT.CODIGO_PERFIL = @Id ORDER BY PT.CODIGO_TELA;", new { Id = id }, tx, ct));

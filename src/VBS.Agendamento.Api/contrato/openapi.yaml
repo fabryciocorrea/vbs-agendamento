@@ -335,6 +335,25 @@ paths:
           $ref: '#/components/responses/NaoEncontrado'
         '409':
           $ref: '#/components/responses/Conflito'
+    delete:
+      tags:
+      - Usuários
+      operationId: excluirUsuario
+      summary: Excluir usuário
+      x-permissao: usuario.cadastro:excluir
+      description: |
+        Exclusão definitiva, **somente para o administrador**, de o usuário sem histórico (sem consultas, prontuário, lista de espera ou outros vínculos). Vínculos de cadastro (por exemplo, especialidades de um profissional) saem junto. Com histórico responde `409 REGISTRO_COM_VINCULOS`: use inativar. A exclusão fica no log de auditoria (ação EXCLUIR).
+      responses:
+        '204':
+          description: Excluído.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
   /usuarios/{usuarioId}/status:
     parameters:
     - $ref: '#/components/parameters/UsuarioId'
@@ -696,11 +715,12 @@ paths:
                   - finalidade: CONTATO_SMS_WHATSAPP
                     concedido: true
                     origem: PRESENCIAL
-              menorSemCpf:
-                summary: Menor sem CPF, com responsável legal
+              menorComResponsavel:
+                summary: Menor de idade, com CPF e responsável legal
                 value:
                   nome: Pedro Souza Lima (fictício)
                   estrangeiro: false
+                  cpf: '52998224725'
                   dataNascimento: '2018-09-03'
                   telefone: '11987654321'
                   email: maria.lima@exemplo.com.br
@@ -815,6 +835,25 @@ paths:
                 $ref: '#/components/schemas/Paciente'
         '400':
           $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+    delete:
+      tags:
+      - Pacientes
+      operationId: excluirPaciente
+      summary: Excluir paciente
+      x-permissao: paciente.cadastro:excluir
+      description: |
+        Exclusão definitiva, **somente para o administrador**, de o paciente sem histórico (sem consultas, prontuário, lista de espera ou outros vínculos). Vínculos de cadastro (por exemplo, especialidades de um profissional) saem junto. Com histórico responde `409 REGISTRO_COM_VINCULOS`: use inativar. A exclusão fica no log de auditoria (ação EXCLUIR).
+      responses:
+        '204':
+          description: Excluído.
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '403':
@@ -1221,6 +1260,25 @@ paths:
           $ref: '#/components/responses/NaoEncontrado'
         '409':
           $ref: '#/components/responses/Conflito'
+    delete:
+      tags:
+      - Unidades
+      operationId: excluirUnidade
+      summary: Excluir unidade
+      x-permissao: unidade.cadastro:excluir
+      description: |
+        Exclusão definitiva, **somente para o administrador**, de a unidade sem histórico (sem consultas, prontuário, lista de espera ou outros vínculos). Vínculos de cadastro (por exemplo, especialidades de um profissional) saem junto. Com histórico responde `409 REGISTRO_COM_VINCULOS`: use inativar. A exclusão fica no log de auditoria (ação EXCLUIR).
+      responses:
+        '204':
+          description: Excluído.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
   /unidades/{unidadeId}/status:
     parameters:
     - $ref: '#/components/parameters/unidadeId'
@@ -1381,6 +1439,25 @@ paths:
           $ref: '#/components/responses/NaoEncontrado'
         '409':
           $ref: '#/components/responses/Conflito'
+    delete:
+      tags:
+      - Salas
+      operationId: excluirSala
+      summary: Excluir sala
+      x-permissao: sala.cadastro:excluir
+      description: |
+        Exclusão definitiva, **somente para o administrador**, de a sala sem histórico (sem consultas, prontuário, lista de espera ou outros vínculos). Vínculos de cadastro (por exemplo, especialidades de um profissional) saem junto. Com histórico responde `409 REGISTRO_COM_VINCULOS`: use inativar. A exclusão fica no log de auditoria (ação EXCLUIR).
+      responses:
+        '204':
+          description: Excluído.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
   /salas/{salaId}/status:
     parameters:
     - $ref: '#/components/parameters/salaId'
@@ -1529,6 +1606,25 @@ paths:
                 $ref: '#/components/schemas/Convenio'
         '400':
           $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+    delete:
+      tags:
+      - Convênios
+      operationId: excluirConvenio
+      summary: Excluir convênio
+      x-permissao: convenio.cadastro:excluir
+      description: |
+        Exclusão definitiva, **somente para o administrador**, de o convênio sem histórico (sem consultas, prontuário, lista de espera ou outros vínculos). Vínculos de cadastro (por exemplo, especialidades de um profissional) saem junto. Com histórico responde `409 REGISTRO_COM_VINCULOS`: use inativar. A exclusão fica no log de auditoria (ação EXCLUIR).
+      responses:
+        '204':
+          description: Excluído.
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '403':
@@ -1703,6 +1799,25 @@ paths:
           $ref: '#/components/responses/NaoEncontrado'
         '409':
           $ref: '#/components/responses/Conflito'
+    delete:
+      tags:
+      - Formas de pagamento
+      operationId: excluirFormaPagamento
+      summary: Excluir forma de pagamento
+      x-permissao: formapagamento.cadastro:excluir
+      description: |
+        Exclusão definitiva, **somente para o administrador**, de a forma de pagamento sem histórico (sem consultas, prontuário, lista de espera ou outros vínculos). Vínculos de cadastro (por exemplo, especialidades de um profissional) saem junto. Com histórico responde `409 REGISTRO_COM_VINCULOS`: use inativar. A exclusão fica no log de auditoria (ação EXCLUIR).
+      responses:
+        '204':
+          description: Excluído.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
   /formas-pagamento/{formaPagamentoId}/status:
     parameters:
     - $ref: '#/components/parameters/formaPagamentoId'
@@ -1866,6 +1981,25 @@ paths:
           $ref: '#/components/responses/NaoEncontrado'
         '409':
           $ref: '#/components/responses/Conflito'
+    delete:
+      tags:
+      - Colaboradores e prestadores
+      operationId: excluirColaborador
+      summary: Excluir colaborador
+      x-permissao: colaborador.cadastro:excluir
+      description: |
+        Exclusão definitiva, **somente para o administrador**, de o colaborador sem histórico (sem consultas, prontuário, lista de espera ou outros vínculos). Vínculos de cadastro (por exemplo, especialidades de um profissional) saem junto. Com histórico responde `409 REGISTRO_COM_VINCULOS`: use inativar. A exclusão fica no log de auditoria (ação EXCLUIR).
+      responses:
+        '204':
+          description: Excluído.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
   /colaboradores/{colaboradorId}/status:
     parameters:
     - $ref: '#/components/parameters/colaboradorId'
@@ -2014,6 +2148,25 @@ paths:
                 $ref: '#/components/schemas/Especialidade'
         '400':
           $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+    delete:
+      tags:
+      - Especialidades
+      operationId: excluirEspecialidade
+      summary: Excluir especialidade
+      x-permissao: especialidade.cadastro:excluir
+      description: |
+        Exclusão definitiva, **somente para o administrador**, de a especialidade sem histórico (sem consultas, prontuário, lista de espera ou outros vínculos). Vínculos de cadastro (por exemplo, especialidades de um profissional) saem junto. Com histórico responde `409 REGISTRO_COM_VINCULOS`: use inativar. A exclusão fica no log de auditoria (ação EXCLUIR).
+      responses:
+        '204':
+          description: Excluído.
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '403':
@@ -2184,6 +2337,25 @@ paths:
                 $ref: '#/components/schemas/Profissional'
         '400':
           $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+    delete:
+      tags:
+      - Profissionais
+      operationId: excluirProfissional
+      summary: Excluir profissional
+      x-permissao: profissional.cadastro:excluir
+      description: |
+        Exclusão definitiva, **somente para o administrador**, de o profissional sem histórico (sem consultas, prontuário, lista de espera ou outros vínculos). Vínculos de cadastro (por exemplo, especialidades de um profissional) saem junto. Com histórico responde `409 REGISTRO_COM_VINCULOS`: use inativar. A exclusão fica no log de auditoria (ação EXCLUIR).
+      responses:
+        '204':
+          description: Excluído.
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '403':
@@ -2574,13 +2746,70 @@ paths:
       summary: Alterar credenciamento
       x-permissao: convenio.credenciamento:editar
       description: |
-        Altera situação, vigência, protocolo e observação. Vale para **novos agendamentos** e remarcações. As consultas já marcadas **não são canceladas nem alteradas** (J4): se o credenciamento deixa de valer (situação diferente de APROVADO ou fim de vigência), o servidor avisa a recepção por notificação interna e as consultas futuras afetadas aparecem em `GET /consultas/sem-credenciamento`.
+        Altera situação, vigência, protocolo e observação e, com a mesma permissão, também o convênio, a unidade e a especialidade (o administrador sempre pode). A nova combinação é conferida (unidade e especialidade ativas, especialidade do convênio, sem duplicidade) e as datas são validadas (fim não anterior ao início; faixa de 2000 até 30 anos à frente). Vale para **novos agendamentos** e remarcações. As consultas já marcadas **não são canceladas nem alteradas** (J4): se o credenciamento deixa de valer (situação diferente de APROVADO ou fim de vigência), o servidor avisa a recepção por notificação interna e as consultas futuras afetadas aparecem em `GET /consultas/sem-credenciamento`.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CredenciamentoAtualizacao'
+      responses:
+        '200':
+          description: Credenciamento atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Credenciamento'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      tags:
+      - Credenciamento
+      operationId: excluirCredenciamento
+      summary: Excluir credenciamento
+      x-permissao: convenio.credenciamento:excluir
+      description: |
+        Exclusão definitiva, **somente para o administrador**, de o credenciamento sem histórico (sem consultas, prontuário, lista de espera ou outros vínculos). Vínculos de cadastro (por exemplo, especialidades de um profissional) saem junto. Com histórico responde `409 REGISTRO_COM_VINCULOS`: use inativar. A exclusão fica no log de auditoria (ação EXCLUIR).
+      responses:
+        '204':
+          description: Excluído.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+  /convenios/{convenioId}/credenciamentos/{credenciamentoId}/status:
+    parameters:
+    - $ref: '#/components/parameters/ConvenioId'
+    - $ref: '#/components/parameters/CredenciamentoId'
+    patch:
+      tags:
+      - Credenciamento
+      operationId: alterarStatusCredenciamento
+      summary: Inativar ou ativar credenciamento
+      x-permissao: convenio.credenciamento:editar
+      description: |
+        Credenciamento inativo não vale para novos agendamentos (como se não existisse). Consultas já marcadas não são canceladas nem alteradas; a recepção é avisada por notificação interna.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - ativo
+              properties:
+                ativo:
+                  type: boolean
       responses:
         '200':
           description: Credenciamento atualizado.
@@ -3117,6 +3346,10 @@ paths:
                           format: date-time
                         statusConsulta:
                           type: string
+                        pacienteId:
+                          type: string
+                          format: uuid
+                          description: Identificador do paciente, para abrir o cadastro direto da tela do faturamento.
                         paciente:
                           type: string
                         profissional:
@@ -3199,7 +3432,7 @@ paths:
       summary: Listar as guias de convênio para o faturamento
       x-permissao: faturamento.financeiro:visualizar
       description: |
-        Consultas por convênio (sem as canceladas e remarcadas) com a situação da guia: PENDENTE (padrão, enquanto o faturamento não confirmar), AUTORIZADA ou NEGADA. Filtros: situação da guia, convênio, período (datas de Brasília) e busca por paciente, carteirinha ou número da guia.
+        Consultas por convênio (sem as remarcadas; as canceladas aparecem com a guia CANCELADA) com a situação da guia: PENDENTE (padrão, enquanto o faturamento não confirmar), AUTORIZADA, NEGADA ou CANCELADA (guia de consulta cancelada é cancelada automaticamente). Filtros: situação da guia, convênio, período (datas de Brasília) e busca por paciente, carteirinha ou número da guia.
       parameters:
       - name: status
         in: query
@@ -3209,6 +3442,7 @@ paths:
           - PENDENTE
           - AUTORIZADA
           - NEGADA
+          - CANCELADA
       - name: convenioId
         in: query
         schema:
@@ -3483,7 +3717,7 @@ paths:
       summary: Incluir paciente na lista de espera
       x-permissao: listaespera.cadastro:incluir
       description: |
-        Fila por profissional ou especialidade (RN08). Sem nenhum dos dois, 400. Paciente inativo não entra.
+        Fila por profissional ou especialidade (RN08). Sem nenhum dos dois, 400. Paciente inativo não entra. O mesmo paciente não entra duas vezes na mesma fila em aberto (409 LISTA_ESPERA_DUPLICADA). Para o médico, só pacientes dele (RN16).
       requestBody:
         required: true
         content:
@@ -3515,7 +3749,7 @@ paths:
       summary: Encerrar item da lista de espera
       x-permissao: listaespera.cadastro:editar
       description: |
-        A recepção marca o item como ATENDIDO (o paciente foi encaixado) ou CANCELADO. NOTIFICADO é definido pelo servidor quando um horário é liberado (G9). Item já encerrado retorna 409.
+        A recepção marca o item como ATENDIDO (o paciente foi encaixado) ou CANCELADO. NOTIFICADO é definido pelo servidor quando um horário é liberado (G9). Um item NOTIFICADO pode voltar para AGUARDANDO (volta à fila e passa a receber novos avisos). Item já encerrado retorna 409 (LISTA_ESPERA_ENCERRADA).
       responses:
         '200':
           description: Atualizado.
@@ -4141,6 +4375,19 @@ paths:
       parameters:
       - name: data
         in: query
+        description: Um só dia. Vale quando dataInicial não é informada.
+        schema:
+          type: string
+          format: date
+      - name: dataInicial
+        in: query
+        description: Início do período (horário de Brasília).
+        schema:
+          type: string
+          format: date
+      - name: dataFinal
+        in: query
+        description: Fim do período, inclusive. No máximo 366 dias depois de dataInicial. Vazia, só o dia inicial.
         schema:
           type: string
           format: date
@@ -4152,6 +4399,14 @@ paths:
         in: query
         schema:
           type: integer
+      - name: tipo
+        in: query
+        description: Filtra por tipo de atendimento. Vazio, todos.
+        schema:
+          type: string
+          enum:
+          - PARTICULAR
+          - CONVENIO
       responses:
         '200':
           description: Contagens do dia.
@@ -5358,6 +5613,9 @@ components:
           type: boolean
         podeEditar:
           type: boolean
+        podeCancelar:
+          type: boolean
+          description: Cancelar a consulta (consulta.status), a guia do convênio (faturamento.financeiro) ou o item da lista de espera (listaespera.cadastro). Separa cancelar de editar.
         podeExcluir:
           type: boolean
         podeExportar:
@@ -5596,7 +5854,7 @@ components:
           allOf:
           - $ref: '#/components/schemas/Cpf'
           nullable: true
-          description: Obrigatório, exceto para paciente estrangeiro ou menor sem CPF (RN25).
+          description: Obrigatório para todo paciente brasileiro, inclusive o menor de idade. Opcional só para estrangeiro com documento (RN25).
         tipoDocumentoEstrangeiro:
           type: string
           nullable: true
@@ -7029,10 +7287,16 @@ components:
           description: 'Valor próprio deste credenciamento (opcional). Vazio ou 0 = vale o valor da especialidade no cadastro do convênio.'
     CredenciamentoAtualizacao:
       type: object
-      description: 'A unidade e a especialidade não mudam: para outra combinação, inclua um novo credenciamento.'
+      description: 'Convênio, unidade e especialidade são opcionais: quando informados e diferentes dos atuais, trocam a combinação do credenciamento.'
       required:
       - situacao
       properties:
+        convenioId:
+          type: integer
+        unidadeId:
+          type: integer
+        especialidadeId:
+          type: integer
         situacao:
           type: string
           enum:
@@ -7123,6 +7387,9 @@ components:
       - situacao
       - vigenteHoje
       properties:
+        ativo:
+          type: boolean
+          description: Credenciamento inativo não vale para agendar.
         id:
           type: integer
         convenio:
@@ -7419,6 +7686,9 @@ components:
           format: date-time
         encaixe:
           type: boolean
+        remarcada:
+          type: boolean
+          description: Verdadeiro quando a consulta nasceu de uma remarcação (a original ficou REMARCADA no horário antigo).
         valor:
           type: number
           format: double
@@ -7639,6 +7909,7 @@ components:
           - PENDENTE
           - AUTORIZADA
           - NEGADA
+          - CANCELADA
         numero:
           type: string
           nullable: true
@@ -7662,6 +7933,7 @@ components:
           - PENDENTE
           - AUTORIZADA
           - NEGADA
+          - CANCELADA
         numero:
           type: string
           maxLength: 30
@@ -7671,7 +7943,7 @@ components:
           type: string
           maxLength: 500
           nullable: true
-          description: Obrigatória quando NEGADA (motivo da negativa).
+          description: Obrigatória quando NEGADA (motivo da negativa) ou CANCELADA (motivo do cancelamento). Guia AUTORIZADA só aceita CANCELADA (409 `GUIA_AUTORIZADA_SO_CANCELA`); guia CANCELADA não muda mais (409 `GUIA_CANCELADA`).
     GuiaItem:
       type: object
       required:
@@ -7690,6 +7962,10 @@ components:
           format: date-time
         statusConsulta:
           type: string
+        pacienteId:
+          type: string
+          format: uuid
+          description: Identificador do paciente, para abrir o cadastro direto da tela do faturamento.
         paciente:
           type: string
         convenio:
@@ -7710,6 +7986,7 @@ components:
           - PENDENTE
           - AUTORIZADA
           - NEGADA
+          - CANCELADA
         guiaNumero:
           type: string
           nullable: true
@@ -8681,6 +8958,12 @@ components:
         data:
           type: string
           format: date
+        dataInicial:
+          type: string
+          format: date
+        dataFinal:
+          type: string
+          format: date
         unidade:
           allOf:
           - $ref: '#/components/schemas/Referencia'
@@ -8719,6 +9002,80 @@ components:
               type: integer
               description: Encaixes do dia, já contados nos demais status.
             total:
+              type: integer
+        distribuicao:
+          type: array
+          description: Atendimentos do dia (sem canceladas, remarcadas e faltas) por convênio e particular, do maior para o menor.
+          items:
+            type: object
+            properties:
+              tipo:
+                type: string
+                enum:
+                - PARTICULAR
+                - CONVENIO
+              nome:
+                type: string
+              quantidade:
+                type: integer
+        pendencias:
+          type: object
+          description: Pontos de atenção do dia. As guias só vêm para quem tem acesso ao faturamento.
+          properties:
+            emAtraso:
+              type: integer
+              description: Agendadas ou confirmadas cujo horário já passou sem check-in.
+            pagamentoParticularPendente:
+              type: integer
+            guiasPendentes:
+              type: integer
+              nullable: true
+              description: Consultas de convênio, do dia em diante, com a guia pendente.
+            guiasParaCancelar:
+              type: integer
+              nullable: true
+              description: Consultas canceladas cuja guia continua autorizada (o faturamento precisa cancelá-la).
+        proximas:
+          type: array
+          description: Até 12 consultas do dia ainda em andamento, por horário.
+          items:
+            type: object
+            properties:
+              consultaId:
+                type: string
+                format: uuid
+              inicio:
+                type: string
+                format: date-time
+              status:
+                type: string
+              paciente:
+                type: string
+              profissional:
+                type: string
+              especialidade:
+                type: string
+              unidade:
+                type: string
+              tipoAtendimento:
+                type: string
+              convenio:
+                type: string
+                nullable: true
+              encaixe:
+                type: boolean
+              alertas:
+                type: array
+                items:
+                  type: string
+        listaEspera:
+          type: object
+          nullable: true
+          description: Nulo para quem não tem acesso à lista de espera.
+          properties:
+            aguardando:
+              type: integer
+            horarioLiberado:
               type: integer
     ValorQuantidade:
       type: object

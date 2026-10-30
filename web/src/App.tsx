@@ -17,6 +17,7 @@ import ParametrosAgendaPagina from "./paginas/agenda/ParametrosAgendaPagina";
 import AgendaProfissionalPagina from "./paginas/agenda/AgendaProfissionalPagina";
 import CredenciamentosPagina from "./paginas/credenciamentos/CredenciamentosPagina";
 import FaturamentoFinanceiroPagina from "./paginas/faturamento/FaturamentoFinanceiroPagina";
+import ListaEsperaPagina from "./paginas/listaespera/ListaEsperaPagina";
 
 export default function App() {
   return (
@@ -131,6 +132,14 @@ export default function App() {
           element={
             <RotaProtegida tela="agenda.profissional">
               <AgendaProfissionalPagina />
+            </RotaProtegida>
+          }
+        />
+        <Route
+          path="lista-espera"
+          element={
+            <RotaProtegida tela="listaespera.cadastro">
+              <ListaEsperaPagina />
             </RotaProtegida>
           }
         />

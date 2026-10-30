@@ -58,6 +58,8 @@ export interface ConsultaResumo {
   convenio?: Referencia | null;
   valor?: number | null;
   encaixe: boolean;
+  /** Consulta criada por remarcação (a original ficou REMARCADA no horário antigo). */
+  remarcada?: boolean;
 }
 
 export interface Aviso {
@@ -74,7 +76,7 @@ export interface Consulta extends ConsultaResumo {
   pagamentoConfirmadoEm?: string | null;
   pagamentoConfirmadoPor?: { id: number; nomeCompleto: string } | null;
   guia?: {
-    status: 'PENDENTE' | 'AUTORIZADA' | 'NEGADA';
+    status: 'PENDENTE' | 'AUTORIZADA' | 'NEGADA' | 'CANCELADA';
     numero?: string | null;
     observacao?: string | null;
     atualizadoEm?: string | null;

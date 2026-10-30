@@ -5,6 +5,7 @@ import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons'
 import { api, ApiErro } from '../../api/cliente';
 import type { ItemApoio, Pagina, Sala, SalaEntrada } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
+import BotaoExcluir from '../../componentes/BotaoExcluir';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -191,7 +192,7 @@ export default function SalasPagina() {
     },
     {
       title: 'Ações',
-      width: 130,
+      width: 170,
       render: (_, s) => (
         <Space>
           {podeEditar && (
@@ -214,6 +215,7 @@ export default function SalasPagina() {
               onClick={() => alterarStatus(s)}
             />
           )}
+          <BotaoExcluir artigoTipo="a sala" nome={`Sala ${s.numero} (${s.unidade.nome})`} caminho={`/salas/${s.id}`} aoExcluir={carregar} />
         </Space>
       )
     }

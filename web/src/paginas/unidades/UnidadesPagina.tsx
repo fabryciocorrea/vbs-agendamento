@@ -5,6 +5,7 @@ import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons'
 import { api, ApiErro } from '../../api/cliente';
 import type { Pagina, Unidade, UnidadeEntrada } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
+import BotaoExcluir from '../../componentes/BotaoExcluir';
 import CampoNumeroEndereco from '../../componentes/CampoNumeroEndereco';
 import { cnpjValido, formatarCep, formatarCnpj, somenteDigitos, UFS } from '../../util/formatos';
 
@@ -248,7 +249,7 @@ export default function UnidadesPagina() {
     },
     {
       title: 'Ações',
-      width: 130,
+      width: 170,
       render: (_, u) => (
         <Space>
           {podeEditar && (
@@ -271,6 +272,7 @@ export default function UnidadesPagina() {
               onClick={() => alterarStatus(u)}
             />
           )}
+          <BotaoExcluir artigoTipo="a unidade" nome={u.nomeFantasia} caminho={`/unidades/${u.id}`} aviso="As salas, os credenciamentos e os vínculos de profissionais com a unidade saem junto." aoExcluir={carregar} />
         </Space>
       )
     }

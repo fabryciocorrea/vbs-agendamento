@@ -31,6 +31,9 @@ interface Props {
   aberto: boolean;
   profissionalId?: number;
   unidadeId?: number;
+  especialidadeId?: number;
+  /** Paciente já escolhido (por exemplo, vindo da lista de espera). */
+  pacienteInicial?: { id: string; nome: string };
   dia?: string;
   aoFechar: () => void;
   aoSalvar: () => void;
@@ -43,7 +46,7 @@ const MENSAGENS_ERRO: Record<string, string> = {
   AGENDA_EM_USO: 'A agenda do profissional está em uso por outra operação. Tente novamente.'
 };
 
-export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, dia, aoFechar, aoSalvar }: Props) {
+export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, especialidadeId, pacienteInicial, dia, aoFechar, aoSalvar }: Props) {
   const { message, modal } = App.useApp();
   const { sessao } = useAuth();
   const administrador = !!sessao?.administrador;
@@ -80,7 +83,7 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, d
   const [semValorConvenio, setSemValorConvenio] = useState(false);
   // O administrador pode escolher qualquer convênio; os demais perfis usam o convênio do cadastro do paciente.
   const convenioForm = Form.useWatch('convenioId', form);
-  const convenioDoPaciente = convenioForm ?? paciente?.convenio?.id;
+  const convenioDoPaciente = convenioForm;
   useEffect(() => {
     setValorConvenio(null);
     setSemValorConvenio(false);
@@ -114,15 +117,17 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, d
       .then((l) => setFormas(l.filter((f) => f.complemento !== 'CONVENIO')))
       .catch(() => message.error('Não foi possível carregar as formas de pagamento.'));
     api.get<ItemApoio[]>('/apoio/convenios').then(setConvenios).catch(() => message.error('Não foi possível carregar os convênios.'));
-    buscarPacientes('');
+    if (pacienteInicial) setPacientes([{ id: pacienteInicial.id, nome: pacienteInicial.nome } as PacienteResumo]);
+    buscarPacientes(pacienteInicial?.nome ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aberto]);
 
-  // Ao trocar o paciente, o administrador começa pelo convênio do cadastro (e pode trocar).
+  // Convênio: começa pelo do cadastro do paciente (pode trocar). Em atendimento particular o campo fica vazio, assim o valor
+  // do convênio só aparece quando há um convênio escolhido.
   useEffect(() => {
-    form.setFieldValue('convenioId', paciente?.convenio?.id);
+    form.setFieldValue('convenioId', tipo === 'CONVENIO' ? paciente?.convenio?.id : undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [administrador, pacienteId, paciente?.convenio?.id]);
+  }, [tipo, pacienteId, paciente?.convenio?.id]);
 
   // Unidades e especialidades do profissional escolhido.
   useEffect(() => {
@@ -254,7 +259,7 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, d
       inicio = v.slotInicio;
     }
 
-    const convenioEscolhido = v.convenioId ?? paciente?.convenio?.id;
+    const convenioEscolhido = v.convenioId;
     if (v.tipoAtendimento === 'CONVENIO' && !convenioEscolhido) {
       setErroGeral('Escolha o convênio.');
       return;
@@ -343,8 +348,10 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, d
         requiredMark
         preserve={false}
         initialValues={{
+          pacienteId: pacienteInicial?.id,
           profissionalId,
           unidadeId,
+          especialidadeId,
           dia: dia ?? adicionarDias(hoje, 0),
           modalidade: 'PRESENCIAL',
           tipoAtendimento: 'PARTICULAR',

@@ -1,53 +1,30 @@
-import { useCallback, useEffect, useState } from "react";
-import {
-  App,
-  Button,
-  Input,
-  Select,
-  Space,
-  Table,
-  Tag,
-  Typography,
-} from "antd";
-import type { TableColumnsType } from "antd";
-import {
-  ClockCircleOutlined,
-  EditOutlined,
-  PlusOutlined,
-  PoweroffOutlined,
-} from "@ant-design/icons";
-import { api, ApiErro } from "../../api/cliente";
-import type {
-  ItemApoio,
-  Pagina,
-  Profissional,
-  ProfissionalResumo,
-} from "../../api/tipos";
-import { useAuth } from "../../auth/AuthContext";
-import FormularioProfissional from "./FormularioProfissional";
-import ExpedienteModal from "./ExpedienteModal";
+import { useCallback, useEffect, useState } from 'react';
+import { App, Button, Input, Select, Space, Table, Tag, Typography } from 'antd';
+import type { TableColumnsType } from 'antd';
+import { ClockCircleOutlined, EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
+import { api, ApiErro } from '../../api/cliente';
+import type { ItemApoio, Pagina, Profissional, ProfissionalResumo } from '../../api/tipos';
+import { useAuth } from '../../auth/AuthContext';
+import BotaoExcluir from '../../componentes/BotaoExcluir';
+import FormularioProfissional from './FormularioProfissional';
+import ExpedienteModal from './ExpedienteModal';
 
 const TAMANHO = 10;
 
-type FiltroSituacao = "todos" | "ativos" | "inativos";
+type FiltroSituacao = 'todos' | 'ativos' | 'inativos';
 
 export default function ProfissionaisPagina() {
   const { message, modal } = App.useApp();
   const { pode } = useAuth();
-  const podeIncluir = pode("profissional.cadastro", "incluir");
-  const podeEditar = pode("profissional.cadastro", "editar");
+  const podeIncluir = pode('profissional.cadastro', 'incluir');
+  const podeEditar = pode('profissional.cadastro', 'editar');
 
-  const [dados, setDados] = useState<Pagina<ProfissionalResumo>>({
-    itens: [],
-    pagina: 1,
-    tamanho: TAMANHO,
-    total: 0,
-  });
+  const [dados, setDados] = useState<Pagina<ProfissionalResumo>>({ itens: [], pagina: 1, tamanho: TAMANHO, total: 0 });
   const [carregando, setCarregando] = useState(false);
   const [pagina, setPagina] = useState(1);
-  const [busca, setBusca] = useState("");
-  const [buscaAplicada, setBuscaAplicada] = useState("");
-  const [situacao, setSituacao] = useState<FiltroSituacao>("todos");
+  const [busca, setBusca] = useState('');
+  const [buscaAplicada, setBuscaAplicada] = useState('');
+  const [situacao, setSituacao] = useState<FiltroSituacao>('todos');
   const [especialidadeId, setEspecialidadeId] = useState<number | undefined>();
   const [unidadeId, setUnidadeId] = useState<number | undefined>();
   const [especialidades, setEspecialidades] = useState<ItemApoio[]>([]);
@@ -60,8 +37,8 @@ export default function ProfissionaisPagina() {
   // Listas dos filtros (incluem inativos para conseguir filtrar cadastros antigos).
   useEffect(() => {
     Promise.all([
-      api.get<ItemApoio[]>("/apoio/especialidades", { incluirInativos: true }),
-      api.get<ItemApoio[]>("/apoio/unidades", { incluirInativos: true }),
+      api.get<ItemApoio[]>('/apoio/especialidades', { incluirInativos: true }),
+      api.get<ItemApoio[]>('/apoio/unidades', { incluirInativos: true })
     ])
       .then(([e, u]) => {
         setEspecialidades(e);
@@ -74,21 +51,17 @@ export default function ProfissionaisPagina() {
     setCarregando(true);
     try {
       setDados(
-        await api.get<Pagina<ProfissionalResumo>>("/profissionais", {
+        await api.get<Pagina<ProfissionalResumo>>('/profissionais', {
           busca: buscaAplicada,
           especialidadeId,
           unidadeId,
-          ativo: situacao === "todos" ? undefined : situacao === "ativos",
+          ativo: situacao === 'todos' ? undefined : situacao === 'ativos',
           pagina,
-          tamanho: TAMANHO,
-        }),
+          tamanho: TAMANHO
+        })
       );
     } catch (e) {
-      message.error(
-        e instanceof ApiErro
-          ? e.message
-          : "Não foi possível carregar os profissionais.",
-      );
+      message.error(e instanceof ApiErro ? e.message : 'Não foi possível carregar os profissionais.');
     } finally {
       setCarregando(false);
     }
@@ -104,107 +77,78 @@ export default function ProfissionaisPagina() {
       setEmEdicao(await api.get<Profissional>(`/profissionais/${r.id}`));
       setFormAberto(true);
     } catch (e) {
-      message.error(
-        e instanceof ApiErro ? e.message : "Não foi possível abrir o cadastro.",
-      );
+      message.error(e instanceof ApiErro ? e.message : 'Não foi possível abrir o cadastro.');
     }
   }
 
   function alterarStatus(r: ProfissionalResumo) {
     const inativar = r.ativo;
     modal.confirm({
-      title: inativar ? "Inativar profissional" : "Ativar profissional",
-      content: `${inativar ? "Inativar" : "Ativar"} o profissional "${r.nome}"?`,
-      okText: inativar ? "Inativar" : "Ativar",
-      cancelText: "Cancelar",
+      title: inativar ? 'Inativar profissional' : 'Ativar profissional',
+      content: `${inativar ? 'Inativar' : 'Ativar'} o profissional "${r.nome}"?`,
+      okText: inativar ? 'Inativar' : 'Ativar',
+      cancelText: 'Cancelar',
       onOk: async () => {
         try {
-          const p = await api.patch<Profissional>(
-            `/profissionais/${r.id}/status`,
-            { ativo: !r.ativo },
-          );
-          message.success(
-            inativar ? "Profissional inativado." : "Profissional ativado.",
-          );
+          const p = await api.patch<Profissional>(`/profissionais/${r.id}/status`, { ativo: !r.ativo });
+          message.success(inativar ? 'Profissional inativado.' : 'Profissional ativado.');
           if (inativar && p.quantidadePacientes > 0)
             modal.info({
-              title: "Pacientes sem profissional ativo",
-              content: `${p.quantidadePacientes} paciente(s) continuam com este profissional como responsável. A recepção deve trocá-lo.`,
+              title: 'Pacientes sem profissional ativo',
+              content: `${p.quantidadePacientes} paciente(s) continuam com este profissional como responsável. A recepção deve trocá-lo.`
             });
           await carregar();
         } catch (e) {
-          if (e instanceof ApiErro && e.codigo === "PROFISSIONAL_COM_CONSULTAS")
-            message.warning(e.message);
-          else
-            message.error(
-              e instanceof ApiErro ? e.message : "Erro inesperado.",
-            );
+          if (e instanceof ApiErro && e.codigo === 'PROFISSIONAL_COM_CONSULTAS') message.warning(e.message);
+          else message.error(e instanceof ApiErro ? e.message : 'Erro inesperado.');
         }
-      },
+      }
     });
   }
 
   const colunas: TableColumnsType<ProfissionalResumo> = [
-    { title: "Nome", dataIndex: "nome" },
-    { title: "Tipo", dataIndex: "registroProfissional", width: 80 },
-    { title: "Número do Conselho", dataIndex: "numeroConselho", width: 160 },
-    { title: "UF do Conselho", dataIndex: "ufConselho", width: 130 },
+    { title: 'Nome', dataIndex: 'nome' },
+    { title: 'Tipo', dataIndex: 'registroProfissional', width: 80 },
+    { title: 'Número do Conselho', dataIndex: 'numeroConselho', width: 160 },
+    { title: 'UF do Conselho', dataIndex: 'ufConselho', width: 130 },
     {
-      title: "Especialidades",
-      render: (_, r) =>
-        r.especialidades.map((e) => <Tag key={e.id}>{e.nome}</Tag>),
+      title: 'Especialidades',
+      render: (_, r) => r.especialidades.map((e) => <Tag key={e.id}>{e.nome}</Tag>)
     },
     {
-      title: "Unidades",
-      render: (_, r) => r.unidades.map((u) => <Tag key={u.id}>{u.nome}</Tag>),
+      title: 'Unidades',
+      render: (_, r) => r.unidades.map((u) => <Tag key={u.id}>{u.nome}</Tag>)
     },
     {
-      title: "Situação",
-      dataIndex: "ativo",
+      title: 'Situação',
+      dataIndex: 'ativo',
       width: 110,
-      render: (ativo: boolean) =>
-        ativo ? <Tag color="green">Ativo</Tag> : <Tag>Inativo</Tag>,
+      render: (ativo: boolean) => (ativo ? <Tag color="green">Ativo</Tag> : <Tag>Inativo</Tag>)
     },
     {
-      title: "Ações",
-      width: 150,
+      title: 'Ações',
+      width: 190,
       render: (_, r) =>
         podeEditar && (
           <Space>
-            <Button
-              size="small"
-              icon={<EditOutlined />}
-              title="Editar"
-              onClick={() => void abrirEdicao(r)}
-            />
-            <Button
-              size="small"
-              icon={<ClockCircleOutlined />}
-              title="Expediente"
-              onClick={() => setExpediente(r)}
-            />
+            <Button size="small" icon={<EditOutlined />} title="Editar" onClick={() => void abrirEdicao(r)} />
+            <Button size="small" icon={<ClockCircleOutlined />} title="Expediente" onClick={() => setExpediente(r)} />
             <Button
               size="small"
               danger={r.ativo}
               icon={<PoweroffOutlined />}
-              title={r.ativo ? "Inativar" : "Ativar"}
+              title={r.ativo ? 'Inativar' : 'Ativar'}
               onClick={() => alterarStatus(r)}
             />
+            <BotaoExcluir artigoTipo="o profissional" nome={r.nome} caminho={`/profissionais/${r.id}`} aviso="Especialidades, unidades e expediente do profissional saem junto." aoExcluir={carregar} />
           </Space>
-        ),
-    },
+        )
+    }
   ];
 
   return (
     <>
-      <Space
-        style={{
-          width: "100%",
-          justifyContent: "space-between",
-          marginBottom: 16,
-        }}
-        wrap
-      >
+      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
         <Typography.Title level={3} style={{ margin: 0 }}>
           Profissionais
         </Typography.Title>
@@ -230,8 +174,8 @@ export default function ProfissionaisPagina() {
           value={busca}
           onChange={(e) => {
             setBusca(e.target.value);
-            if (e.target.value === "") {
-              setBuscaAplicada("");
+            if (e.target.value === '') {
+              setBuscaAplicada('');
               setPagina(1);
             }
           }}
@@ -274,9 +218,9 @@ export default function ProfissionaisPagina() {
             setPagina(1);
           }}
           options={[
-            { value: "todos", label: "Todos" },
-            { value: "ativos", label: "Somente ativos" },
-            { value: "inativos", label: "Somente inativos" },
+            { value: 'todos', label: 'Todos' },
+            { value: 'ativos', label: 'Somente ativos' },
+            { value: 'inativos', label: 'Somente inativos' }
           ]}
         />
       </Space>
@@ -286,15 +230,15 @@ export default function ProfissionaisPagina() {
         columns={colunas}
         dataSource={dados.itens}
         loading={carregando}
-        scroll={{ x: "max-content" }}
-        locale={{ emptyText: "Nenhum profissional encontrado." }}
+        scroll={{ x: 'max-content' }}
+        locale={{ emptyText: 'Nenhum profissional encontrado.' }}
         pagination={{
           current: pagina,
           pageSize: TAMANHO,
           total: dados.total,
           showSizeChanger: false,
           showTotal: (t) => `${t} profissional(is)`,
-          onChange: setPagina,
+          onChange: setPagina
         }}
       />
 
@@ -307,10 +251,7 @@ export default function ProfissionaisPagina() {
           void carregar();
         }}
       />
-      <ExpedienteModal
-        profissional={expediente}
-        aoFechar={() => setExpediente(null)}
-      />
+      <ExpedienteModal profissional={expediente} aoFechar={() => setExpediente(null)} />
     </>
   );
 }

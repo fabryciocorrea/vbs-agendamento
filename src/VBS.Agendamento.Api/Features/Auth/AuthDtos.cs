@@ -50,6 +50,7 @@ public sealed class PermissaoTelaDto
     public bool PodeVisualizar { get; set; }
     public bool PodeIncluir { get; set; }
     public bool PodeEditar { get; set; }
+    public bool PodeCancelar { get; set; }
     public bool PodeExcluir { get; set; }
     public bool PodeExportar { get; set; }
 }

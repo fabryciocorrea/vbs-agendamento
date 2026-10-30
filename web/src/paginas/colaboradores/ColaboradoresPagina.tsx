@@ -5,6 +5,7 @@ import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons'
 import { api, ApiErro } from '../../api/cliente';
 import type { Pagina } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
+import BotaoExcluir from '../../componentes/BotaoExcluir';
 import CampoNumeroEndereco from '../../componentes/CampoNumeroEndereco';
 import {
   celularValido,
@@ -438,7 +439,7 @@ export default function ColaboradoresPagina() {
     },
     {
       title: 'Ações',
-      width: 110,
+      width: 150,
       render: (_, c) => (
         <Space>
           {podeEditar && (
@@ -461,6 +462,7 @@ export default function ColaboradoresPagina() {
               onClick={() => alterarStatus(c)}
             />
           )}
+          <BotaoExcluir artigoTipo="o colaborador" nome={c.nome} caminho={`/colaboradores/${c.id}`} aoExcluir={carregar} />
         </Space>
       )
     }

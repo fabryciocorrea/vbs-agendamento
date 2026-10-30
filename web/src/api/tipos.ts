@@ -30,6 +30,7 @@ export interface PermissaoTela {
   podeVisualizar: boolean;
   podeIncluir: boolean;
   podeEditar: boolean;
+  podeCancelar?: boolean;
   podeExcluir: boolean;
   podeExportar: boolean;
 }
@@ -143,6 +144,7 @@ export interface Credenciamento {
   unidade: { id: number; nome: string; cidade: string; uf: string };
   especialidade: Referencia;
   situacao: SituacaoCredenciamento;
+  ativo: boolean;
   dataInicio?: string | null; // AAAA-MM-DD
   dataFim?: string | null;
   protocolo?: string | null;
@@ -260,6 +262,7 @@ export interface PermissoesPerfil {
     podeVisualizar: boolean;
     podeIncluir: boolean;
     podeEditar: boolean;
+    podeCancelar?: boolean;
     podeExcluir: boolean;
     podeExportar: boolean;
   }[];
@@ -376,4 +379,19 @@ export interface Paciente {
   profissionalResponsavel: Referencia;
   responsavelLegal?: ResponsavelLegal | null;
   consentimentosAtuais: ConsentimentoPaciente[];
+}
+
+export type StatusListaEspera = 'AGUARDANDO' | 'NOTIFICADO' | 'ATENDIDO' | 'CANCELADO';
+
+export interface ListaEspera {
+  id: number;
+  status: StatusListaEspera;
+  paciente: { id: string; nome: string };
+  profissional?: Referencia | null;
+  especialidade?: Referencia | null;
+  unidade?: Referencia | null;
+  observacao?: string | null;
+  notificadoEm?: string | null;
+  criadoEm: string;
+  criadoPor?: { id: number; nomeCompleto: string } | null;
 }

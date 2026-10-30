@@ -86,9 +86,8 @@ internal static class PacienteValidador
             if (temTipoDoc) e.Add(new ErroCampo("tipoDocumentoEstrangeiro", "Só vale para paciente estrangeiro"));
             if (temNumeroDoc) e.Add(new ErroCampo("numeroDocumentoEstrangeiro", "Só vale para paciente estrangeiro"));
 
-            // CPF é obrigatório, exceto para menor sem CPF com responsável legal vinculado.
-            if (!temCpf && !(menor && d.ResponsavelLegalId.HasValue))
-                e.Add(new ErroCampo("cpf", NaoPreenchido));
+            // CPF é obrigatório para todo paciente brasileiro, inclusive o menor de idade.
+            if (!temCpf) e.Add(new ErroCampo("cpf", NaoPreenchido));
         }
 
         // E4: menor de 18 anos exige responsável legal.

@@ -5,6 +5,7 @@ import { DeleteOutlined, EditOutlined, PlusOutlined, PoweroffOutlined } from '@a
 import { api, ApiErro } from '../../api/cliente';
 import type { Convenio, ItemApoio, Pagina } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
+import BotaoExcluir from '../../componentes/BotaoExcluir';
 import { cnpjValido, formatarCnpj, formatarDataIso, hojeIso, somenteDigitos } from '../../util/formatos';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
@@ -30,7 +31,7 @@ interface FormularioProps {
   aoSalvar: () => void;
 }
 
-function FormularioConvenio({ aberto, convenio, aoFechar, aoSalvar }: FormularioProps) {
+export function FormularioConvenio({ aberto, convenio, aoFechar, aoSalvar }: FormularioProps) {
   const { message } = App.useApp();
   const [form] = Form.useForm<ValoresFormulario>();
   const [salvando, setSalvando] = useState(false);
@@ -312,7 +313,7 @@ export default function ConveniosPagina() {
     },
     {
       title: 'Ações',
-      width: 110,
+      width: 150,
       render: (_, c) =>
         podeEditar && (
           <Space>
@@ -332,6 +333,7 @@ export default function ConveniosPagina() {
               title={c.ativo ? 'Inativar' : 'Ativar'}
               onClick={() => alterarStatus(c)}
             />
+            <BotaoExcluir artigoTipo="o convênio" nome={c.nomeFantasia || c.razaoSocial} caminho={`/convenios/${c.id}`} aviso="Os valores por especialidade, os credenciamentos e a forma de pagamento do convênio saem junto." aoExcluir={carregar} />
           </Space>
         )
     }

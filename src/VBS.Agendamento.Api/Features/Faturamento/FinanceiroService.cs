@@ -113,6 +113,7 @@ FROM DBO.CONSULTA C" + Onde + ";", Parametros(f), ct: ct));
         public Guid ConsultaId { get; set; }
         public DateTime Inicio { get; set; }
         public string StatusConsulta { get; set; } = string.Empty;
+        public Guid PacienteId { get; set; }
         public string Paciente { get; set; } = string.Empty;
         public string Profissional { get; set; } = string.Empty;
         public string Especialidade { get; set; } = string.Empty;
@@ -161,7 +162,7 @@ LEFT JOIN DBO.USUARIO UP ON UP.CODIGO_USUARIO = C.PAGAMENTO_CONFIRMADO_USUARIO";
         p.Add("Deslocamento", (f.Pagina - 1) * f.Tamanho);
         p.Add("Tamanho", f.Tamanho);
         var linhas = await con.QueryAsync<LinhaParticular>(Sql.Cmd(@"
-SELECT C.CODIGO_PUBLIC AS ConsultaId, C.DATA_INICIO AS Inicio, C.STATUS AS StatusConsulta, P.NOME AS Paciente, PR.NOME AS Profissional,
+SELECT C.CODIGO_PUBLIC AS ConsultaId, C.DATA_INICIO AS Inicio, C.STATUS AS StatusConsulta, P.CODIGO_PUBLIC AS PacienteId, P.NOME AS Paciente, PR.NOME AS Profissional,
        E.NOME AS Especialidade, UN.NOME_FANTASIA AS Unidade, C.VALOR AS Valor, FP.DESCRICAO AS FormaPagamento,
        C.PAGAMENTO_CONFIRMADO AS PagamentoConfirmado, C.DATA_PAGAMENTO AS PagamentoConfirmadoEm, UP.NOME_COMPLETO AS PagamentoConfirmadoPor"
             + de + onde + " ORDER BY C.DATA_INICIO DESC, C.CODIGO_CONSULTA DESC OFFSET @Deslocamento ROWS FETCH NEXT @Tamanho ROWS ONLY;", p, ct: ct));
@@ -176,6 +177,7 @@ SELECT C.CODIGO_PUBLIC AS ConsultaId, C.DATA_INICIO AS Inicio, C.STATUS AS Statu
                 ConsultaId = l.ConsultaId,
                 Inicio = DataBrasil.Utc(l.Inicio),
                 StatusConsulta = l.StatusConsulta,
+                PacienteId = l.PacienteId,
                 Paciente = l.Paciente,
                 Profissional = l.Profissional,
                 Especialidade = l.Especialidade,
@@ -244,7 +246,7 @@ LEFT JOIN DBO.CONVENIO CV ON CV.CODIGO_CONVENIO = C.CODIGO_CONVENIO" + Onde + " 
               .Append(Campo(l.Unidade)).Append(';').Append(particular ? "Particular" : "Convênio").Append(';').Append(Campo(l.Convenio)).Append(';')
               .Append(Dinheiro(l.Valor)).Append(';').Append(Campo(particular ? l.FormaPagamento : null)).Append(';')
               .Append(particular ? (l.PagamentoConfirmado ? "Sim" : "Não") : "").Append(';')
-              .Append(particular ? "" : l.GuiaStatus switch { "AUTORIZADA" => "Autorizada", "NEGADA" => "Negada", _ => "Pendente" }).Append(';')
+              .Append(particular ? "" : l.GuiaStatus switch { "AUTORIZADA" => "Autorizada", "NEGADA" => "Negada", "CANCELADA" => "Cancelada", _ => "Pendente" }).Append(';')
               .Append(Campo(l.GuiaNumero)).Append("\r\n");
         }
 

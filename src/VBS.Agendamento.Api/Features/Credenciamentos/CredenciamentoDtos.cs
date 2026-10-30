@@ -16,6 +16,10 @@ public sealed class CredenciamentoEntrada
 
 public sealed class CredenciamentoAtualizacao
 {
+    /// <summary>Opcionais: quando informados e diferentes dos atuais, trocam convênio, unidade ou especialidade do credenciamento.</summary>
+    public int? ConvenioId { get; set; }
+    public int? UnidadeId { get; set; }
+    public int? EspecialidadeId { get; set; }
     public string? Situacao { get; set; }
     public DateOnly? DataInicio { get; set; }
     public DateOnly? DataFim { get; set; }
@@ -43,6 +47,7 @@ public sealed class FiltroCredenciamentos
     public int? EspecialidadeId { get; set; }
     public string? Situacao { get; set; }
     public bool? Vigente { get; set; }
+    public bool? Ativo { get; set; }
     public int Pagina { get; set; } = 1;
     public int Tamanho { get; set; } = 20;
 }
@@ -62,6 +67,7 @@ public sealed class CredenciamentoDto
     public UnidadeCredenciamentoDto Unidade { get; set; } = new();
     public ReferenciaDto Especialidade { get; set; } = new();
     public string Situacao { get; set; } = string.Empty;
+    public bool Ativo { get; set; }
     public DateOnly? DataInicio { get; set; }
     public DateOnly? DataFim { get; set; }
     public string? Protocolo { get; set; }
@@ -72,6 +78,11 @@ public sealed class CredenciamentoDto
     public decimal? ValorProprio { get; set; }
     public bool VigenteHoje { get; set; }
     public DateTime AtualizadoEm { get; set; }
+}
+
+public sealed class CredenciamentoStatusEntrada
+{
+    public bool? Ativo { get; set; }
 }
 
 public sealed class CredenciamentoPaginaDto

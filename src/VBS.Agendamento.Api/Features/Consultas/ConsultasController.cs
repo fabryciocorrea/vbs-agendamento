@@ -9,7 +9,12 @@ namespace VBS.Agendamento.Api.Features.Consultas;
 public sealed class ConsultasController : ControllerBase
 {
     private readonly ConsultaService _servico;
-    public ConsultasController(ConsultaService servico) => _servico = servico;
+    private readonly IPermissaoService _permissoes;
+    public ConsultasController(ConsultaService servico, IPermissaoService permissoes)
+    {
+        _servico = servico;
+        _permissoes = permissoes;
+    }
 
     [HttpGet]
     [Permissao("consulta.agendamento:visualizar")]
@@ -30,9 +35,14 @@ public sealed class ConsultasController : ControllerBase
         Ok(await _servico.ObterAsync(consultaId, User.ObterUsuarioAtual(), ct));
 
     [HttpPatch("{consultaId:guid}/status")]
-    [Permissao("consulta.status:editar")]
-    public async Task<ActionResult<ConsultaDto>> AlterarStatus(Guid consultaId, [FromBody] StatusEntrada? entrada, CancellationToken ct) =>
-        Ok(await _servico.AlterarStatusAsync(consultaId, entrada, User.ObterUsuarioAtual(), ct));
+    [Permissao("consulta.status:editar", "consulta.status:cancelar")]
+    public async Task<ActionResult<ConsultaDto>> AlterarStatus(Guid consultaId, [FromBody] StatusEntrada? entrada, CancellationToken ct)
+    {
+        // Cancelar tem liberação própria; as demais mudanças de status usam "editar".
+        var usuario = User.ObterUsuarioAtual();
+        await _permissoes.ExigirAsync(usuario, entrada?.Status == "CANCELADA" ? "consulta.status:cancelar" : "consulta.status:editar", ct);
+        return Ok(await _servico.AlterarStatusAsync(consultaId, entrada, usuario, ct));
+    }
 
     [HttpPost("{consultaId:guid}/pagamento/confirmacao")]
     [Permissao("consulta.agendamento:editar")]

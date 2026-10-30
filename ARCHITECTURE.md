@@ -23,13 +23,13 @@ Features/<Nome>/           Dtos.cs, Service.cs, Controller.cs
 contrato/openapi.yaml      contrato da API (servido em /openapi.yaml em desenvolvimento)
 ```
 
-Funcionalidades: Auth, Pacientes, Profissionais, Colaboradores, Unidades, Salas, Especialidades, FormasPagamento, Convenios, Credenciamentos, Agenda, Consultas, Faturamento (guias e financeiro), Usuarios, Perfis, Apoio (listas).
+Funcionalidades: Auth, Pacientes, Profissionais, Colaboradores, Unidades, Salas, Especialidades, FormasPagamento, Convenios, Credenciamentos, Agenda, Consultas, Faturamento (guias e financeiro), ListaEspera, Dashboards (painel), Exclusao, Usuarios, Perfis, Apoio (listas).
 
 ### 2.1 Segurança
 
 - **Sessão opaca no servidor:** token aleatório; só o hash vai para `SESSAO_USUARIO`. Expira após 30 minutos de inatividade, encerra no logout, no bloqueio ou na troca de senha.
 - **Senha:** PBKDF2-SHA256, 210 mil iterações, sal por senha. Bloqueio após 5 erros; limite de 10 tentativas por minuto nas rotas públicas.
-- **Permissão por tela e ação** em toda requisição: `[Permissao("tela:acao", ...)]`. Várias exigências funcionam como **OU**. O administrador passa por `PermissaoService.TemAsync`. Ações: visualizar, incluir, editar, excluir, exportar.
+- **Permissão por tela e ação** em toda requisição: `[Permissao("tela:acao", ...)]`. Várias exigências funcionam como **OU**. O administrador passa por `PermissaoService.TemAsync`. Ações: visualizar, incluir, editar, cancelar, excluir, exportar. A ação **cancelar** é separada de editar (`PERFIL_TELA_PERMISSAO.PODE_CANCELAR`) e é exigida para cancelar consulta (`consulta.status`), guia (`faturamento.financeiro`) e item da lista de espera (`listaespera.cadastro`); quem só edita não cancela. As permissões são lidas no login: depois de mudar o perfil, o usuário entra de novo.
 - **Catálogo de telas** (`CatalogoTelas.cs`) gravado em `TELA_SISTEMA` a cada início (insere novas, atualiza nomes, nunca apaga). Permissões do administrador são protegidas por gatilho.
 - **Listas de apoio** (`/apoio/{tipo}`) aceitam a permissão de qualquer tela que as use (agenda, agendamento, pacientes, convênios, faturamento), para que a Recepção funcione sem a tela "Listas de apoio".
 - **Auditoria:** `LOG_AUDITORIA` somente de inclusão (ações VISUALIZAR, INCLUIR, EDITAR, EXCLUIR, EXPORTAR, LOGIN, LOGIN_FALHA, CORRECAO_PRONTUARIO).
@@ -67,9 +67,32 @@ O administrador não tem bloqueios. Ao esbarrar numa regra liberável, o front-e
 
 **Continuam bloqueados para todos (integridade):** status finais, sobreposição de consultas e limite de encaixes, log somente de inclusão, permissões do administrador.
 
-### 3.4 Faturamento
+### 3.4 Exclusão de cadastros
 
-Tela única (`faturamento.financeiro`): resumo do período (consultas concluídas), guias de convênio (registrar número e situação), particulares (pagamento) e exportação CSV (com auditoria).
+`Features/Exclusao` concentra as exclusões definitivas, **só para o administrador** (`DELETE` em pacientes, convênios, credenciamentos, profissionais, colaboradores, especialidades, formas de pagamento, unidades, salas e usuários). Em cada uma o servidor confere o histórico (consultas, prontuário, lista de espera, usuários vinculados etc.); se houver, responde `409 REGISTRO_COM_VINCULOS` e o caminho é **Inativar**. Vínculos de cadastro (por exemplo, especialidades de um profissional) saem junto. Todas gravam `EXCLUIR` no log. Usuário não exclui a si mesmo nem usuário de perfil protegido. No front-end, o `BotaoExcluir` só aparece para o administrador.
+
+Para o paciente poder ser excluído, o script 29 retira as chaves de `LOG_AUDITORIA` e dos consentimentos LGPD para `PACIENTE` e `RESPONSAVEL_LEGAL`; esses registros de somente inclusão continuam guardados, sem vínculo com uma linha existente.
+
+### 3.5 Faturamento
+
+Tela única (`faturamento.financeiro`): resumo do período (consultas concluídas), guias de convênio (registrar número e situação), particulares (pagamento) e exportação CSV (com auditoria). A lista de guias traz todas as consultas de convênio, menos as remarcadas, inclusive as canceladas.
+
+**Guia cancelada (script 30).** Situações da guia: PENDENTE, AUTORIZADA, NEGADA e CANCELADA. A guia cancelada não muda mais.
+- Cancelar a consulta cancela sozinho a guia pendente ou negada.
+- Com a guia **autorizada**, a consulta não pode ser cancelada (erro 50016 na procedure, `GUIA_AUTORIZADA_CANCELAR_ANTES` na API): o faturamento cancela a guia primeiro, informando o motivo. O administrador pode liberar com justificativa.
+- A guia autorizada só aceita a ação Cancelar. Depois que a consulta está cancelada, só se cancela a guia autorizada que ficou.
+
+### 3.6 Lista de espera
+
+`Features/ListaEspera` (`listaespera.cadastro`): situações AGUARDANDO, NOTIFICADO (horário liberado), ATENDIDO e CANCELADO. Quando uma consulta futura é cancelada e há paciente aguardando para o mesmo profissional ou especialidade, a procedure de status marca o item como NOTIFICADO e cria a notificação interna (RN08). Cancelar um item exige a ação cancelar.
+
+### 3.7 Painel
+
+`Features/Dashboards`, `GET /api/v1/dashboards/painel-do-dia` (`dashboard.painel:visualizar`; médico recebe 403 `MEDICO_SEM_ACESSO`, RN20). Recebe `dataInicial` e `dataFinal` (um dia, uma semana ou até 366 dias) e filtros de unidade, profissional e tipo (convênio ou particular). Devolve totais por situação, pendências, distribuição por convênio e particular (sem canceladas, remarcadas e faltas), lista de espera e as consultas em andamento (até 12). Pendências de faturamento e lista de espera só vêm para quem tem essas permissões. O front-end atualiza a cada 30 segundos; as pendências abrem janelas (`PainelModais.tsx`) em vez de trocar de tela.
+
+### 3.8 Cadastro de paciente
+
+CPF obrigatório para todo paciente brasileiro, inclusive o menor de idade; o estrangeiro pode usar tipo e número de documento. Menor de 18 anos exige responsável legal; telefone e e-mail são opcionais para o menor.
 
 ## 4. Front-end (`web/src`)
 
@@ -79,12 +102,12 @@ layout/LayoutPrincipal.tsx  menu lateral (itens com { key, label, icon, tela });
 auth/                       AuthContext (sessao, pode(tela, acao)) e RotaProtegida
 api/cliente.ts, tipos.ts    cliente HTTP (api.get/post/put/patch), ApiErro (status, codigo, erros, extras) e tipos
 paginas/<área>/             uma pasta por tela (agenda, pacientes, convenios, credenciamentos, faturamento, perfis, usuarios, ...)
-componentes/, util/         componentes e formatadores compartilhados
+componentes/, util/         componentes e formatadores compartilhados (LinkPaciente e LinkConvenio abrem o cadastro em uma janela)
 ```
 
 Pontos importantes:
 - **Menu e rotas** dependem das permissões do perfil. Para um perfil ver só Agenda e Pacientes, basta liberar só essas telas em Perfis de acesso.
-- **Agenda** (`paginas/agenda`): `AgendaProfissionalPagina` (semana por profissional), `NovaConsultaModal`, `AcoesConsulta` (botões do fluxo de status, pagamento, remarcação) e `liberacao.tsx` (justificativa do administrador).
+- **Agenda** (`paginas/agenda`): `AgendaProfissionalPagina` (semana por profissional, filtro de situação, etiqueta Remarcada), `NovaConsultaModal`, `AcoesConsulta` (botões do fluxo de status, pagamento, remarcação) e `liberacao.tsx` (justificativa do administrador).
 - Botões são exibidos conforme o status, a permissão e o tipo (particular ou convênio); o servidor revalida tudo.
 
 ## 5. Banco de dados (`banco/`)
@@ -99,6 +122,9 @@ Scripts numerados, executados em ordem no SSMS. Marcos:
 | 12–18 | Endereço, contatos opcionais, responsável legal, LGPD, sala, dados CLT |
 | 19–22 | Valor de convênio, por especialidade e por credenciamento |
 | 23–27 | Guia do convênio, pagamento após check-in, faturamento unificado, guia autorizada, liberação do administrador |
+| 28–29 | Inativação de credenciamento; exclusão pelo administrador (retira as chaves que ligavam log e consentimentos ao paciente) |
+| 30 | Guia cancelada: guia autorizada impede cancelar a consulta (o faturamento cancela a guia antes; administrador pode liberar); consulta cancelada cancela a guia pendente ou negada |
+| 31 | Permissão "Cancelar" nos perfis de acesso (separada de "Editar"): cancelar consulta, guia e item da lista de espera |
 
 Convenções: nomes de objetos e comandos em MAIÚSCULAS; sem criar outros logins no SQL Server; conexão por autenticação integrada em desenvolvimento.
 
@@ -113,4 +139,4 @@ Convenções: nomes de objetos e comandos em MAIÚSCULAS; sem criar outros login
 
 ## 7. Limitações e decisões em aberto
 
-- Retenção de logs (RNF04); P18 adiado; liberação campo a campo; Always Encrypted do prontuário; lista de espera, notificações, relatórios e Google Meet; produção (conta da API, e-mail, backup, disco criptografado).
+- Retenção de logs (RNF04); P18 adiado; liberação campo a campo; Always Encrypted do prontuário; sino de notificações, relatórios, painel financeiro e Google Meet; produção (conta da API, e-mail, backup, disco criptografado).
