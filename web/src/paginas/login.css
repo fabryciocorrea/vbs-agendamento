@@ -1,0 +1,222 @@
+.login-pagina {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(360px, 1fr);
+  min-height: 100vh;
+  background: #fff;
+}
+
+/* ---------- painel esquerdo (formulário) ---------- */
+.login-esquerda {
+  order: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(254, 206, 34, 0.16) 0, transparent 34%),
+    radial-gradient(circle at 90% 92%, rgba(254, 206, 34, 0.10) 0, transparent 32%),
+    linear-gradient(170deg, #0b5a3c 0%, #023926 62%, #01251a 100%);
+  color: #fff;
+}
+
+.login-caixa {
+  width: 100%;
+  max-width: 340px;
+}
+
+.login-icone {
+  display: block;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  border-radius: 14px;
+}
+
+.login-titulo {
+  margin: 0;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.login-subtitulo {
+  margin: 8px 0 28px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #FECE22;
+}
+
+.login-pagina .ant-input-affix-wrapper,
+.login-pagina .ant-input-password {
+  border-radius: 999px;
+  padding: 10px 20px;
+  border-color: transparent;
+}
+
+.login-pagina .ant-input-affix-wrapper input {
+  font-size: 15px;
+}
+
+.login-pagina .ant-form-item {
+  margin-bottom: 18px;
+}
+
+.login-pagina .ant-form-item-explain-error {
+  padding-left: 18px;
+  color: #FECE22;
+}
+
+.login-pagina .ant-alert {
+  border-radius: 14px;
+}
+
+.login-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -2px 4px 18px;
+  font-size: 13px;
+}
+
+.login-linha .ant-checkbox-wrapper {
+  color: #fff;
+  font-size: 13px;
+}
+
+.login-link {
+  padding: 0;
+  height: auto;
+  font-size: 13px;
+  color: #FECE22;
+}
+
+.login-link:hover {
+  color: #ffe27a !important;
+}
+
+.login-botao.ant-btn {
+  height: 46px;
+  border: 0;
+  border-radius: 999px;
+  background: #FECE22;
+  color: #023926;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.login-botao.ant-btn:hover:not(:disabled) {
+  background: #ffdb5c !important;
+  color: #023926 !important;
+}
+
+.login-rodape {
+  margin-top: 28px;
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ---------- painel direito (marca e ilustração) ---------- */
+.login-direita {
+  order: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.login-direita::before,
+.login-direita::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: #e8f3ed;
+  z-index: 0;
+}
+
+.login-direita::before {
+  width: 420px;
+  height: 420px;
+  top: -150px;
+  left: -120px;
+}
+
+.login-direita::after {
+  width: 320px;
+  height: 320px;
+  bottom: -120px;
+  right: -100px;
+  background: #fff6cf;
+}
+
+.login-direita > * {
+  position: relative;
+  z-index: 1;
+}
+
+.login-logo {
+  width: 190px;
+  max-width: 60%;
+}
+
+.login-ilustracao {
+  width: 100%;
+  max-width: 440px;
+  height: auto;
+}
+
+.login-chamada {
+  margin: 0;
+  max-width: 360px;
+  text-align: center;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #023926;
+}
+
+.login-chamada small {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  color: #6b7f76;
+}
+
+/* ---------- telas pequenas: só o formulário ---------- */
+@media (max-width: 860px) {
+  .login-pagina {
+    grid-template-columns: 1fr;
+  }
+  .login-direita {
+    display: none;
+  }
+}
+
+/* link legível (o estilo padrão do botão link apagava a cor) */
+.login-pagina .ant-btn.login-link,
+.login-pagina .ant-btn.login-link:not(:disabled) {
+  color: #FECE22;
+}
+.login-pagina .ant-btn.login-link:not(:disabled):hover {
+  color: #ffe27a;
+  background: transparent;
+}
+
+/* preenchimento automático do navegador sem o fundo azul */
+.login-pagina input:-webkit-autofill,
+.login-pagina input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  -webkit-text-fill-color: #1f1f1f;
+  caret-color: #1f1f1f;
+}

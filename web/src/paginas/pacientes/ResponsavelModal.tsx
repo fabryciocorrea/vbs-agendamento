@@ -320,7 +320,7 @@ export default function ResponsavelModal({ aberto, responsavel, cpfInicial, suge
             {consentimentosAtuais.map((c) => (
               <Descriptions.Item key={c.finalidade} label={c.finalidade === 'TRATAMENTO_DADOS' ? 'Tratamento de dados' : 'Contato por SMS e WhatsApp'}>
                 {c.concedido ? <Tag color="green">Concedido</Tag> : <Tag>Não concedido</Tag>}
-                <span style={{ marginLeft: 8, color: '#8c8c8c' }}>registrado em {formatarDataIso(c.dataRegistro)}</span>
+                <span style={{ marginLeft: 8, color: 'var(--vbs-texto-suave)' }}>registrado em {formatarDataIso(c.dataRegistro)}</span>
               </Descriptions.Item>
             ))}
           </Descriptions>

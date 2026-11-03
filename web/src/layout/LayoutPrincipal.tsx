@@ -21,11 +21,14 @@ import {
   ClockCircleOutlined,
   LineChartOutlined,
   BarChartOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../auth/AuthContext";
 import { cores } from "../tema";
 import SinoNotificacoes from "./SinoNotificacoes";
 import MenuUsuario from "./MenuUsuario";
+import BotaoTema from "./BotaoTema";
 
 const { Sider, Header, Content } = Layout;
 
@@ -179,9 +182,8 @@ export default function LayoutPrincipal() {
     <Layout style={{ minHeight: "100vh" }}>
       <Sider
         breakpoint="lg"
-        collapsible
+        trigger={null}
         collapsed={recolhido}
-        onCollapse={setRecolhido}
         width={240}
         collapsedWidth={64}
         theme="dark"
@@ -203,18 +205,26 @@ export default function LayoutPrincipal() {
           onClick={(e) => navegar(e.key)}
         />
       </Sider>
-      <Layout style={{ background: cores.fundo }}>
+      <Layout className="area-principal">
         <Header
+          className="topo-sistema"
           style={{
-            background: "#fff",
-            borderBottom: `3px solid ${cores.amarelo}`,
+            background: "var(--vbs-superficie)",
             display: "flex",
-            justifyContent: "flex-end",
+            justifyContent: "space-between",
             alignItems: "center",
             padding: "0 24px",
           }}
         >
+          <Button
+            type="text"
+            className="botao-menu"
+            aria-label="Recolher ou expandir o menu"
+            icon={recolhido ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={() => setRecolhido((v) => !v)}
+          />
           <Space size="middle">
+            <BotaoTema />
             <SinoNotificacoes />
             <MenuUsuario />
           </Space>

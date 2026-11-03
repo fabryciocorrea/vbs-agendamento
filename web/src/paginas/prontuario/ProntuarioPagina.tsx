@@ -10,6 +10,8 @@ import type { CorrecaoProntuario, DocumentoAutorizacao, ItemApoio, Pagina, Pacie
 import { useAuth } from '../../auth/AuthContext';
 import { formatarDataHora } from '../../util/formatos';
 import TransferenciaProntuarioModal from './TransferenciaProntuarioModal';
+import { FileTextOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -382,17 +384,17 @@ function HistoricoModal({ registro, pacienteId, aoFechar }: { registro: Registro
                   <Tag color={c.origem === 'SISTEMA' ? 'blue' : 'purple'}>{c.origem === 'SISTEMA' ? 'No sistema' : 'No banco (TI)'}</Tag>
                   <span>por {c.executadoPor}</span>
                 </Space>
-                <div style={{ marginTop: 4, color: '#595959' }}>
+                <div style={{ marginTop: 4, color: 'var(--vbs-texto-medio)' }}>
                   Solicitado por {c.solicitadoPor || '—'} · Autorizado por {c.autorizadoPor}
                 </div>
-                <div style={{ color: '#595959' }}>Observação: {c.observacaoAutorizacao}</div>
-                <div style={{ color: '#595959', marginBottom: 4 }}>
+                <div style={{ color: 'var(--vbs-texto-medio)' }}>Observação: {c.observacaoAutorizacao}</div>
+                <div style={{ color: 'var(--vbs-texto-medio)', marginBottom: 4 }}>
                   Documento: {c.documento ? <BotaoDocumento pacienteId={pacienteId} documento={c.documento} /> : 'não anexado (correção feita direto no banco)'}
                 </div>
                 <Typography.Text type="secondary">Texto anterior</Typography.Text>
-                <div style={{ whiteSpace: 'pre-wrap', background: '#fff1f0', padding: 8, borderRadius: 6, marginBottom: 6 }}>{c.observacaoAnterior}</div>
+                <div style={{ whiteSpace: 'pre-wrap', background: 'var(--vbs-fundo-remocao)', padding: 8, borderRadius: 6, marginBottom: 6 }}>{c.observacaoAnterior}</div>
                 <Typography.Text type="secondary">Texto novo</Typography.Text>
-                <div style={{ whiteSpace: 'pre-wrap', background: '#f6ffed', padding: 8, borderRadius: 6 }}>{c.observacaoNova}</div>
+                <div style={{ whiteSpace: 'pre-wrap', background: 'var(--vbs-fundo-inclusao)', padding: 8, borderRadius: 6 }}>{c.observacaoNova}</div>
               </div>
             )
           }))}
@@ -465,9 +467,7 @@ export default function ProntuarioPagina() {
           <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('/pacientes')}>
             Pacientes
           </Button>
-          <Typography.Title level={3} style={{ margin: 0 }}>
-            Prontuário{paciente ? ` — ${paciente.nome}` : ''}
-          </Typography.Title>
+          <CabecalhoPagina icone={<IconeTela />} titulo={`Prontuário${paciente ? ` — ${paciente.nome}` : ''}`} subtitulo="Registros clínicos do paciente" />
           {paciente && !paciente.ativo && <Tag>Paciente inativo</Tag>}
           {paciente && <Tag color="green">Responsável: {paciente.profissionalResponsavel.nome}</Tag>}
         </Space>
@@ -518,7 +518,7 @@ export default function ProntuarioPagina() {
             {!carregando && dados.itens.length === 0 && <Empty description="Nenhum registro no prontuário." />}
             <Space direction="vertical" style={{ width: '100%' }} size={12}>
               {dados.itens.map((r) => (
-                <div key={r.id} style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: 16, background: '#fff' }}>
+                <div key={r.id} style={{ border: '1px solid var(--vbs-borda-suave)', borderRadius: 8, padding: 16, background: 'var(--vbs-superficie)' }}>
                   <Space style={{ width: '100%', justifyContent: 'space-between' }} align="start" wrap>
                     <div>
                       <strong>{formatarDataHora(r.registradoEm)}</strong>

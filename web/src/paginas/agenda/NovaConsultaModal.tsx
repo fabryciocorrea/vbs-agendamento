@@ -495,7 +495,7 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, e
             {carregandoSlots ? (
               <Spin size="small" />
             ) : slots.length === 0 ? (
-              profId && uniId && motivoSemHorario ? <Alert type="warning" showIcon message={motivoSemHorario} /> : <span style={{ color: '#999' }}>Escolha o profissional, a unidade e a data</span>
+              profId && uniId && motivoSemHorario ? <Alert type="warning" showIcon message={motivoSemHorario} /> : <span style={{ color: 'var(--vbs-texto-suave)' }}>Escolha o profissional, a unidade e a data</span>
             ) : (
               <Radio.Group
                 optionType="button"

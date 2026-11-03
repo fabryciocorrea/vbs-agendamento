@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Button, Col, Divider, Form, Input, Modal, Radio, Row, Select, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Col, Divider, Form, Input, Modal, Radio, Row, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
@@ -21,6 +21,8 @@ import {
 } from '../../util/formatos';
 import { formatarPis, pisValido } from './pis';
 import type { Colaborador, ColaboradorEntrada, TipoVinculo } from './tipos';
+import { ContactsOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -413,7 +415,7 @@ export default function ColaboradoresPagina() {
         <>
           {c.nome}
           {c.tipoVinculo === 'MEI' && c.razaoSocial ? (
-            <div style={{ fontSize: 12, color: '#8c8c8c' }}>{c.nomeFantasia || c.razaoSocial}</div>
+            <div style={{ fontSize: 12, color: 'var(--vbs-texto-suave)' }}>{c.nomeFantasia || c.razaoSocial}</div>
           ) : null}
         </>
       )
@@ -471,9 +473,7 @@ export default function ColaboradoresPagina() {
   return (
     <>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Colaboradores e prestadores
-        </Typography.Title>
+        <CabecalhoPagina icone={<IconeTela />} titulo="Colaboradores e prestadores" subtitulo="Cadastro de colaboradores e prestadores de serviço" />
         {podeIncluir && (
           <Button
             type="primary"

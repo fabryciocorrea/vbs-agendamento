@@ -47,6 +47,8 @@ export interface ConsultaResumo {
   versao: string;
   status: StatusConsulta;
   paciente: { id: string; nome: string };
+  /** Profissional responsável atual pelo paciente. */
+  pacienteResponsavelId?: number;
   profissional: Referencia;
   especialidade: Referencia;
   unidade: Referencia;

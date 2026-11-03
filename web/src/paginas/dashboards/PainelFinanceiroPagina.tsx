@@ -5,6 +5,8 @@ import { ReloadOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { ItemApoio } from '../../api/tipos';
 import { adicionarDias, hojeBrasilia, horaBrasilia, segundaDaSemana } from '../agenda/datas';
+import { LineChartOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 interface ValorQtd {
   quantidade: number;
@@ -84,11 +86,11 @@ function GraficoEvolucao({ itens, agrupamento }: { itens: PainelFinanceiro['evol
               width: '100%',
               height: `${(i.valor / maximo) * 100}%`,
               minHeight: i.valor > 0 ? 3 : 1,
-              background: i.valor > 0 ? COR_CONVENIO : '#e8e8e8',
+              background: i.valor > 0 ? COR_CONVENIO : 'var(--vbs-trilho-forte)',
               borderRadius: '3px 3px 0 0'
             }}
           />
-          <span style={{ fontSize: 10, color: '#8c8c8c', height: 14, whiteSpace: 'nowrap' }}>{n % passo === 0 ? rotuloPeriodo(i.periodo, agrupamento) : ''}</span>
+          <span style={{ fontSize: 10, color: 'var(--vbs-texto-suave)', height: 14, whiteSpace: 'nowrap' }}>{n % passo === 0 ? rotuloPeriodo(i.periodo, agrupamento) : ''}</span>
         </div>
       ))}
     </div>
@@ -215,9 +217,7 @@ export default function PainelFinanceiroPagina() {
   return (
     <>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Painel financeiro
-        </Typography.Title>
+        <CabecalhoPagina icone={<IconeTela />} titulo="Painel financeiro" subtitulo="Receita, pendências e previsão do período" />
         <Space wrap>
           <Segmented<Periodo>
             value={periodo as Periodo}

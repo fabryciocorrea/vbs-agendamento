@@ -8145,6 +8145,9 @@ components:
           - CANCELADA
           - FALTA
           - REMARCADA
+        pacienteResponsavelId:
+          type: integer
+          description: Profissional responsável atual pelo paciente.
         paciente:
           $ref: '#/components/schemas/PacienteReferencia'
         profissional:

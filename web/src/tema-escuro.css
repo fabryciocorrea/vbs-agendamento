@@ -1,0 +1,36 @@
+/* Cores usadas em estilos inline: o tema claro é o padrão e o escuro troca os valores. */
+:root {
+  --vbs-fundo: #f4f6f4;
+  --vbs-superficie: #ffffff;
+  --vbs-superficie-alt: #fafafa;
+  --vbs-borda: #e6e6e6;
+  --vbs-borda-suave: #f0f0f0;
+  --vbs-trilho: #f0f0f0;
+  --vbs-trilho-forte: #e8e8e8;
+  --vbs-texto-suave: #8c8c8c;
+  --vbs-texto-medio: #595959;
+  --vbs-destaque: #023926;
+  --vbs-fundo-remocao: #fff1f0;
+  --vbs-fundo-inclusao: #f6ffed;
+  color-scheme: light;
+}
+
+:root[data-tema='escuro'] {
+  --vbs-fundo: #0f1411;
+  --vbs-superficie: #18201b;
+  --vbs-superficie-alt: #121813;
+  --vbs-borda: #34413a;
+  --vbs-borda-suave: #2a352f;
+  --vbs-trilho: #2a352f;
+  --vbs-trilho-forte: #34413a;
+  --vbs-texto-suave: #9aa8a0;
+  --vbs-texto-medio: #b8c4bd;
+  --vbs-destaque: #7fd1ae;
+  --vbs-fundo-remocao: #3a1f1f;
+  --vbs-fundo-inclusao: #1d3320;
+  color-scheme: dark;
+}
+
+body {
+  background: var(--vbs-fundo);
+}

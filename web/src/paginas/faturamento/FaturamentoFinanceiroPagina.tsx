@@ -9,6 +9,8 @@ import type { TabelaExportacao } from '../../util/exportar';
 import MenuExportar from '../../componentes/MenuExportar';
 import GuiasConvenioAba from './FaturamentoGuiasPagina';
 import ParticularesAba from './ParticularesAba';
+import { DollarOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 const REAIS = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -183,9 +185,7 @@ function ResumoAba() {
 export default function FaturamentoFinanceiroPagina() {
   return (
     <>
-      <Typography.Title level={3} style={{ marginTop: 0 }}>
-        Faturamento
-      </Typography.Title>
+      <div style={{ marginBottom: 16 }}><CabecalhoPagina icone={<IconeTela />} titulo="Faturamento" subtitulo="Acompanhamento financeiro das consultas" /></div>
       <Tabs
         defaultActiveKey="resumo"
         items={[

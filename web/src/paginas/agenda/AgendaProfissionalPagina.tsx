@@ -23,6 +23,8 @@ import AcoesConsulta from './AcoesConsulta';
 import NovaConsultaModal from './NovaConsultaModal';
 import { CORES_STATUS, NOMES_STATUS } from './tipos';
 import type { AgendaSaida, Consulta, ConsultaResumo, StatusConsulta } from './tipos';
+import { CalendarOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 type Visao = 'dia' | 'semana' | 'mes';
 
@@ -268,8 +270,8 @@ export default function AgendaProfissionalPagina() {
                 minHeight: 110,
                 padding: 8,
                 borderRadius: 8,
-                border: dia === hoje ? '2px solid #023926' : '1px solid #e6e6e6',
-                background: feriado ? '#fafafa' : '#fff'
+                border: dia === hoje ? '2px solid var(--vbs-destaque)' : '1px solid var(--vbs-borda)',
+                background: feriado ? 'var(--vbs-superficie-alt)' : 'var(--vbs-superficie)'
               }}
             >
               <div style={{ fontWeight: dia === hoje ? 700 : 500 }}>{Number(dia.slice(8, 10))}</div>
@@ -303,7 +305,7 @@ export default function AgendaProfissionalPagina() {
       <div
         key={c.id}
         onClick={() => setDetalheId(c.id)}
-        style={{ cursor: 'pointer', padding: '6px 8px', border: '1px solid #e6e6e6', borderRadius: 6, marginBottom: 6, background: '#fff' }}
+        style={{ cursor: 'pointer', padding: '6px 8px', border: '1px solid var(--vbs-borda)', borderRadius: 6, marginBottom: 6, background: 'var(--vbs-superficie)' }}
       >
         <Space size={4} wrap>
           <strong>
@@ -316,7 +318,7 @@ export default function AgendaProfissionalPagina() {
           {c.encaixe && <Tag color="orange" style={{ marginInlineEnd: 0 }}>Encaixe</Tag>}
         </Space>
         <div>{c.paciente.nome}</div>
-        {!profissionalId && <div style={{ fontSize: 12, color: '#023926' }}>{c.profissional.nome}</div>}
+        {!profissionalId && <div style={{ fontSize: 12, color: 'var(--vbs-destaque)' }}>{c.profissional.nome}</div>}
       </div>
     );
   }
@@ -324,9 +326,7 @@ export default function AgendaProfissionalPagina() {
   return (
     <>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Agenda do profissional
-        </Typography.Title>
+        <CabecalhoPagina icone={<IconeTela />} titulo="Agenda do profissional" subtitulo="Consultas, encaixes e horários dos profissionais" />
         {podeIncluir && (
           <Button type="primary" icon={<PlusOutlined />} onClick={() => abrirNova()}>
             Nova consulta
@@ -335,17 +335,20 @@ export default function AgendaProfissionalPagina() {
       </Space>
 
       <Space style={{ marginBottom: 16 }} wrap>
-        <Select<number>
-          showSearch
-          optionFilterProp="label"
-          style={{ width: 300 }}
-          allowClear={medico === null}
-          placeholder="Todos os profissionais"
-          value={profissionalId}
-          onChange={setProfissionalId}
-          disabled={medico !== null}
-          options={profissionais.map((p) => ({ value: p.id, label: p.nome }))}
-        />
+        {/* O usuário vinculado a profissional só tem a própria agenda: sem filtro de profissional. */}
+        {medico === null && (
+          <Select<number>
+            showSearch
+            optionFilterProp="label"
+            style={{ width: 300 }}
+            allowClear={medico === null}
+            placeholder="Todos os profissionais"
+            value={profissionalId}
+            onChange={setProfissionalId}
+            disabled={medico !== null}
+            options={profissionais.map((p) => ({ value: p.id, label: p.nome }))}
+          />
+        )}
         <Select<number>
           allowClear
           style={{ width: 240 }}
@@ -405,7 +408,7 @@ export default function AgendaProfissionalPagina() {
                       <Button size="small" type="text" icon={<PlusOutlined />} title="Nova consulta neste dia" onClick={() => abrirNova(dia)} />
                     ) : null
                   }
-                  style={{ background: fechado ? '#fafafa' : undefined }}
+                  style={{ background: fechado ? 'var(--vbs-superficie-alt)' : undefined }}
                 >
                   {bloqueios
                     .filter((b) => b.tipo !== 'INTERVALO')
@@ -415,14 +418,14 @@ export default function AgendaProfissionalPagina() {
                       </Tag>
                     ))}
                   {expediente.map((e) => (
-                    <div key={e.inicio + e.unidade.id} style={{ fontSize: 12, color: '#555', marginBottom: 2 }}>
+                    <div key={e.inicio + e.unidade.id} style={{ fontSize: 12, color: 'var(--vbs-texto-medio)', marginBottom: 2 }}>
                       Atende {horaBrasilia(e.inicio)}-{horaBrasilia(e.fim)} ({e.unidade.nome})
                     </div>
                   ))}
                   {bloqueios
                     .filter((b) => b.tipo === 'INTERVALO')
                     .map((b) => (
-                      <div key={b.inicio} style={{ fontSize: 12, color: '#999', marginBottom: 2 }}>
+                      <div key={b.inicio} style={{ fontSize: 12, color: 'var(--vbs-texto-suave)', marginBottom: 2 }}>
                         Intervalo {horaBrasilia(b.inicio)}-{horaBrasilia(b.fim)}
                       </div>
                     ))}

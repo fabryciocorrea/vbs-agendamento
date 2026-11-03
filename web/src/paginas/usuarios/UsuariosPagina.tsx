@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Button, Input, Select, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Input, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { EditOutlined, KeyOutlined, PlusOutlined, PoweroffOutlined, UnlockOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
@@ -8,6 +8,8 @@ import { useAuth } from '../../auth/AuthContext';
 import BotaoExcluir from '../../componentes/BotaoExcluir';
 import UsuarioFormulario from './UsuarioFormulario';
 import SenhaModal from './SenhaModal';
+import { UserOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 const TAMANHO = 10;
 
@@ -155,9 +157,7 @@ export default function UsuariosPagina() {
   return (
     <>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Usuários
-        </Typography.Title>
+        <CabecalhoPagina icone={<IconeTela />} titulo="Usuários" subtitulo="Pessoas com acesso ao sistema" />
         {podeIncluir && (
           <Button
             type="primary"

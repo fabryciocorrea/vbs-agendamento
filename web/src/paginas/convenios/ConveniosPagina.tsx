@@ -7,6 +7,8 @@ import type { Convenio, ItemApoio, Pagina } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
 import BotaoExcluir from '../../componentes/BotaoExcluir';
 import { cnpjValido, formatarCnpj, formatarDataIso, hojeIso, somenteDigitos } from '../../util/formatos';
+import { IdcardOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -342,9 +344,7 @@ export default function ConveniosPagina() {
   return (
     <>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Convênios
-        </Typography.Title>
+        <CabecalhoPagina icone={<IconeTela />} titulo="Convênios" subtitulo="Cadastro dos convênios atendidos" />
         {podeIncluir && (
           <Button
             type="primary"

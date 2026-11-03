@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, App, Button, Empty, Select, Space, Table, Tag, Typography } from 'antd';
+import { Alert, App, Button, Empty, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { ItemApoio, Pagina } from '../../api/tipos';
 import { formatarDataHora } from '../../util/formatos';
 import type { ConsultaResumo } from '../agenda/tipos';
+import { WarningOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 const TAMANHO = 20;
 
@@ -56,9 +58,7 @@ export default function ConsultasSemCredenciamentoPagina() {
 
   return (
     <>
-      <Typography.Title level={3} style={{ marginTop: 0 }}>
-        Consultas sem credenciamento
-      </Typography.Title>
+      <div style={{ marginBottom: 16 }}><CabecalhoPagina icone={<IconeTela />} titulo="Consultas sem credenciamento" subtitulo="Consultas de convênio em data sem credenciamento" /></div>
       <Alert
         type="info"
         showIcon

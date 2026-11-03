@@ -6,6 +6,8 @@ import { api, ApiErro } from '../../api/cliente';
 import { useAuth } from '../../auth/AuthContext';
 import { formatarDataIso } from '../../util/formatos';
 import type { Feriado, ParametrosAgenda } from './tipos';
+import { SettingOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 
@@ -247,9 +249,7 @@ export default function ParametrosAgendaPagina() {
   const podeEditar = pode('agenda.parametros', 'editar');
   return (
     <>
-      <Typography.Title level={3} style={{ marginTop: 0 }}>
-        Parâmetros da agenda
-      </Typography.Title>
+      <div style={{ marginBottom: 16 }}><CabecalhoPagina icone={<IconeTela />} titulo="Parâmetros da agenda" subtitulo="Regras de horário, duração das consultas e feriados" /></div>
       <CartaoParametros podeEditar={podeEditar} />
       <CartaoFeriados podeEditar={podeEditar} />
     </>

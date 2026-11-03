@@ -2,13 +2,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { App, Button, Form, Input, Modal, Select, Space, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { EditOutlined, FileTextOutlined, PlusOutlined, PoweroffOutlined, SearchOutlined } from '@ant-design/icons';
+import { EditOutlined, EyeOutlined, FileTextOutlined, PlusOutlined, PoweroffOutlined, SearchOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { ItemApoio, Pagina, Paciente, PacienteResumo } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
 import BotaoExcluir from '../../componentes/BotaoExcluir';
 import { cpfValido, formatarCpf, formatarDataIso, formatarTelefone, somenteDigitos } from '../../util/formatos';
 import FormularioPaciente from './FormularioPaciente';
+import VisualizarPacienteModal from './VisualizarPacienteModal';
+import { SolutionOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 const TAMANHO = 10;
 
@@ -106,6 +109,8 @@ export default function PacientesPagina() {
   const { pode } = useAuth();
   const podeIncluir = pode('paciente.cadastro', 'incluir');
   const podeEditar = pode('paciente.cadastro', 'editar');
+  // Quem não edita (ex.: o profissional) abre o cadastro só para leitura; a lista já traz só os pacientes dele.
+  const podeVisualizar = pode('paciente.cadastro', 'visualizar') && !podeEditar;
   const podeProntuario = pode('prontuario.registro', 'visualizar');
   const navegar = useNavigate();
 
@@ -165,6 +170,16 @@ export default function PacientesPagina() {
   }, [carregar]);
 
   // A lista traz só o resumo; para editar, busca o cadastro completo (a consulta fica registrada no log).
+  const [visualizando, setVisualizando] = useState<Paciente | null>(null);
+
+  async function abrirVisualizacao(id: string) {
+    try {
+      setVisualizando(await api.get<Paciente>(`/pacientes/${id}`));
+    } catch (e) {
+      message.error(e instanceof ApiErro ? e.message : 'Não foi possível abrir o cadastro.');
+    }
+  }
+
   async function abrirEdicao(id: string) {
     try {
       setEmEdicao(await api.get<Paciente>(`/pacientes/${id}`));
@@ -226,8 +241,9 @@ export default function PacientesPagina() {
       title: 'Ações',
       width: 180,
       render: (_, r) =>
-        (podeEditar || podeProntuario) && (
+        (podeEditar || podeProntuario || podeVisualizar) && (
           <Space>
+            {podeVisualizar && <Button size="small" icon={<EyeOutlined />} title="Visualizar cadastro" onClick={() => void abrirVisualizacao(r.id)} />}
             {podeProntuario && (
               <Button size="small" icon={<FileTextOutlined />} title="Prontuário" onClick={() => navegar(`/pacientes/${r.id}/prontuario`)} />
             )}
@@ -252,9 +268,7 @@ export default function PacientesPagina() {
   return (
     <>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Pacientes
-        </Typography.Title>
+        <CabecalhoPagina icone={<IconeTela />} titulo="Pacientes" subtitulo="Cadastro e consulta de pacientes" />
         <Space>
           <Button icon={<SearchOutlined />} onClick={() => setBuscaCpfAberta(true)}>
             Buscar por CPF
@@ -369,6 +383,8 @@ export default function PacientesPagina() {
           novoPaciente(cpf);
         }}
       />
+
+      <VisualizarPacienteModal paciente={visualizando} aoFechar={() => setVisualizando(null)} />
 
       <FormularioPaciente
         aberto={formAberto}

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Button, Form, Input, Modal, Select, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Form, Input, Modal, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { CondicaoFormaPagamento, Convenio, FormaPagamento, Pagina, TipoFormaPagamento } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
 import BotaoExcluir from '../../componentes/BotaoExcluir';
+import { CreditCardOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -239,9 +241,7 @@ export default function FormasPagamentoPagina() {
   return (
     <>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Formas de pagamento
-        </Typography.Title>
+        <CabecalhoPagina icone={<IconeTela />} titulo="Formas de pagamento" subtitulo="Cadastro das formas de pagamento aceitas" />
         {podeIncluir && (
           <Button
             type="primary"

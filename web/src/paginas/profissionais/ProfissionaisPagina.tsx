@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Button, Input, Select, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Input, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { ClockCircleOutlined, EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
@@ -8,6 +8,8 @@ import { useAuth } from '../../auth/AuthContext';
 import BotaoExcluir from '../../componentes/BotaoExcluir';
 import FormularioProfissional from './FormularioProfissional';
 import ExpedienteModal from './ExpedienteModal';
+import { TeamOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 const TAMANHO = 10;
 
@@ -149,9 +151,7 @@ export default function ProfissionaisPagina() {
   return (
     <>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Profissionais
-        </Typography.Title>
+        <CabecalhoPagina icone={<IconeTela />} titulo="Profissionais" subtitulo="Cadastro dos profissionais e de seus horários" />
         {podeIncluir && (
           <Button
             type="primary"

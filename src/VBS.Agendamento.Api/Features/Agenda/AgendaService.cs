@@ -383,7 +383,7 @@ ORDER BY H.HORA_INICIO;", new { Prof = profissionalId, Unidade = unidadeId }, tx
         var cal = await MontarCalendarioAsync(con, 0, null, f.DataInicial!.Value, f.DataFinal!.Value, ct);
         var deUtc = DataBrasil.ParaUtc(f.DataInicial.Value.ToDateTime(TimeOnly.MinValue));
         var ateUtc = DataBrasil.ParaUtc(f.DataFinal.Value.AddDays(1).ToDateTime(TimeOnly.MinValue));
-        var consultas = await _consultas.ListarPorPeriodoAsync(con, null, f.UnidadeId, deUtc, ateUtc, f.IncluirCanceladas, ocultarValor: false, ct);
+        var consultas = await _consultas.ListarPorPeriodoAsync(con, null, f.UnidadeId, deUtc, ateUtc, f.IncluirCanceladas, ocultarValor: false, responsavelId: null, ct);
 
         return new AgendaSaidaDto
         {
@@ -415,7 +415,7 @@ ORDER BY H.HORA_INICIO;", new { Prof = profissionalId, Unidade = unidadeId }, tx
         var ateUtc = DataBrasil.ParaUtc(f.DataFinal.Value.AddDays(1).ToDateTime(TimeOnly.MinValue));
 
         var consultas = await _consultas.ListarPorPeriodoAsync(con, profissionalId, f.UnidadeId, deUtc, ateUtc,
-            f.IncluirCanceladas, ocultarValor: usuario.EhMedico, ct);
+            f.IncluirCanceladas, ocultarValor: usuario.EhMedico, responsavelId: usuario.EhMedico ? usuario.ProfissionalId : null, ct);
 
         return new AgendaSaidaDto
         {

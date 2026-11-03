@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Button, Col, Form, Input, Modal, Row, Select, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Col, Form, Input, Modal, Row, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
@@ -8,6 +8,8 @@ import { useAuth } from '../../auth/AuthContext';
 import BotaoExcluir from '../../componentes/BotaoExcluir';
 import CampoNumeroEndereco from '../../componentes/CampoNumeroEndereco';
 import { cnpjValido, formatarCep, formatarCnpj, somenteDigitos, UFS } from '../../util/formatos';
+import { BankOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -281,9 +283,7 @@ export default function UnidadesPagina() {
   return (
     <>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Unidades
-        </Typography.Title>
+        <CabecalhoPagina icone={<IconeTela />} titulo="Unidades" subtitulo="Cadastro das unidades de atendimento" />
         {podeIncluir && (
           <Button
             type="primary"

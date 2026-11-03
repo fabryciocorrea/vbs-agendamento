@@ -22,6 +22,7 @@ import PainelFinanceiroPagina from "./paginas/dashboards/PainelFinanceiroPagina"
 import RelatoriosPagina from "./paginas/relatorios/RelatoriosPagina";
 import ProntuarioPagina from "./paginas/prontuario/ProntuarioPagina";
 import ConsultasSemCredenciamentoPagina from "./paginas/consultas/ConsultasSemCredenciamentoPagina";
+import RedefinirSenha from "./paginas/RedefinirSenha";
 
 export default function App() {
   return (
@@ -179,6 +180,7 @@ export default function App() {
             </RotaProtegida>
           }
         />
+        <Route path="/redefinir-senha" element={<RedefinirSenha />} />
         <Route path="relatorios" element={<RelatoriosPagina />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

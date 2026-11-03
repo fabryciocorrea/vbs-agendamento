@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { App, Alert, Button, Checkbox, Col, Form, Input, Modal, Row, Select, Space, Table, Tag, Typography } from 'antd';
+import { App, Alert, Button, Checkbox, Col, Form, Input, Modal, Row, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
@@ -8,6 +8,8 @@ import { useAuth } from '../../auth/AuthContext';
 import BotaoExcluir from '../../componentes/BotaoExcluir';
 import LinkConvenio from '../../componentes/LinkConvenio';
 import { formatarDataIso } from '../../util/formatos';
+import { SafetyCertificateOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -437,9 +439,7 @@ export default function CredenciamentosPagina() {
   return (
     <>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Credenciamento de convênios
-        </Typography.Title>
+        <CabecalhoPagina icone={<IconeTela />} titulo="Credenciamento de convênios" subtitulo="Convênios credenciados por unidade e especialidade" />
         {podeIncluir && (
           <Button
             type="primary"

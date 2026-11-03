@@ -104,8 +104,9 @@ OFFSET @Deslocamento ROWS FETCH NEXT @Tamanho ROWS ONLY;", p, ct: ct))).ToList()
                     },
                     RegistradoEm = DataBrasil.Utc(l.RegistradoEm),
                     Corrigido = l.Corrigido,
-                    OrigemAdministrativa = l.OrigemAdministrativa,
-                    IncluidoPorNome = l.IncluidoPorNome,
+                    // Só o administrador vê que o registro foi incluído por administrador e por quem.
+                    OrigemAdministrativa = usuario.Administrador && l.OrigemAdministrativa,
+                    IncluidoPorNome = usuario.Administrador ? l.IncluidoPorNome : null,
                     Observacao = f.IncluirTexto ? l.Observacao : null
                 }).ToList(),
                 Pagina = f.Pagina, Tamanho = f.Tamanho, Total = total
@@ -139,7 +140,7 @@ OFFSET @Deslocamento ROWS FETCH NEXT @Tamanho ROWS ONLY;", p, ct: ct))).ToList()
             tabela.Linhas.Add(new List<string>
             {
                 local.ToString("dd/MM/yyyy", Pt), local.ToString("HH:mm", Pt), l.PacienteNome, l.ProfissionalNome,
-                $"{l.Conselho} {l.NumeroConselho}/{l.Uf}", l.Corrigido ? "Sim" : "Não", l.OrigemAdministrativa ? (l.IncluidoPorNome ?? "Administrador") : "—"
+                $"{l.Conselho} {l.NumeroConselho}/{l.Uf}", l.Corrigido ? "Sim" : "Não", usuario.Administrador && l.OrigemAdministrativa ? (l.IncluidoPorNome ?? "Administrador") : "—"
             });
         }
         await _auditoria.RegistrarAsync("VISUALIZAR", "RELATORIO_PRONTUARIOS", null, null, usuario.Id,

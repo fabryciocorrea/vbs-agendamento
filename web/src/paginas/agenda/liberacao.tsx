@@ -17,7 +17,7 @@ function Campo({ aoMudar }: { aoMudar: (v: string) => void }) {
           setTamanho(ev.target.value.length);
         }}
       />
-      <div style={{ textAlign: 'right', fontSize: 12, color: '#8c8c8c', marginTop: 4 }}>{tamanho} / 500</div>
+      <div style={{ textAlign: 'right', fontSize: 12, color: 'var(--vbs-texto-suave)', marginTop: 4 }}>{tamanho} / 500</div>
     </div>
   );
 }

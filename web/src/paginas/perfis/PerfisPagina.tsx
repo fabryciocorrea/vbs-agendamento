@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Button, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { PerfilResumo } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
 import PerfilFormulario from './PerfilFormulario';
+import { SafetyOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 export default function PerfisPagina() {
   const { message, modal } = App.useApp();
@@ -103,9 +105,7 @@ export default function PerfisPagina() {
   return (
     <>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Perfis de acesso
-        </Typography.Title>
+        <CabecalhoPagina icone={<IconeTela />} titulo="Perfis de acesso" subtitulo="Permissões de cada perfil, tela por tela" />
         {podeIncluir && (
           <Button
             type="primary"

@@ -112,6 +112,8 @@ public class ConsultaResumoDto
     public string Versao { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public PacienteReferenciaDto Paciente { get; set; } = new();
+    /// <summary>Profissional responsável atual pelo paciente (a tela usa para mostrar ou esconder o atalho do prontuário).</summary>
+    public int PacienteResponsavelId { get; set; }
     public ReferenciaDto Profissional { get; set; } = new();
     public ReferenciaDto Especialidade { get; set; } = new();
     public ReferenciaDto Unidade { get; set; } = new();

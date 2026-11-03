@@ -293,7 +293,7 @@ function RemarcarModal({ aberto, consulta, aoFechar, aoAlterar }: Props & { aber
 // ------------------------------------------------------------------ botões
 export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
   const { message, modal } = App.useApp();
-  const { pode } = useAuth();
+  const { pode, sessao } = useAuth();
   const { admin, executar } = useLiberacao();
   const [motivo, setMotivo] = useState<'CANCELADA' | 'FALTA' | null>(null);
   const [remarcando, setRemarcando] = useState(false);
@@ -322,7 +322,9 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
   const confirmarPag = (consulta.status === 'CHECK_IN' || (admin && ativa)) && consulta.tipoAtendimento === 'PARTICULAR' && !consulta.pagamentoConfirmado && podeRemarcar;
 
   // Prontuário: aberto pela Agenda quando o atendimento começou ou terminou; o servidor confere se é o profissional responsável.
-  const prontuario = (consulta.status === 'EM_ATENDIMENTO' || consulta.status === 'CONCLUIDA') && pode('prontuario.registro', 'visualizar');
+  // Só o administrador e o profissional responsável atual pelo paciente abrem o prontuário.
+  const prontuarioDoUsuario = admin || (sessao?.profissionalId != null && sessao.profissionalId === consulta.pacienteResponsavelId);
+  const prontuario = (consulta.status === 'EM_ATENDIMENTO' || consulta.status === 'CONCLUIDA') && pode('prontuario.registro', 'visualizar') && prontuarioDoUsuario;
 
   if (!concluir && !naoConcluido && !remarcar && !cancelar && !confirmarPag && !proximo && !prontuario) return null;
 

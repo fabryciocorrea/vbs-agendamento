@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Button, Form, Input, Modal, Select, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Form, Input, Modal, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { Especialidade, Pagina } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
 import BotaoExcluir from '../../componentes/BotaoExcluir';
+import { MedicineBoxOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -178,9 +180,7 @@ export default function EspecialidadesPagina() {
   return (
     <>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Especialidades
-        </Typography.Title>
+        <CabecalhoPagina icone={<IconeTela />} titulo="Especialidades" subtitulo="Cadastro das especialidades" />
         {podeIncluir && (
           <Button
             type="primary"

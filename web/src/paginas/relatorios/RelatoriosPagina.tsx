@@ -12,6 +12,8 @@ import type { TabelaExportacao } from '../../util/exportar';
 import { adicionarDias, hojeBrasilia, segundaDaSemana } from '../agenda/datas';
 import { formatarDataHora } from '../../util/formatos';
 import SemPermissao from '../SemPermissao';
+import { BarChartOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 interface Referencia {
   id: number;
@@ -1241,9 +1243,7 @@ export default function RelatoriosPagina() {
 
   return (
     <>
-      <Typography.Title level={3} style={{ marginTop: 0 }}>
-        Relatórios
-      </Typography.Title>
+      <div style={{ marginBottom: 16 }}><CabecalhoPagina icone={<IconeTela />} titulo="Relatórios" subtitulo="Consultas, faturamento e cadastros" /></div>
       {grupos.length > 1 && (
         <Segmented<Grupo>
           style={{ marginBottom: 12 }}

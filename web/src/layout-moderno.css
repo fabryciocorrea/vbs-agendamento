@@ -1,0 +1,327 @@
+/* Visual moderno: fundo suave, cartões arredondados com sombra leve, menu em pílulas.
+   Usa as variáveis de tema-escuro.css, então vale para os dois modos. */
+:root {
+  --vbs-sombra: 0 4px 18px rgba(2, 57, 38, 0.07);
+  --vbs-sombra-topo: 0 2px 14px rgba(2, 57, 38, 0.08);
+  --vbs-fundo-grad:
+    radial-gradient(900px 420px at 88% -6%, rgba(11, 90, 60, 0.11), transparent 62%),
+    radial-gradient(700px 420px at -4% 104%, rgba(254, 206, 34, 0.12), transparent 60%),
+    #f3f7f4;
+  --vbs-sider-1: #0b5a3c;
+  --vbs-sider-2: #023926;
+  --vbs-sider-3: #01251a;
+  --vbs-icone-fundo: #e3f1e9;
+  --vbs-icone-cor: #0b5a3c;
+}
+
+:root[data-tema='escuro'] {
+  --vbs-sombra: 0 4px 18px rgba(0, 0, 0, 0.35);
+  --vbs-sombra-topo: 0 2px 14px rgba(0, 0, 0, 0.45);
+  --vbs-fundo-grad:
+    radial-gradient(900px 420px at 88% -6%, rgba(43, 138, 98, 0.16), transparent 62%),
+    radial-gradient(700px 420px at -4% 104%, rgba(254, 206, 34, 0.05), transparent 60%),
+    #0f1411;
+  --vbs-sider-1: #04382a;
+  --vbs-sider-2: #01281a;
+  --vbs-sider-3: #011710;
+  --vbs-icone-fundo: #1f3a2f;
+  --vbs-icone-cor: #7fd1ae;
+}
+
+/* área à direita do menu */
+.area-principal.ant-layout {
+  background: var(--vbs-fundo-grad);
+  background-attachment: fixed;
+}
+
+/* barra superior */
+.topo-sistema.ant-layout-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: 64px;
+  border-bottom: 0;
+  box-shadow: var(--vbs-sombra-topo);
+}
+
+.topo-sistema .botao-menu {
+  font-size: 18px;
+}
+
+/* menu lateral */
+.ant-layout-sider {
+  background: linear-gradient(180deg, var(--vbs-sider-1) 0%, var(--vbs-sider-2) 55%, var(--vbs-sider-3) 100%) !important;
+}
+
+.ant-layout-sider .ant-menu-dark,
+.ant-layout-sider .ant-menu-dark .ant-menu-sub {
+  background: transparent;
+}
+
+.ant-layout-sider .ant-menu-item {
+  font-size: 14px;
+}
+
+.ant-layout-sider .ant-menu-item-selected {
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(111, 191, 63, 0.35);
+}
+
+.ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+}
+
+.ant-layout-sider-children .ant-menu {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* cartões */
+.ant-card {
+  border: 0;
+  box-shadow: var(--vbs-sombra);
+}
+
+.ant-card .ant-card-head {
+  border-bottom: 1px solid var(--vbs-borda-suave);
+  font-weight: 600;
+}
+
+/* tabelas */
+.ant-table-wrapper .ant-table-thead > tr > th {
+  font-weight: 600;
+}
+
+.ant-table-wrapper .ant-table-tbody > tr > td {
+  border-bottom-color: var(--vbs-borda-suave);
+}
+
+/* etiquetas em formato de pílula */
+.ant-tag {
+  border-radius: 999px;
+  padding-inline: 10px;
+}
+
+/* botões e campos um pouco mais macios */
+.ant-btn,
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector,
+.ant-picker {
+  border-radius: 10px;
+}
+
+/* cabeçalho de página: ícone, título e subtítulo */
+.cabecalho-pagina {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.cabecalho-pagina .cabecalho-icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  font-size: 26px;
+  color: var(--vbs-icone-cor);
+  background: var(--vbs-icone-fundo);
+}
+
+.cabecalho-pagina h1,
+.cabecalho-pagina .cabecalho-titulo {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cabecalho-pagina .cabecalho-subtitulo {
+  display: block;
+  font-size: 13px;
+  color: var(--vbs-texto-suave);
+}
+
+/* indicadores com ícone redondo (painel inicial) */
+.indicador {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.indicador .indicador-icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  font-size: 22px;
+}
+
+.indicador .indicador-titulo {
+  display: block;
+  font-size: 12.5px;
+  color: var(--vbs-texto-suave);
+}
+
+.indicador .indicador-valor {
+  display: block;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+/* ===== listas (pacientes, convênios, credenciamentos, ...) ===== */
+:root {
+  --vbs-perigo-fundo: #ffe8e8;
+  --vbs-perigo-cor: #e5484d;
+  --vbs-cabecalho-tabela: #eef5f0;
+}
+
+:root[data-tema='escuro'] {
+  --vbs-perigo-fundo: #4a2326;
+  --vbs-perigo-cor: #ff7b80;
+  --vbs-cabecalho-tabela: #1f2a24;
+}
+
+/* a tabela e a paginação ficam juntas num cartão arredondado */
+.ant-layout-content > .ant-table-wrapper,
+.ant-layout-content .ant-tabs-tabpane > .ant-table-wrapper {
+  padding: 8px 20px 14px;
+  border-radius: 20px;
+  background: var(--vbs-superficie);
+  box-shadow: var(--vbs-sombra);
+}
+
+.ant-layout-content .ant-table-wrapper .ant-table {
+  background: transparent;
+}
+
+.ant-layout-content .ant-table-wrapper .ant-table-thead > tr > th {
+  background: var(--vbs-cabecalho-tabela);
+  border-bottom: 0;
+  font-size: 13px;
+}
+
+.ant-layout-content .ant-table-wrapper .ant-table-thead > tr > th::before {
+  display: none !important;
+}
+
+.ant-layout-content .ant-table-wrapper .ant-table-thead > tr > th:first-child {
+  border-start-start-radius: 14px;
+  border-end-start-radius: 14px;
+}
+
+.ant-layout-content .ant-table-wrapper .ant-table-thead > tr > th:last-child {
+  border-start-end-radius: 14px;
+  border-end-end-radius: 14px;
+}
+
+.ant-layout-content .ant-table-wrapper .ant-table-tbody > tr > td {
+  padding-block: 14px;
+}
+
+.ant-layout-content .ant-table-wrapper .ant-table-tbody > tr:last-child > td {
+  border-bottom: 0;
+}
+
+.ant-layout-content > .ant-table-wrapper .ant-table-tbody > tr > td:first-child {
+  font-weight: 600;
+}
+
+/* situação "Ativo" com marca de confirmação */
+.ant-layout-content .ant-table-wrapper .ant-tag-green::before {
+  content: '✓';
+  margin-right: 6px;
+  font-weight: 700;
+}
+
+/* ações: botões redondos só com o ícone */
+.ant-layout-content .ant-table-wrapper .ant-btn.ant-btn-icon-only {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--vbs-trilho);
+  box-shadow: none;
+}
+
+.ant-layout-content .ant-table-wrapper .ant-btn.ant-btn-icon-only:hover {
+  background: var(--vbs-icone-fundo) !important;
+  color: var(--vbs-icone-cor) !important;
+}
+
+.ant-layout-content .ant-table-wrapper .ant-btn.ant-btn-dangerous.ant-btn-icon-only {
+  background: var(--vbs-perigo-fundo);
+  color: var(--vbs-perigo-cor);
+}
+
+.ant-layout-content .ant-table-wrapper .ant-btn.ant-btn-dangerous.ant-btn-icon-only:hover {
+  background: var(--vbs-perigo-cor) !important;
+  color: #ffffff !important;
+}
+
+/* paginação redonda */
+.ant-layout-content .ant-pagination .ant-pagination-item,
+.ant-layout-content .ant-pagination .ant-pagination-prev .ant-pagination-item-link,
+.ant-layout-content .ant-pagination .ant-pagination-next .ant-pagination-item-link {
+  min-width: 34px;
+  height: 34px;
+  line-height: 32px;
+  border-radius: 50%;
+}
+
+.ant-layout-content .ant-pagination .ant-pagination-prev,
+.ant-layout-content .ant-pagination .ant-pagination-next {
+  min-width: 34px;
+  height: 34px;
+}
+
+.ant-layout-content .ant-pagination .ant-pagination-item-active {
+  background: var(--vbs-sider-2);
+  border-color: var(--vbs-sider-2);
+}
+
+.ant-layout-content .ant-pagination .ant-pagination-item-active a {
+  color: #ffffff;
+}
+
+.ant-layout-content .ant-pagination .ant-pagination-total-text {
+  color: var(--vbs-texto-suave);
+}
+
+/* filtros e botões do topo da lista em formato de pílula */
+.ant-layout-content > .ant-space .ant-select-selector,
+.ant-layout-content > .ant-space .ant-input-affix-wrapper,
+.ant-layout-content > .ant-space .ant-input,
+.ant-layout-content > .ant-space .ant-picker,
+.ant-layout-content > .ant-space .ant-input-search .ant-input-group-addon,
+.ant-layout-content > .ant-space .ant-btn {
+  border-radius: 999px;
+}
+
+.ant-layout-content > .ant-space .ant-select-selector,
+.ant-layout-content > .ant-space .ant-input-affix-wrapper {
+  padding-inline: 16px !important;
+  border-color: transparent !important;
+  box-shadow: var(--vbs-sombra);
+}
+
+.ant-layout-content > .ant-space .ant-btn:not(.ant-btn-primary):not(.ant-btn-link):not(.ant-btn-text) {
+  border-color: transparent;
+  box-shadow: var(--vbs-sombra);
+}
+
+/* primeira coluna em negrito também quando o conteúdo é um link ou botão de link (ex.: nome do convênio) */
+.ant-layout-content > .ant-table-wrapper .ant-table-tbody > tr > td:first-child .ant-btn,
+.ant-layout-content > .ant-table-wrapper .ant-table-tbody > tr > td:first-child a {
+  font-weight: inherit;
+}

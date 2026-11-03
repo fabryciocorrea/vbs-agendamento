@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, App, Button, Form, Input, Modal, Select, Space, Spin, Table, Tag, Typography } from 'antd';
+import { Alert, App, Button, Form, Input, Modal, Select, Space, Spin, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { CalendarOutlined, CheckOutlined, CloseOutlined, PlusOutlined, SearchOutlined, UndoOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
@@ -7,6 +7,8 @@ import type { ItemApoio, ListaEspera, Pagina, PacienteResumo, StatusListaEspera 
 import { useAuth } from '../../auth/AuthContext';
 import { formatarDataHora } from '../../util/formatos';
 import NovaConsultaModal from '../agenda/NovaConsultaModal';
+import { ClockCircleOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -291,9 +293,7 @@ export default function ListaEsperaPagina() {
   return (
     <>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Lista de espera
-        </Typography.Title>
+        <CabecalhoPagina icone={<IconeTela />} titulo="Lista de espera" subtitulo="Pacientes aguardando um horário" />
         {podeIncluir && (
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setFormAberto(true)}>
             Incluir na lista de espera

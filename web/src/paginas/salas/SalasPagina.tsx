@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Button, Form, Input, Modal, Select, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Form, Input, Modal, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { ItemApoio, Pagina, Sala, SalaEntrada } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
 import BotaoExcluir from '../../componentes/BotaoExcluir';
+import { ApartmentOutlined as IconeTela } from '@ant-design/icons';
+import CabecalhoPagina from '../../layout/CabecalhoPagina';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -224,9 +226,7 @@ export default function SalasPagina() {
   return (
     <>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Salas
-        </Typography.Title>
+        <CabecalhoPagina icone={<IconeTela />} titulo="Salas" subtitulo="Cadastro das salas de atendimento" />
         {podeIncluir && (
           <Button
             type="primary"

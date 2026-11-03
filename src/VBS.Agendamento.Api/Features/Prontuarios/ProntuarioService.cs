@@ -96,7 +96,8 @@ LEFT JOIN DBO.CONSULTA C ON C.CODIGO_CONSULTA = R.CODIGO_CONSULTA
 LEFT JOIN DBO.USUARIO UI ON UI.CODIGO_USUARIO = R.CODIGO_USUARIO_INCLUSAO
 LEFT JOIN DBO.PRONTUARIO_AUTORIZACAO_DOC DA ON DA.CODIGO_AUTORIZACAO_DOC = R.CODIGO_AUTORIZACAO_DOC";
 
-    private static RegistroProntuarioDto ParaDto(Linha l) => new()
+    /// <summary>Quem incluiu o registro como administrador (e o documento de autorização) só aparece para o administrador.</summary>
+    private static RegistroProntuarioDto ParaDto(Linha l, UsuarioAtual usuario) => new()
     {
         Id = l.Id,
         Paciente = new PacienteReferenciaDto { Id = l.PacienteId, Nome = l.PacienteNome },
@@ -108,7 +109,7 @@ LEFT JOIN DBO.PRONTUARIO_AUTORIZACAO_DOC DA ON DA.CODIGO_AUTORIZACAO_DOC = R.COD
         },
         RegistradoEm = DataBrasil.Utc(l.RegistradoEm),
         Observacao = l.Observacao,
-        InclusaoAdministrativa = l.IncluidoPorId.HasValue
+        InclusaoAdministrativa = l.IncluidoPorId.HasValue && usuario.Administrador
             ? new InclusaoAdministrativaDto
             {
                 IncluidoPor = new UsuarioReferenciaDto { Id = l.IncluidoPorId.Value, NomeCompleto = l.IncluidoPorNome ?? string.Empty },
@@ -172,7 +173,7 @@ FROM DBO.PACIENTE WHERE CODIGO_PUBLIC = @Id;", new { Id = pacienteId }, tx, ct))
         await _auditoria.RegistrarAsync("VISUALIZAR", "REGISTRO_PRONTUARIO", null, paciente.Codigo, usuario.Id,
             new { quantidade = linhas.Count, pagina = f.Pagina }, con, null, ct);
 
-        return new RegistroProntuarioPaginaDto { Itens = linhas.Select(ParaDto).ToList(), Pagina = f.Pagina, Tamanho = f.Tamanho, Total = total };
+        return new RegistroProntuarioPaginaDto { Itens = linhas.Select(l => ParaDto(l, usuario)).ToList(), Pagina = f.Pagina, Tamanho = f.Tamanho, Total = total };
     }
 
     // ------------------------------------------------------------------ obter
@@ -182,7 +183,7 @@ FROM DBO.PACIENTE WHERE CODIGO_PUBLIC = @Id;", new { Id = pacienteId }, tx, ct))
         var paciente = await ExigirAcessoAsync(con, null, pacienteId, usuario, "consultar", ct);
         var linha = await CarregarAsync(con, null, registroId, paciente.Codigo, ct) ?? throw Erro.NaoEncontrado("Registro não encontrado.");
         await _auditoria.RegistrarAsync("VISUALIZAR", "REGISTRO_PRONTUARIO", linha.Codigo, paciente.Codigo, usuario.Id, null, con, null, ct);
-        return ParaDto(linha);
+        return ParaDto(linha, usuario);
     }
 
     private static Task<Linha?> CarregarAsync(SqlConnection con, SqlTransaction? tx, Guid registroId, int pacienteCodigo, CancellationToken ct) =>
@@ -288,7 +289,7 @@ SELECT CAST(SCOPE_IDENTITY() AS BIGINT);",
         }
 
         var linha = await con.QueryFirstAsync<Linha>(Sql.Cmd(Select + " WHERE R.CODIGO_REGS_PRNT = @Codigo;", new { Codigo = codigo }, ct: ct));
-        return ParaDto(linha);
+        return ParaDto(linha, usuario);
     }
 
     // ----------------------------------------------------------------- edição
@@ -334,7 +335,7 @@ SELECT CAST(SCOPE_IDENTITY() AS BIGINT);",
 
         // O gatilho da tabela já gravou a correção e o evento no log.
         var nova = await CarregarAsync(con, null, registroId, paciente.Codigo, ct) ?? throw new InvalidOperationException("Registro não encontrado após a edição.");
-        return ParaDto(nova);
+        return ParaDto(nova, usuario);
     }
 
     // ------------------------------------------------------------- correções

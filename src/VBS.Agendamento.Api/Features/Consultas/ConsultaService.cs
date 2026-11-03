@@ -38,7 +38,7 @@ public sealed class ConsultaService
     // ------------------------------------------------------------- consultas
     private const string SelectConsulta = @"
 SELECT C.CODIGO_CONSULTA AS Codigo, C.CODIGO_PUBLIC AS Id, C.VERSAO AS Versao, C.STATUS AS Status,
-       P.CODIGO_PUBLIC AS PacienteId, P.NOME AS PacienteNome, P.DATA_VALIDADE_CARTEIRINHA AS PacienteValidadeCarteirinha,
+       P.CODIGO_PUBLIC AS PacienteId, P.NOME AS PacienteNome, P.CODIGO_PROFISSIONAL_RESPONSAVEL AS PacienteResponsavelId, P.DATA_VALIDADE_CARTEIRINHA AS PacienteValidadeCarteirinha,
        C.CODIGO_PROFISSIONAL AS ProfissionalId, PR.NOME AS ProfissionalNome,
        C.CODIGO_ESPECIALIDADE AS EspecialidadeId, E.NOME AS EspecialidadeNome,
        C.CODIGO_UNIDADE AS UnidadeId, UN.NOME_FANTASIA AS UnidadeNome,
@@ -78,6 +78,7 @@ LEFT JOIN DBO.USUARIO UA ON UA.CODIGO_USUARIO = C.LIBERACAO_ADMIN_USUARIO";
         public string Status { get; set; } = string.Empty;
         public Guid PacienteId { get; set; }
         public string PacienteNome { get; set; } = string.Empty;
+        public int PacienteResponsavelId { get; set; }
         public DateTime? PacienteValidadeCarteirinha { get; set; }
         public int ProfissionalId { get; set; }
         public string ProfissionalNome { get; set; } = string.Empty;
@@ -129,6 +130,7 @@ LEFT JOIN DBO.USUARIO UA ON UA.CODIGO_USUARIO = C.LIBERACAO_ADMIN_USUARIO";
         d.Versao = Convert.ToBase64String(l.Versao);
         d.Status = l.Status;
         d.Paciente = new PacienteReferenciaDto { Id = l.PacienteId, Nome = l.PacienteNome };
+        d.PacienteResponsavelId = l.PacienteResponsavelId;
         d.Profissional = new ReferenciaDto { Id = l.ProfissionalId, Nome = l.ProfissionalNome };
         d.Especialidade = new ReferenciaDto { Id = l.EspecialidadeId, Nome = l.EspecialidadeNome };
         d.Unidade = new ReferenciaDto { Id = l.UnidadeId, Nome = l.UnidadeNome };
@@ -203,6 +205,13 @@ LEFT JOIN DBO.USUARIO UA ON UA.CODIGO_USUARIO = C.LIBERACAO_ADMIN_USUARIO";
         public DateTime Fim { get; set; }
     }
 
+    /// <summary>
+    /// Condição do médico sobre o paciente da consulta (RN16): só aparecem as consultas de pacientes de que ele é o responsável atual.
+    /// Paciente transferido para outro profissional, ou que nunca foi dele, fica fora da agenda, do início e das listas do médico.
+    /// </summary>
+    private static string FiltroPacientesTransferidos(string parametro) =>
+        $" AND C.CODIGO_PACIENTE IN (SELECT CODIGO_PACIENTE FROM DBO.PACIENTE WHERE CODIGO_PROFISSIONAL_RESPONSAVEL = {parametro})";
+
     /// <summary>Intervalos já ocupados do profissional (canceladas e remarcadas não contam, RN09).</summary>
     internal async Task<List<Ocupado>> PeriodosOcupadosAsync(SqlConnection con, int profissionalId, DateTime deUtc, DateTime ateUtc, CancellationToken ct)
     {
@@ -214,13 +223,15 @@ WHERE CODIGO_PROFISSIONAL = @Prof AND STATUS NOT IN ('CANCELADA', 'REMARCADA')
     }
 
     internal async Task<List<ConsultaResumoDto>> ListarPorPeriodoAsync(SqlConnection con, int? profissionalId, int? unidadeId,
-        DateTime deUtc, DateTime ateUtc, bool incluirCanceladas, bool ocultarValor, CancellationToken ct)
+        DateTime deUtc, DateTime ateUtc, bool incluirCanceladas, bool ocultarValor, int? responsavelId, CancellationToken ct)
     {
         var sql = SelectConsulta + @"
 WHERE (@Prof IS NULL OR C.CODIGO_PROFISSIONAL = @Prof) AND C.DATA_INICIO < @Ate AND C.DATA_FIM > @De
   AND (@Unidade IS NULL OR C.CODIGO_UNIDADE = @Unidade)" +
+            // Para o médico, só consultas de pacientes de que ele é o responsável atual.
+            (responsavelId.HasValue ? FiltroPacientesTransferidos("@Responsavel") : "") +
             (incluirCanceladas ? "" : " AND C.STATUS NOT IN ('CANCELADA', 'REMARCADA')") + " ORDER BY C.DATA_INICIO, C.CODIGO_CONSULTA;";
-        var linhas = await con.QueryAsync<ConsultaLinha>(Sql.Cmd(sql, new { Prof = profissionalId, De = deUtc, Ate = ateUtc, Unidade = unidadeId }, ct: ct));
+        var linhas = await con.QueryAsync<ConsultaLinha>(Sql.Cmd(sql, new { Prof = profissionalId, De = deUtc, Ate = ateUtc, Unidade = unidadeId, Responsavel = responsavelId }, ct: ct));
         return linhas.Select(l => ParaResumo(l, ocultarValor)).ToList();
     }
 
@@ -242,7 +253,11 @@ WHERE (@Prof IS NULL OR C.CODIGO_PROFISSIONAL = @Prof) AND C.DATA_INICIO < @Ate 
  WHERE C.TIPO_ATENDIMENTO = 'CONVENIO' AND C.STATUS IN ('AGENDADA', 'CONFIRMADA') AND C.DATA_INICIO >= SYSUTCDATETIME()
    AND C.CREDENCIAMENTO_LIBERADO_POR IS NULL
    AND DBO.FN_CREDENCIADO(C.CODIGO_CONVENIO, C.CODIGO_UNIDADE, C.CODIGO_ESPECIALIDADE, CONVERT(DATE, DATEADD(HOUR, -3, C.DATA_INICIO))) = 0");
-        if (usuario.EhMedico) { onde.Append(" AND C.CODIGO_PROFISSIONAL = @Medico"); p.Add("Medico", usuario.ProfissionalId!.Value); }
+        if (usuario.EhMedico)
+        {
+            onde.Append(" AND C.CODIGO_PROFISSIONAL = @Medico").Append(FiltroPacientesTransferidos("@Medico"));
+            p.Add("Medico", usuario.ProfissionalId!.Value);
+        }
         if (f.UnidadeId.HasValue) { onde.Append(" AND C.CODIGO_UNIDADE = @UnidadeId"); p.Add("UnidadeId", f.UnidadeId.Value); }
         if (f.ConvenioId.HasValue) { onde.Append(" AND C.CODIGO_CONVENIO = @ConvenioId"); p.Add("ConvenioId", f.ConvenioId.Value); }
 
@@ -279,7 +294,8 @@ WHERE (@Prof IS NULL OR C.CODIGO_PROFISSIONAL = @Prof) AND C.DATA_INICIO < @Ate 
 
         if (usuario.EhMedico)
         {
-            onde.Append(" AND C.CODIGO_PROFISSIONAL = @Medico");
+            // O médico vê só as consultas dos pacientes de que é o responsável atual.
+            onde.Append(" AND C.CODIGO_PROFISSIONAL = @Medico").Append(FiltroPacientesTransferidos("@Medico"));
             p.Add("Medico", usuario.ProfissionalId!.Value);
         }
         if (f.DataInicial.HasValue)
@@ -321,7 +337,7 @@ WHERE (@Prof IS NULL OR C.CODIGO_PROFISSIONAL = @Prof) AND C.DATA_INICIO < @Ate 
     {
         await using var con = await _db.AbrirAsync(ct);
         var sql = SelectConsulta + " WHERE C.CODIGO_PUBLIC = @Id" +
-                  (usuario.EhMedico ? " AND C.CODIGO_PROFISSIONAL = @Medico" : "") + ";";
+                  (usuario.EhMedico ? " AND C.CODIGO_PROFISSIONAL = @Medico" + FiltroPacientesTransferidos("@Medico") : "") + ";";
         var linha = await con.QueryFirstOrDefaultAsync<ConsultaLinha>(Sql.Cmd(sql, new { Id = id, Medico = usuario.ProfissionalId }, ct: ct))
             ?? throw Erro.NaoEncontrado("Consulta não encontrada.");
 
