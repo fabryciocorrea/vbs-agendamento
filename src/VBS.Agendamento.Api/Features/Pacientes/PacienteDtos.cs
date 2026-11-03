@@ -27,6 +27,15 @@ public class PacienteBaseEntrada
     public string? Cidade { get; set; }
     public string? Uf { get; set; }
     public string? Escolaridade { get; set; }
+    /// <summary>M, F ou O (outro / não informado). Opcional.</summary>
+    public string? Sexo { get; set; }
+    public string? NomeMae { get; set; }
+    /// <summary>Verdadeiro quando o documento não registra a mãe; o nome da mãe deixa de ser obrigatório.</summary>
+    public bool? MaeNaoPossui { get; set; }
+    public string? NomePai { get; set; }
+    public string? Pais { get; set; }
+    public string? Cep { get; set; }
+    public string? Bairro { get; set; }
     public ConvenioPacienteEntrada? Convenio { get; set; }
     public int? ResponsavelLegalId { get; set; }
 }
@@ -141,6 +150,13 @@ public sealed class PacienteDto
     public string Cidade { get; set; } = string.Empty;
     public string Uf { get; set; } = string.Empty;
     public string? Escolaridade { get; set; }
+    public string? Sexo { get; set; }
+    public string? NomeMae { get; set; }
+    public bool MaeNaoPossui { get; set; }
+    public string? NomePai { get; set; }
+    public string Pais { get; set; } = "Brasil";
+    public string? Cep { get; set; }
+    public string? Bairro { get; set; }
     public ConvenioPacienteDto? Convenio { get; set; }
     public ProfissionalReferenciaDto ProfissionalResponsavel { get; set; } = new();
     public ResponsavelLegalDto? ResponsavelLegal { get; set; }

@@ -217,12 +217,9 @@ SELECT C.CODIGO_PUBLIC AS ConsultaId, C.DATA_INICIO AS Inicio, C.STATUS AS Statu
 
     private static string Dinheiro(decimal v) => v.ToString("F2", CultureInfo.InvariantCulture).Replace('.', ',');
 
-    /// <summary>CSV (separador ponto e vírgula, UTF-8 com BOM) para abrir no Excel.</summary>
-    public async Task<byte[]> ExportarAsync(FiltroFinanceiro f, UsuarioAtual usuario, CancellationToken ct)
+    private async Task<List<LinhaCsv>> CarregarLinhasAsync(Microsoft.Data.SqlClient.SqlConnection con, FiltroFinanceiro f, CancellationToken ct)
     {
-        Validar(f);
-        await using var con = await _db.AbrirAsync(ct);
-        var linhas = (await con.QueryAsync<LinhaCsv>(Sql.Cmd(@"
+        return (await con.QueryAsync<LinhaCsv>(Sql.Cmd(@"
 SELECT C.DATA_INICIO AS Inicio, P.NOME AS Paciente, PR.NOME AS Profissional, E.NOME AS Especialidade, UN.NOME_FANTASIA AS Unidade,
        C.TIPO_ATENDIMENTO AS Tipo, COALESCE(CV.NOME_FANTASIA, CV.RAZAO_SOCIAL) AS Convenio, C.VALOR AS Valor, FP.DESCRICAO AS FormaPagamento,
        C.PAGAMENTO_CONFIRMADO AS PagamentoConfirmado, C.GUIA_STATUS AS GuiaStatus, C.GUIA_NUMERO AS GuiaNumero
@@ -233,6 +230,69 @@ JOIN DBO.ESPECIALIDADE E ON E.CODIGO_ESPECIALIDADE = C.CODIGO_ESPECIALIDADE
 JOIN DBO.UNIDADE UN ON UN.CODIGO_UNIDADE = C.CODIGO_UNIDADE
 JOIN DBO.FORMA_PAGAMENTO FP ON FP.CODIGO_PAGAMENTO = C.CODIGO_PAGAMENTO
 LEFT JOIN DBO.CONVENIO CV ON CV.CODIGO_CONVENIO = C.CODIGO_CONVENIO" + Onde + " ORDER BY C.DATA_INICIO, C.CODIGO_CONSULTA;", Parametros(f), ct: ct))).ToList();
+    }
+
+    private static string RotuloGuia(string? status) => status switch { "AUTORIZADA" => "Autorizada", "NEGADA" => "Negada", "CANCELADA" => "Cancelada", _ => "Pendente" };
+
+    /// <summary>
+    /// A mesma lista do CSV como tabela (o navegador a transforma em PDF). Registra a exportação no log.
+    /// </summary>
+    public async Task<TabelaExportacao> ExportarTabelaAsync(FiltroFinanceiro f, UsuarioAtual usuario, CancellationToken ct)
+    {
+        Validar(f);
+        await using var con = await _db.AbrirAsync(ct);
+        var linhas = await CarregarLinhasAsync(con, f, ct);
+        if (linhas.Count > 10_000) throw Erro.Regra("EXPORTACAO_MUITO_GRANDE", "A exportação passa de 10.000 linhas. Reduza o período ou escolha uma unidade.");
+
+        var pt = new CultureInfo("pt-BR");
+        string? nomeUnidade = null;
+        if (f.UnidadeId.HasValue)
+            nomeUnidade = await con.QueryFirstOrDefaultAsync<string?>(Sql.Cmd("SELECT NOME_FANTASIA FROM DBO.UNIDADE WHERE CODIGO_UNIDADE = @Id;", new { Id = f.UnidadeId.Value }, ct: ct));
+
+        var tabela = new TabelaExportacao
+        {
+            Titulo = "Faturamento (consultas concluídas)",
+            Filtros = new List<string>
+            {
+                $"Período: {f.DataInicial!.Value.ToString("dd/MM/yyyy", pt)} a {f.DataFinal!.Value.ToString("dd/MM/yyyy", pt)}",
+                "Unidade: " + (nomeUnidade ?? "Todas")
+            },
+            Colunas =
+            {
+                ColunaTabela.Texto("Data"), ColunaTabela.Texto("Hora"), ColunaTabela.Texto("Paciente"), ColunaTabela.Texto("Profissional"),
+                ColunaTabela.Texto("Especialidade"), ColunaTabela.Texto("Unidade"), ColunaTabela.Texto("Tipo"), ColunaTabela.Texto("Convênio"),
+                ColunaTabela.Numero("Valor"), ColunaTabela.Texto("Forma de pagamento"), ColunaTabela.Texto("Pagamento confirmado"),
+                ColunaTabela.Texto("Guia"), ColunaTabela.Texto("Número da guia")
+            }
+        };
+        foreach (var l in linhas)
+        {
+            var local = l.Inicio.AddHours(-3); // Brasília = UTC-3 (sem horário de verão)
+            var particular = l.Tipo == "PARTICULAR";
+            tabela.Linhas.Add(new List<string>
+            {
+                local.ToString("dd/MM/yyyy", pt), local.ToString("HH:mm", pt), l.Paciente, l.Profissional, l.Especialidade, l.Unidade,
+                particular ? "Particular" : "Convênio", l.Convenio ?? string.Empty, l.Valor.ToString("C2", pt),
+                particular ? l.FormaPagamento ?? string.Empty : string.Empty,
+                particular ? (l.PagamentoConfirmado ? "Sim" : "Não") : string.Empty,
+                particular ? string.Empty : RotuloGuia(l.GuiaStatus), l.GuiaNumero ?? string.Empty
+            });
+        }
+        var total = linhas.Sum(l => l.Valor);
+        tabela.Totais = new List<string> { "Total", linhas.Count.ToString(pt) + " consulta(s)", "", "", "", "", "", "", total.ToString("C2", pt), "", "", "", "" };
+
+        await _auditoria.RegistrarAsync("EXPORTAR", "FATURAMENTO_FINANCEIRO", null, null, usuario.Id,
+            new { de = f.DataInicial, ate = f.DataFinal, unidade = f.UnidadeId, linhas = linhas.Count, formato = "pdf" }, con, ct: ct);
+        tabela.GeradoEm = DateTime.UtcNow;
+        return tabela;
+    }
+
+    /// <summary>CSV (separador ponto e vírgula, UTF-8 com BOM) para abrir no Excel.</summary>
+    public async Task<byte[]> ExportarAsync(FiltroFinanceiro f, UsuarioAtual usuario, CancellationToken ct)
+    {
+        Validar(f);
+        await using var con = await _db.AbrirAsync(ct);
+        var linhas = await CarregarLinhasAsync(con, f, ct);
 
         var sb = new StringBuilder();
         sb.Append("Data;Hora;Paciente;Profissional;Especialidade;Unidade;Tipo;Convênio;Valor;Forma de pagamento;Pagamento confirmado;Guia;Número da guia\r\n");

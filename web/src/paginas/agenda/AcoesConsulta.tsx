@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Alert, App, Button, Form, Input, Modal, Radio, Space, Spin } from 'antd';
-import { CheckOutlined, CloseOutlined, CalendarOutlined, DollarOutlined, LoginOutlined, PlayCircleOutlined, StopOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, CalendarOutlined, DollarOutlined, FileTextOutlined, LoginOutlined, PlayCircleOutlined, StopOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import { useAuth } from '../../auth/AuthContext';
 import { diaBrasilia, hojeBrasilia, horaBrasilia } from './datas';
@@ -296,6 +297,7 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
   const { admin, executar } = useLiberacao();
   const [motivo, setMotivo] = useState<'CANCELADA' | 'FALTA' | null>(null);
   const [remarcando, setRemarcando] = useState(false);
+  const navegar = useNavigate();
 
   const ativa = ATIVAS.includes(consulta.status);
   const vencida = new Date(consulta.inicio).getTime() <= Date.now();
@@ -319,7 +321,10 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
 
   const confirmarPag = (consulta.status === 'CHECK_IN' || (admin && ativa)) && consulta.tipoAtendimento === 'PARTICULAR' && !consulta.pagamentoConfirmado && podeRemarcar;
 
-  if (!concluir && !naoConcluido && !remarcar && !cancelar && !confirmarPag && !proximo) return null;
+  // Prontuário: aberto pela Agenda quando o atendimento começou ou terminou; o servidor confere se é o profissional responsável.
+  const prontuario = (consulta.status === 'EM_ATENDIMENTO' || consulta.status === 'CONCLUIDA') && pode('prontuario.registro', 'visualizar');
+
+  if (!concluir && !naoConcluido && !remarcar && !cancelar && !confirmarPag && !proximo && !prontuario) return null;
 
   /** Diálogo de confirmação; se o servidor bloquear, o administrador recebe a janela da justificativa. */
   function confirmarAcao(o: {
@@ -398,6 +403,14 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
             title={proximo.status === 'EM_ATENDIMENTO' && guiaPendente ? textoGuia : undefined}
           >
             {proximo.texto}
+          </Button>
+        )}
+        {prontuario && (
+          <Button
+            icon={<FileTextOutlined />}
+            onClick={() => navegar(`/pacientes/${consulta.paciente.id}/prontuario?consultaId=${consulta.id}&profissionalId=${consulta.profissional.id}`)}
+          >
+            Prontuário
           </Button>
         )}
         {confirmarPag && (

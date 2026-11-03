@@ -7,6 +7,9 @@ internal static class PacienteValidador
 {
     private const string NaoPreenchido = "Campo Não Preenchido";
 
+    /// <summary>Tipos de documento aceitos para o paciente estrangeiro.</summary>
+    public static readonly string[] TiposDocumentoEstrangeiro = { "Passaporte de origem", "RNE / CRNM", "Outro documento" };
+
     public static List<ErroCampo> ValidarBase(PacienteBaseEntrada d, DateOnly hoje)
     {
         var e = new List<ErroCampo>();
@@ -30,6 +33,24 @@ internal static class PacienteValidador
         Obrigatorio("cidade", d.Cidade, 80);
         Opcional("rg", d.Rg, 20);
         Opcional("escolaridade", d.Escolaridade, 40);
+        Obrigatorio("pais", d.Pais, 60);
+        Obrigatorio("bairro", d.Bairro, 80);
+        Opcional("nomePai", d.NomePai, 150);
+
+        // Sexo: opcional; M, F ou O.
+        if (!string.IsNullOrWhiteSpace(d.Sexo) && d.Sexo.Trim() is not ("M" or "F" or "O"))
+            e.Add(new ErroCampo("sexo", "Informe M, F ou O"));
+
+        // CEP: obrigatório; 8 dígitos.
+        if (string.IsNullOrWhiteSpace(d.Cep)) e.Add(new ErroCampo("cep", NaoPreenchido));
+        else if (!System.Text.RegularExpressions.Regex.IsMatch(d.Cep.Trim(), @"^\d{8}$")) e.Add(new ErroCampo("cep", "CEP inválido"));
+
+        // Nome da mãe: obrigatório, exceto quando o documento não registra a mãe ("Não possui").
+        if (d.MaeNaoPossui == true)
+        {
+            if (!string.IsNullOrWhiteSpace(d.NomeMae)) e.Add(new ErroCampo("nomeMae", "Desmarque \"Não possui\" ou apague o nome da mãe"));
+        }
+        else Obrigatorio("nomeMae", d.NomeMae, 150);
 
         // Data de nascimento e idade (menor de 18 anos, calculada no horário de Brasília).
         var menor = false;
@@ -79,6 +100,8 @@ internal static class PacienteValidador
                 if (!temNumeroDoc) e.Add(new ErroCampo("numeroDocumentoEstrangeiro", NaoPreenchido));
             }
             Opcional("tipoDocumentoEstrangeiro", d.TipoDocumentoEstrangeiro, 30);
+            if (temTipoDoc && !TiposDocumentoEstrangeiro.Contains(d.TipoDocumentoEstrangeiro!.Trim()))
+                e.Add(new ErroCampo("tipoDocumentoEstrangeiro", "Escolha Passaporte de origem, RNE / CRNM ou Outro documento"));
             Opcional("numeroDocumentoEstrangeiro", d.NumeroDocumentoEstrangeiro, 30);
         }
         else

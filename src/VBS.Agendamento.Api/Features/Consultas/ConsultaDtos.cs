@@ -155,6 +155,14 @@ public sealed class ConsultaPaginaDto
     public int Total { get; set; }
 }
 
+public sealed class FiltroSemCredenciamento
+{
+    public int? UnidadeId { get; set; }
+    public int? ConvenioId { get; set; }
+    public int Pagina { get; set; } = 1;
+    public int Tamanho { get; set; } = 20;
+}
+
 public sealed class FiltroConsultas
 {
     public DateOnly? DataInicial { get; set; }

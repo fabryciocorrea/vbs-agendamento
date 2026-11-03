@@ -909,8 +909,8 @@ paths:
       summary: Trocar o profissional responsável
       description: |
         Registra a troca no histórico, com data e usuário (RN18, E6). O profissional anterior deixa de visualizar e de preencher o prontuário (RN16); o novo passa a ver todos os registros, inclusive os anteriores.
-        Informar o profissional que já é o responsável atual retorna 409.
-      x-permissao: paciente.cadastro:editar
+        Informar o profissional que já é o responsável atual retorna 409. Exige a liberação `prontuario.transferencia:editar` e o motivo (10 a 500 caracteres, sem texto clínico), gravado no histórico. A tela do cadastro usa `POST /pacientes/{pacienteId}/prontuario/transferencia`, que faz o mesmo e ainda informa as consultas futuras.
+      x-permissao: prontuario.transferencia:editar
       requestBody:
         required: true
         content:
@@ -919,9 +919,14 @@ paths:
               type: object
               required:
               - profissionalId
+              - motivo
               properties:
                 profissionalId:
                   type: integer
+                motivo:
+                  type: string
+                  minLength: 10
+                  maxLength: 500
       responses:
         '200':
           description: Troca registrada.
@@ -4011,6 +4016,140 @@ paths:
           $ref: '#/components/responses/NaoEncontrado'
         '409':
           $ref: '#/components/responses/Conflito'
+  /pacientes/{pacienteId}/prontuario/transferencia:
+    parameters:
+    - $ref: '#/components/parameters/PacienteId'
+    post:
+      tags:
+      - Prontuário
+      operationId: transferirProntuario
+      summary: Transferir o prontuário para outro profissional
+      x-permissao: prontuario.transferencia:editar
+      description: |
+        Usada quando o paciente deixa de consultar com o profissional atual e passa a consultar com outro. O novo profissional vira o responsável do paciente (RN18) e o anterior deixa de ver e de preencher o prontuário (RN16). Os registros antigos continuam em nome de quem os escreveu (RN19) e o novo responsável passa a vê-los.
+        Quem faz a transferência precisa apenas da liberação `prontuario.transferencia:editar`: a transferência não lê texto clínico, então a recepção também pode fazê-la, sem ser o responsável atual. O motivo (10 a 500 caracteres, sem texto clínico) fica no histórico de profissionais e no log. Informar o responsável atual retorna 409 `PROFISSIONAL_JA_RESPONSAVEL`. Consultas já agendadas não mudam de profissional; a resposta informa quantas ficaram com o anterior para a recepção decidir se remarca.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - profissionalId
+              - motivo
+              properties:
+                profissionalId:
+                  type: integer
+                  description: Novo profissional responsável (ativo).
+                motivo:
+                  type: string
+                  minLength: 10
+                  maxLength: 500
+      responses:
+        '200':
+          description: Transferência registrada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - profissionalResponsavel
+                - transferidoEm
+                properties:
+                  profissionalResponsavel:
+                    $ref: '#/components/schemas/Referencia'
+                  transferidoEm:
+                    type: string
+                    format: date-time
+                  consultasFuturasComProfissionalAnterior:
+                    type: integer
+                    description: Consultas AGENDADA ou CONFIRMADA futuras do paciente que seguem com o profissional anterior.
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+  /pacientes/{pacienteId}/prontuario/autorizacoes:
+    parameters:
+    - $ref: '#/components/parameters/PacienteId'
+    post:
+      tags:
+      - Prontuário
+      operationId: anexarDocumentoAutorizacao
+      summary: Anexar o documento de autorização (administrador)
+      x-permissao: prontuario.registro:editar
+      description: |
+        Envia o documento (multipart, campo `arquivo`) exigido para o administrador incluir ou editar um registro. Aceita PDF, JPG ou PNG de até 5 MB; o tipo é conferido pelo conteúdo, não pela extensão. Guarda nome, tamanho, impressão digital SHA-256, paciente, usuário e data. O documento não pode ser alterado nem excluído. O envio fica no log. Em seguida, o `documentoId` devolvido vai em `autorizacao` na inclusão ou na edição.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - arquivo
+              properties:
+                arquivo:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Documento guardado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentoAutorizacao'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /pacientes/{pacienteId}/prontuario/autorizacoes/{documentoId}:
+    parameters:
+    - $ref: '#/components/parameters/PacienteId'
+    - name: documentoId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags:
+      - Prontuário
+      operationId: baixarDocumentoAutorizacao
+      summary: Baixar o documento de autorização
+      x-permissao: prontuario.correcao:visualizar
+      description: Devolve o arquivo original. Restrito a quem tem `prontuario.correcao:visualizar` (administrador). O acesso fica no log. Sem cache.
+      responses:
+        '200':
+          description: Arquivo.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
   /pacientes/{pacienteId}/prontuario/{registroId}:
     parameters:
     - $ref: '#/components/parameters/PacienteId'
@@ -4420,33 +4559,49 @@ paths:
           $ref: '#/components/responses/NaoAutenticado'
         '403':
           $ref: '#/components/responses/SemPermissao'
-  /dashboards/financeiro-mensal:
+  /dashboards/financeiro:
     get:
       tags:
       - Dashboards
-      operationId: obterFinanceiroMensal
-      summary: Financeiro do mês
+      operationId: obterPainelFinanceiro
+      summary: Painel financeiro
       x-permissao: dashboard.financeiro:visualizar
       description: |
-        Nunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Soma os valores das consultas CONCLUIDAS no mês, pela data da consulta, separando particular e convênio, com comparação com o mês anterior (L2). Exige também a liberação de visualização do campo de valor (RN20); sem ela, 403 `VALOR_SEM_LIBERACAO`. `mes` vazio: o mês atual.
+        Nunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Soma os valores das consultas CONCLUIDAS no período, pela data da consulta (horário de Brasília), separando particular e convênio (guia autorizada, pendente e negada). As consultas ainda não concluídas (agendada, confirmada, check-in e em atendimento) entram em `previsto`, à parte. Canceladas, remarcadas e faltas não contam. `dataInicial` vazia: primeiro dia do mês atual; `dataFinal` vazia: hoje; período de no máximo 366 dias. A evolução é diária em períodos de até 62 dias e mensal acima disso. Substitui o antigo `/dashboards/financeiro-mensal`: a comparação com o mês anterior e a liberação do campo de valor (`VALOR_SEM_LIBERACAO`) ficam para quando o catálogo de campos for implementado.
       parameters:
-      - name: mes
+      - name: dataInicial
         in: query
-        description: AAAA-MM.
         schema:
           type: string
-          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+          format: date
+      - name: dataFinal
+        in: query
+        schema:
+          type: string
+          format: date
       - name: unidadeId
         in: query
         schema:
           type: integer
+      - name: profissionalId
+        in: query
+        schema:
+          type: integer
+      - name: tipo
+        in: query
+        description: Filtra por tipo de atendimento. Vazio, todos.
+        schema:
+          type: string
+          enum:
+          - PARTICULAR
+          - CONVENIO
       responses:
         '200':
-          description: Soma do mês.
+          description: Painel financeiro do período.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FinanceiroMensal'
+                $ref: '#/components/schemas/PainelFinanceiro'
         '400':
           $ref: '#/components/responses/ValidacaoErro'
         '401':
@@ -4642,6 +4797,91 @@ paths:
           $ref: '#/components/responses/NaoAutenticado'
         '403':
           $ref: '#/components/responses/SemPermissao'
+  /relatorios/cadastros/{tipo}:
+    get:
+      tags:
+      - Relatórios
+      operationId: relatorioCadastro
+      summary: Relatórios cadastrais (pacientes, profissionais, colaboradores, convênios e credenciamentos)
+      x-permissao: relatorio.cadastro_pacientes:visualizar
+      description: |
+        Traz **todos os dados** do cadastro, inclusive o CPF completo, sem máscara, em tabela paginada (colunas e linhas já formatadas em português). Cada tipo tem a sua permissão de visualização: `relatorio.cadastro_pacientes`, `relatorio.cadastro_profissionais`, `relatorio.cadastro_colaboradores`, `relatorio.cadastro_convenios` e `relatorio.cadastro_credenciamentos` (a indicada em `x-permissao` é a do primeiro tipo; vale a do tipo pedido). Nunca disponível ao médico (403 `MEDICO_SEM_ACESSO`). Cada consulta é gravada no log (`VISUALIZAR`) e cada exportação também (`EXPORTAR`), por conter dados pessoais (LGPD). No relatório de colaboradores e prestadores, os dados trabalhistas (CTPS, PIS/PASEP e admissão) só saem para quem também tem `colaborador.cadastro:visualizar`. Os filtros valem por tipo: pacientes (`ativo`, `profissionalId` responsável, `convenioId`), profissionais (`ativo`, `unidadeId`), colaboradores (`ativo`, `vinculo`), convênios (`ativo`) e credenciamentos (`ativo`, `convenioId`, `unidadeId`, `situacao`).
+      parameters:
+      - name: tipo
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - pacientes
+          - profissionais
+          - colaboradores
+          - convenios
+          - credenciamentos
+      - name: ativo
+        in: query
+        description: Sem o parâmetro, traz ativos e inativos.
+        schema:
+          type: boolean
+      - name: profissionalId
+        in: query
+        schema:
+          type: integer
+      - name: convenioId
+        in: query
+        schema:
+          type: integer
+      - name: unidadeId
+        in: query
+        schema:
+          type: integer
+      - name: vinculo
+        in: query
+        schema:
+          type: string
+          enum:
+          - CLT
+          - MEI
+      - name: estrangeiro
+        in: query
+        description: Só em pacientes. Falso traz os nacionais; verdadeiro, os estrangeiros; sem o parâmetro, todos.
+        schema:
+          type: boolean
+      - name: situacao
+        in: query
+        description: Só em credenciamentos.
+        schema:
+          type: string
+          enum:
+          - APROVADO
+          - EM_ANALISE
+          - NAO_CREDENCIADO
+      - name: pagina
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: tamanho
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Relatório.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelatorioCadastro'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
   /relatorios/faturamento-por-tipo:
     get:
       tags:
@@ -4650,7 +4890,7 @@ paths:
       summary: Faturamento por particular e convênio
       x-permissao: relatorio.faturamento_tipo:visualizar
       description: |
-        Nunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Filtros do RF22 (período, profissional, unidade, convênio e tipo). Período de no máximo 366 dias; fora disso, 400 `PERIODO_INVALIDO`. Datas e horas no horário de Brasília. Cada geração é gravada no log. Soma das consultas CONCLUIDAS, uma linha para o particular e **uma linha para cada convênio**, cada uma com a quantidade e o valor, do mesmo jeito que o particular (L6). A tela de faturamento mostra só valores e quantidades. O valor de convênio é informativo, sem guias TISS e TUSS nem glosas. Exige a liberação de visualização do valor (`VALOR_SEM_LIBERACAO`).
+        Nunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Período de no máximo 366 dias; fora disso, 400. Datas e horas no horário de Brasília. Cada geração é gravada no log. Soma só as consultas CONCLUIDAS, em duas linhas (Particular e Convênio) com quantidade, valor, participação, confirmado (particular recebido; convênio com guia autorizada), pendente e negado. Filtros de profissional, unidade, convênio e tipo.
       parameters:
       - name: dataInicial
         in: query
@@ -4691,7 +4931,101 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RelatorioFaturamentoPorTipo'
+                $ref: '#/components/schemas/RelatorioFaturamento'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+  /relatorios/faturamento-por-convenio:
+    get:
+      tags:
+      - Relatórios
+      operationId: relatorioFaturamentoPorConvenio
+      summary: Faturamento por convênio
+      x-permissao: relatorio.faturamento_convenio:visualizar
+      description: |
+        Nunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Período de no máximo 366 dias; fora disso, 400. Datas e horas no horário de Brasília. Cada geração é gravada no log. Soma só as consultas CONCLUIDAS de convênio, uma linha por convênio, ordenada pelo maior valor, com a situação das guias (autorizado, pendente, negado). O valor de convênio é informativo, sem guias TISS e TUSS nem glosas.
+      parameters:
+      - name: dataInicial
+        in: query
+        required: true
+        description: Início do período, no horário de Brasília.
+        schema:
+          type: string
+          format: date
+      - name: dataFinal
+        in: query
+        required: true
+        description: Fim do período, inclusive. No máximo 366 dias depois do início.
+        schema:
+          type: string
+          format: date
+      - name: profissionalId
+        in: query
+        schema:
+          type: integer
+      - name: unidadeId
+        in: query
+        schema:
+          type: integer
+      - name: convenioId
+        in: query
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Relatório.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelatorioFaturamento'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+  /relatorios/faturamento-particular:
+    get:
+      tags:
+      - Relatórios
+      operationId: relatorioFaturamentoParticular
+      summary: Faturamento particular por forma de pagamento
+      x-permissao: relatorio.faturamento_particular:visualizar
+      description: |
+        Nunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Período de no máximo 366 dias; fora disso, 400. Datas e horas no horário de Brasília. Cada geração é gravada no log. Soma só as consultas CONCLUIDAS de atendimento particular, uma linha por forma de pagamento (dinheiro, cartão, Pix...), ordenada pelo maior valor, com o recebido (pagamento confirmado) e o a confirmar.
+      parameters:
+      - name: dataInicial
+        in: query
+        required: true
+        description: Início do período, no horário de Brasília.
+        schema:
+          type: string
+          format: date
+      - name: dataFinal
+        in: query
+        required: true
+        description: Fim do período, inclusive. No máximo 366 dias depois do início.
+        schema:
+          type: string
+          format: date
+      - name: profissionalId
+        in: query
+        schema:
+          type: integer
+      - name: unidadeId
+        in: query
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Relatório.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelatorioFaturamento'
         '400':
           $ref: '#/components/responses/ValidacaoErro'
         '401':
@@ -4706,7 +5040,7 @@ paths:
       summary: Faturamento mensal
       x-permissao: relatorio.faturamento_mensal:visualizar
       description: |
-        Nunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Filtros do RF22 (período, profissional, unidade, convênio e tipo). Período de no máximo 366 dias; fora disso, 400 `PERIODO_INVALIDO`. Datas e horas no horário de Brasília. Cada geração é gravada no log. Uma linha por mês do período, com o particular, o total de convênios e o valor de cada convênio no mês (`porConvenio`). Mostra só valores e quantidades. Exige a liberação de visualização do valor (`VALOR_SEM_LIBERACAO`).
+        Nunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Período de no máximo 366 dias; fora disso, 400. Datas e horas no horário de Brasília. Cada geração é gravada no log. Uma linha por mês do período (meses sem faturamento vêm zerados), com quantidade, particular, convênio, total e a variação do total em relação ao mês anterior do relatório. Só consultas CONCLUIDAS. O primeiro e o último mês podem ser parciais.
       parameters:
       - name: dataInicial
         in: query
@@ -4748,6 +5082,73 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RelatorioFaturamentoMensal'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+  /relatorios/lista-espera:
+    get:
+      tags:
+      - Relatórios
+      operationId: relatorioListaEspera
+      summary: Lista de espera
+      x-permissao: relatorio.lista_espera:visualizar
+      description: |
+        Nunca disponível ao usuário vinculado a profissional (médico), mesmo que o perfil tenha a liberação: 403 `MEDICO_SEM_ACESSO` (RN20, L10). Período de no máximo 366 dias; fora disso, 400. Datas e horas no horário de Brasília. Cada geração é gravada no log. O período é a data em que a pessoa entrou na fila. Os totais por situação mostram o quadro todo do período; o filtro `situacao` afeta só a lista paginada. Traz também o tempo médio, em dias, de quem ainda espera (aguardando e horário liberado).
+      parameters:
+      - name: dataInicial
+        in: query
+        required: true
+        description: Início do período (data de entrada na fila), no horário de Brasília.
+        schema:
+          type: string
+          format: date
+      - name: dataFinal
+        in: query
+        required: true
+        description: Fim do período, inclusive. No máximo 366 dias depois do início.
+        schema:
+          type: string
+          format: date
+      - name: profissionalId
+        in: query
+        schema:
+          type: integer
+      - name: unidadeId
+        in: query
+        schema:
+          type: integer
+      - name: situacao
+        in: query
+        schema:
+          type: string
+          enum:
+          - AGUARDANDO
+          - NOTIFICADO
+          - ATENDIDO
+          - CANCELADO
+      - name: pagina
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: tamanho
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Relatório.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelatorioListaEspera'
         '400':
           $ref: '#/components/responses/ValidacaoErro'
         '401':
@@ -4840,31 +5241,29 @@ paths:
         - ocupacao-agenda
         - cancelamentos-faltas
         - faturamento-por-tipo
+        - faturamento-por-convenio
+        - faturamento-particular
         - faturamento-mensal
-        - prontuarios
+        - lista-espera
+        - cadastro-pacientes
+        - cadastro-profissionais
+        - cadastro-colaboradores
+        - cadastro-convenios
+        - cadastro-credenciamentos
     get:
       tags:
       - Exportação
       operationId: exportarRelatorio
-      summary: Exportar um relatório em PDF, Excel ou CSV
+      summary: Tabela do relatório para exportar em PDF ou CSV
       x-permissao: relatorio.exportacao:exportar
       description: |
-        Gera o mesmo relatório da tela, com os mesmos filtros, em arquivo (RF23). Exige duas liberações: a exportação (`relatorio.exportacao:exportar`) e a visualização do relatório escolhido; a recepção, por exemplo, pode ver um relatório sem poder exportá-lo.
-        - `formato`: `pdf` (cabeçalho com a clínica, filtros, usuário e data e hora), `xlsx` ou `csv` (UTF-8 com marca de ordem, separador ponto e vírgula, para abrir direto no Excel brasileiro).
-        - No máximo 10.000 linhas por arquivo; acima disso, 413 `EXPORTACAO_MUITO_GRANDE`, e o usuário reduz o período ou filtra (L8).
-        - Exportar o relatório de prontuários segue a regra do texto: sem o texto clínico, salvo para o administrador com `incluirTexto`.
+        Devolve o mesmo relatório da tela, com os mesmos filtros, como tabela já formatada em português (RF23). O navegador transforma a tabela em PDF (cabeçalho com a clínica, filtros, usuário e data e hora, número de página) ou em CSV (UTF-8 com marca de ordem e ponto e vírgula, para abrir direto no Excel brasileiro). Exige duas liberações: a exportação (`relatorio.exportacao:exportar`) e a visualização do relatório escolhido; a recepção, por exemplo, pode ver um relatório sem poder exportá-lo. Nunca disponível ao médico (403 `MEDICO_SEM_ACESSO`).
+        - No máximo 10.000 linhas por exportação; acima disso, `EXPORTACAO_MUITO_GRANDE`, e o usuário reduz o período ou filtra (L8).
         - Toda exportação grava no log (ação EXPORTAR) o usuário, o relatório, os filtros e a quantidade de linhas.
         - Não fica em cache.
+        - Fica para depois o relatório de prontuários. Nos relatórios cadastrais valem `ativo`, `profissionalId`, `convenioId`, `unidadeId`, `vinculo` e `situacao`, conforme o tipo; na lista de espera, o parâmetro `situacao` também vale na exportação.
+        - O formato XLSX do contrato original não é gerado.
       parameters:
-      - name: formato
-        in: query
-        required: true
-        schema:
-          type: string
-          enum:
-          - pdf
-          - xlsx
-          - csv
       - name: dataInicial
         in: query
         required: true
@@ -4906,43 +5305,68 @@ paths:
           enum:
           - RESUMO
           - DETALHE
-      - name: incluirTexto
+      - name: situacao
         in: query
-        description: Só no relatório de prontuários, e só para o administrador.
+        description: Só no relatório de lista de espera.
         schema:
-          type: boolean
-          default: false
+          type: string
+          enum:
+          - AGUARDANDO
+          - NOTIFICADO
+          - ATENDIDO
+          - CANCELADO
       responses:
         '200':
-          description: Arquivo gerado.
-          headers:
-            Content-Disposition:
-              schema:
-                type: string
-              description: Nome do arquivo, com o relatório e o período.
+          description: Tabela pronta para virar arquivo.
           content:
-            application/pdf:
+            application/json:
               schema:
-                type: string
-                format: binary
-            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
-              schema:
-                type: string
-                format: binary
-            text/csv:
-              schema:
-                type: string
-                format: binary
+                $ref: '#/components/schemas/TabelaExportacao'
         '400':
           $ref: '#/components/responses/ValidacaoErro'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '403':
           $ref: '#/components/responses/SemPermissao'
-        '404':
-          $ref: '#/components/responses/NaoEncontrado'
-        '413':
-          $ref: '#/components/responses/MuitoGrande'
+  /faturamento/exportacao-tabela:
+    get:
+      tags:
+      - Exportação
+      operationId: exportarFaturamentoTabela
+      summary: Tabela do faturamento para exportar em PDF
+      x-permissao: faturamento.financeiro:exportar
+      description: |
+        A mesma lista do CSV de `/faturamento/exportacao` (consultas concluídas do período), como tabela já formatada; o navegador a transforma em PDF. Grava a exportação no log. No máximo 10.000 linhas (`EXPORTACAO_MUITO_GRANDE`).
+      parameters:
+      - name: dataInicial
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: dataFinal
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: unidadeId
+        in: query
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Tabela pronta para virar arquivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TabelaExportacao'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
   /auditoria/acessos:
     get:
       tags:
@@ -5842,6 +6266,9 @@ components:
       - numero
       - cidade
       - uf
+      - pais
+      - cep
+      - bairro
       properties:
         nome:
           type: string
@@ -5857,6 +6284,10 @@ components:
           description: Obrigatório para todo paciente brasileiro, inclusive o menor de idade. Opcional só para estrangeiro com documento (RN25).
         tipoDocumentoEstrangeiro:
           type: string
+          enum:
+          - Passaporte de origem
+          - RNE / CRNM
+          - Outro documento
           nullable: true
           maxLength: 30
           description: Passaporte, RNE etc. Obrigatório para estrangeiro sem CPF.
@@ -5903,6 +6334,39 @@ components:
           type: string
           nullable: true
           maxLength: 40
+        sexo:
+          type: string
+          nullable: true
+          enum:
+          - M
+          - F
+          - O
+          description: Opcional. M (masculino), F (feminino) ou O (outro / não informado).
+        nomeMae:
+          type: string
+          nullable: true
+          maxLength: 150
+          description: Obrigatório, exceto quando `maeNaoPossui` é verdadeiro (nesse caso deve vir vazio).
+        maeNaoPossui:
+          type: boolean
+          nullable: true
+          description: Verdadeiro quando o documento não registra a mãe; o nome da mãe deixa de ser obrigatório.
+        nomePai:
+          type: string
+          nullable: true
+          maxLength: 150
+        pais:
+          type: string
+          maxLength: 60
+          description: Obrigatório; a tela não preenche sozinha.
+          example: Brasil
+        cep:
+          type: string
+          pattern: '^[0-9]{8}$'
+          description: Só os 8 dígitos.
+        bairro:
+          type: string
+          maxLength: 80
         convenio:
           allOf:
           - $ref: '#/components/schemas/ConvenioPacienteEntrada'
@@ -5997,6 +6461,29 @@ components:
         escolaridade:
           type: string
           nullable: true
+        sexo:
+          type: string
+          nullable: true
+          enum:
+          - M
+          - F
+          - O
+        nomeMae:
+          type: string
+          nullable: true
+        maeNaoPossui:
+          type: boolean
+        nomePai:
+          type: string
+          nullable: true
+        pais:
+          type: string
+        cep:
+          type: string
+          nullable: true
+        bairro:
+          type: string
+          nullable: true
         convenio:
           $ref: '#/components/schemas/ConvenioPaciente'
         profissionalResponsavel:
@@ -6089,6 +6576,10 @@ components:
           nullable: true
         alteradoPor:
           $ref: '#/components/schemas/UsuarioReferencia'
+        motivo:
+          type: string
+          nullable: true
+          description: Motivo da transferência de prontuário (nulo nas trocas feitas pelo cadastro do paciente).
     ConsentimentoEntrada:
       type: object
       required:
@@ -8460,17 +8951,16 @@ components:
           maxLength: 2
     AutorizacaoProntuario:
       type: object
-      description: Autorização obrigatória quando o administrador inclui ou edita um registro (H3). É gravada junto com o registro e no log.
+      description: Autorização obrigatória quando o administrador inclui ou edita um registro (H3). É gravada junto com o registro e no log. Todos os campos são obrigatórios.
       required:
-      - solicitadoPor
+      - solicitadoPorProfissionalId
       - autorizadoPor
       - observacao
+      - documentoId
       properties:
-        solicitadoPor:
-          type: string
-          minLength: 3
-          maxLength: 150
-          description: Nome do profissional que solicitou a inclusão ou a alteração.
+        solicitadoPorProfissionalId:
+          type: integer
+          description: Profissional ativo que solicitou a inclusão ou a alteração. O servidor grava o nome dele.
         autorizadoPor:
           type: string
           minLength: 3
@@ -8481,6 +8971,24 @@ components:
           minLength: 10
           maxLength: 1000
           description: 'Observação da autorização: como e quando a solicitação e o OK foram dados. Não deve conter texto clínico.'
+        documentoId:
+          type: string
+          format: uuid
+          description: Documento de autorização anexado antes por `POST /pacientes/{pacienteId}/prontuario/autorizacoes`. Vale para um único uso, do mesmo paciente e do mesmo administrador que o enviou.
+    DocumentoAutorizacao:
+      type: object
+      required:
+      - id
+      - nomeArquivo
+      - tamanhoBytes
+      properties:
+        id:
+          type: string
+          format: uuid
+        nomeArquivo:
+          type: string
+        tamanhoBytes:
+          type: integer
     RegistroProntuarioEntrada:
       type: object
       required:
@@ -8537,6 +9045,10 @@ components:
           type: string
         observacaoAutorizacao:
           type: string
+        documento:
+          allOf:
+          - $ref: '#/components/schemas/DocumentoAutorizacao'
+          nullable: true
     RegistroProntuario:
       type: object
       required:
@@ -8630,6 +9142,11 @@ components:
         corrigidoEm:
           type: string
           format: date-time
+        documento:
+          allOf:
+          - $ref: '#/components/schemas/DocumentoAutorizacao'
+          nullable: true
+          description: Documento de autorização (nulo na correção feita direto no banco).
     ConsultaNotificacao:
       type: object
       description: Consulta a que o aviso se refere, para a tela abrir direto nela.
@@ -8947,6 +9464,10 @@ components:
           - PARTICULAR
           - CONVENIO
           nullable: true
+        situacao:
+          type: string
+          nullable: true
+          description: Só na lista de espera.
     PainelDoDia:
       type: object
       description: Contagem das consultas do dia por status (RF15).
@@ -9088,45 +9609,149 @@ components:
           format: double
         quantidade:
           type: integer
-    FinanceiroMensal:
+    TabelaExportacao:
       type: object
-      description: Soma dos valores das consultas concluídas no mês (RF16).
+      description: Tabela formatada para virar PDF ou CSV no navegador. Todos os valores são texto em português.
       required:
-      - mes
-      - atualizadoEm
-      - total
-      - particular
-      - convenio
+      - titulo
+      - colunas
+      - linhas
       properties:
-        mes:
+        titulo:
           type: string
-          description: AAAA-MM.
+        filtros:
+          type: array
+          items:
+            type: string
+        colunas:
+          type: array
+          items:
+            type: object
+            properties:
+              titulo:
+                type: string
+              alinhamento:
+                type: string
+                enum:
+                - esquerda
+                - direita
+        linhas:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+        totais:
+          type: array
+          nullable: true
+          items:
+            type: string
+        geradoEm:
+          type: string
+          format: date-time
+    PainelValor:
+      type: object
+      properties:
+        quantidade:
+          type: integer
+        valor:
+          type: number
+    PainelFinanceiroLinha:
+      type: object
+      properties:
+        tipo:
+          type: string
+          nullable: true
+          description: PARTICULAR ou CONVENIO nas linhas por convênio.
+        nome:
+          type: string
+        quantidade:
+          type: integer
+        valor:
+          type: number
+        percentual:
+          type: number
+          description: Participação no valor faturado, de 0 a 100.
+        autorizado:
+          type: number
+          nullable: true
+        pendente:
+          type: number
+          nullable: true
+        negado:
+          type: number
+          nullable: true
+    PainelFinanceiro:
+      type: object
+      required:
+      - dataInicial
+      - dataFinal
+      - totais
+      properties:
+        dataInicial:
+          type: string
+          format: date
+        dataFinal:
+          type: string
+          format: date
         unidade:
-          allOf:
-          - $ref: '#/components/schemas/Referencia'
+          $ref: '#/components/schemas/Referencia'
+        profissional:
+          $ref: '#/components/schemas/Referencia'
+        tipo:
+          type: string
           nullable: true
         atualizadoEm:
           type: string
           format: date-time
-        total:
-          $ref: '#/components/schemas/ValorQuantidade'
-        particular:
-          $ref: '#/components/schemas/ValorQuantidade'
-        convenio:
-          $ref: '#/components/schemas/ValorQuantidade'
-        mesAnterior:
+        agrupamento:
+          type: string
+          enum:
+          - DIA
+          - MES
+        totais:
           type: object
-          required:
-          - total
           properties:
-            total:
+            faturado:
+              $ref: '#/components/schemas/PainelValor'
+            ticketMedio:
               type: number
-              format: double
-            variacaoPercentual:
-              type: number
-              format: double
-              nullable: true
-              description: Vazio quando o mês anterior não tem valor.
+            particularRecebido:
+              $ref: '#/components/schemas/PainelValor'
+            particularAConfirmar:
+              $ref: '#/components/schemas/PainelValor'
+            convenioAutorizado:
+              $ref: '#/components/schemas/PainelValor'
+            convenioPendente:
+              $ref: '#/components/schemas/PainelValor'
+            convenioNegado:
+              $ref: '#/components/schemas/PainelValor'
+            previsto:
+              $ref: '#/components/schemas/PainelValor'
+        evolucao:
+          type: array
+          items:
+            type: object
+            properties:
+              periodo:
+                type: string
+                description: AAAA-MM-DD (DIA) ou AAAA-MM (MES).
+              quantidade:
+                type: integer
+              valor:
+                type: number
+        porConvenio:
+          type: array
+          items:
+            $ref: '#/components/schemas/PainelFinanceiroLinha'
+        porEspecialidade:
+          type: array
+          items:
+            $ref: '#/components/schemas/PainelFinanceiroLinha'
+        porProfissional:
+          type: array
+          items:
+            $ref: '#/components/schemas/PainelFinanceiroLinha'
     ConsultasPorProfissionalItem:
       type: object
       required:
@@ -9348,42 +9973,46 @@ components:
           - $ref: '#/components/schemas/CancelamentoFaltaDetalhePagina'
           nullable: true
           description: Só quando `visao` é DETALHE.
-    FaturamentoPorTipoItem:
+    FaturamentoLinha:
       type: object
+      description: |
+        Uma linha do faturamento (só consultas concluídas). Particular: `confirmado` é o recebido e `pendente` o a confirmar. Convênio: `confirmado` é a guia autorizada, `pendente` a guia pendente e `negado` a guia negada.
       required:
-      - tipoAtendimento
+      - nome
       - quantidade
       - valor
+      - percentual
+      - confirmado
+      - pendente
+      - negado
+      - ticketMedio
       properties:
-        tipoAtendimento:
+        nome:
           type: string
-          enum:
-          - PARTICULAR
-          - CONVENIO
-        convenio:
-          allOf:
-          - $ref: '#/components/schemas/Referencia'
-          nullable: true
-          description: Preenchido nas linhas de convênio, uma por convênio.
         quantidade:
           type: integer
         valor:
           type: number
           format: double
-    TotaisFaturamento:
-      type: object
-      required:
-      - quantidade
-      - valor
-      properties:
-        quantidade:
-          type: integer
-        valor:
+        percentual:
           type: number
           format: double
-    RelatorioFaturamentoPorTipo:
+          description: Participação no faturado total do relatório.
+        confirmado:
+          type: number
+          format: double
+        pendente:
+          type: number
+          format: double
+        negado:
+          type: number
+          format: double
+        ticketMedio:
+          type: number
+          format: double
+    RelatorioFaturamento:
       type: object
-      description: Faturamento por particular e por convênio, das consultas concluídas (RF20). O valor de convênio é informativo.
+      description: Faturamento por tipo (particular e convênio) ou por convênio, das consultas concluídas (RF20).
       required:
       - filtros
       - geradoEm
@@ -9398,47 +10027,37 @@ components:
         itens:
           type: array
           items:
-            $ref: '#/components/schemas/FaturamentoPorTipoItem'
+            $ref: '#/components/schemas/FaturamentoLinha'
         totais:
-          $ref: '#/components/schemas/TotaisFaturamento'
-    FaturamentoConvenioMes:
-      type: object
-      required:
-      - convenio
-      - quantidade
-      - valor
-      properties:
-        convenio:
-          $ref: '#/components/schemas/Referencia'
-        quantidade:
-          type: integer
-        valor:
-          type: number
-          format: double
+          $ref: '#/components/schemas/FaturamentoLinha'
     FaturamentoMensalItem:
       type: object
       required:
       - mes
+      - quantidade
       - particular
       - convenio
-      - porConvenio
-      - valorTotal
+      - total
       properties:
         mes:
           type: string
-          description: AAAA-MM.
+          description: AAAA-MM (no total, o texto "Total").
+        quantidade:
+          type: integer
         particular:
-          $ref: '#/components/schemas/ValorQuantidade'
-        convenio:
-          $ref: '#/components/schemas/ValorQuantidade'
-        porConvenio:
-          type: array
-          items:
-            $ref: '#/components/schemas/FaturamentoConvenioMes'
-          description: Valor de cada convênio no mês, no mesmo formato do particular.
-        valorTotal:
           type: number
           format: double
+        convenio:
+          type: number
+          format: double
+        total:
+          type: number
+          format: double
+        variacaoPercentual:
+          type: number
+          format: double
+          nullable: true
+          description: Variação do total em relação ao mês anterior do relatório; vazia no primeiro mês ou quando o anterior é zero.
     RelatorioFaturamentoMensal:
       type: object
       description: Faturamento mês a mês no período (RF21).
@@ -9458,7 +10077,151 @@ components:
           items:
             $ref: '#/components/schemas/FaturamentoMensalItem'
         totais:
-          $ref: '#/components/schemas/TotaisFaturamento'
+          $ref: '#/components/schemas/FaturamentoMensalItem'
+    ListaEsperaRelatorioItem:
+      type: object
+      required:
+      - id
+      - paciente
+      - situacao
+      - entrouEm
+      properties:
+        id:
+          type: integer
+        paciente:
+          $ref: '#/components/schemas/PacienteReferencia'
+        profissional:
+          allOf:
+          - $ref: '#/components/schemas/Referencia'
+          nullable: true
+        especialidade:
+          allOf:
+          - $ref: '#/components/schemas/Referencia'
+          nullable: true
+        unidade:
+          allOf:
+          - $ref: '#/components/schemas/Referencia'
+          nullable: true
+        situacao:
+          type: string
+          enum:
+          - AGUARDANDO
+          - NOTIFICADO
+          - ATENDIDO
+          - CANCELADO
+        entrouEm:
+          type: string
+          format: date-time
+        notificadoEm:
+          type: string
+          format: date-time
+          nullable: true
+        diasNaFila:
+          type: integer
+          nullable: true
+          description: Só para quem ainda espera (aguardando e horário liberado).
+        observacao:
+          type: string
+          nullable: true
+    RelatorioListaEspera:
+      type: object
+      description: Lista de espera por data de entrada na fila, com os totais por situação e a lista paginada.
+      required:
+      - filtros
+      - geradoEm
+      - totais
+      - itens
+      - pagina
+      - tamanho
+      - total
+      properties:
+        filtros:
+          $ref: '#/components/schemas/FiltrosAplicados'
+        geradoEm:
+          type: string
+          format: date-time
+        totais:
+          type: object
+          required:
+          - total
+          - aguardando
+          - notificado
+          - atendido
+          - cancelado
+          - mediaDiasEmAberto
+          properties:
+            total:
+              type: integer
+            aguardando:
+              type: integer
+            notificado:
+              type: integer
+            atendido:
+              type: integer
+            cancelado:
+              type: integer
+            mediaDiasEmAberto:
+              type: number
+              format: double
+        itens:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListaEsperaRelatorioItem'
+        pagina:
+          type: integer
+        tamanho:
+          type: integer
+        total:
+          type: integer
+    RelatorioCadastro:
+      type: object
+      description: Relatório cadastral em tabela, com todos os dados do cadastro (inclusive CPF completo).
+      required:
+      - titulo
+      - filtros
+      - colunas
+      - linhas
+      - pagina
+      - tamanho
+      - total
+      - geradoEm
+      properties:
+        titulo:
+          type: string
+        filtros:
+          type: array
+          items:
+            type: string
+        colunas:
+          type: array
+          items:
+            type: object
+            required:
+            - titulo
+            - alinhamento
+            properties:
+              titulo:
+                type: string
+              alinhamento:
+                type: string
+                enum:
+                - esquerda
+                - direita
+        linhas:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+        pagina:
+          type: integer
+        tamanho:
+          type: integer
+        total:
+          type: integer
+        geradoEm:
+          type: string
+          format: date-time
     ProfissionalProntuario:
       type: object
       required:
@@ -9505,6 +10268,10 @@ components:
         origemAdministrativa:
           type: boolean
           description: Verdadeiro quando o registro foi incluído pelo administrador em nome do profissional.
+        incluidoPorNome:
+          type: string
+          nullable: true
+          description: Nome do administrador que fez a inclusão.
         observacao:
           type: string
           nullable: true

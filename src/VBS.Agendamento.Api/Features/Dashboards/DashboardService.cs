@@ -188,4 +188,161 @@ ORDER BY C.DATA_INICIO, C.CODIGO_CONSULTA;", p, ct: ct));
 
         return painel;
     }
+
+    private sealed class LinhaFinanceira
+    {
+        public string Status { get; set; } = string.Empty;
+        public string Tipo { get; set; } = string.Empty;
+        public DateTime Inicio { get; set; }
+        public decimal Valor { get; set; }
+        public bool Pago { get; set; }
+        public string? GuiaStatus { get; set; }
+        public string? Convenio { get; set; }
+        public string Especialidade { get; set; } = string.Empty;
+        public string Profissional { get; set; } = string.Empty;
+    }
+
+    /// <summary>Painel financeiro: faturamento (consultas concluídas) de um período, por convênio, especialidade e profissional. Nunca para o médico (RN20).</summary>
+    public async Task<PainelFinanceiroDto> ObterPainelFinanceiroAsync(FiltroPainelFinanceiro f, UsuarioAtual usuario, CancellationToken ct)
+    {
+        if (usuario.EhMedico)
+            throw Erro.SemPermissao("O perfil Médico não acessa os dashboards.", "MEDICO_SEM_ACESSO");
+
+        var tipo = string.IsNullOrWhiteSpace(f.Tipo) ? null : f.Tipo.Trim().ToUpperInvariant();
+        if (tipo is not null and not ("PARTICULAR" or "CONVENIO")) throw Erro.Validacao("tipo", "Informe PARTICULAR ou CONVENIO");
+
+        var hoje = DataBrasil.Hoje();
+        var inicio = f.DataInicial ?? new DateOnly(hoje.Year, hoje.Month, 1);
+        var fim = f.DataFinal ?? hoje;
+        if (fim < inicio) throw Erro.Validacao("dataFinal", "A data final não pode ser anterior à inicial");
+        if (fim.DayNumber - inicio.DayNumber > 365) throw Erro.Validacao("dataFinal", "O período pode ter no máximo 366 dias");
+        var de = DataBrasil.ParaUtc(inicio.ToDateTime(TimeOnly.MinValue));
+        var ate = DataBrasil.ParaUtc(fim.AddDays(1).ToDateTime(TimeOnly.MinValue));
+
+        await using var con = await _db.AbrirAsync(ct);
+
+        ReferenciaDto? unidade = null, profissional = null;
+        if (f.UnidadeId.HasValue)
+        {
+            var nome = await con.QueryFirstOrDefaultAsync<string?>(Sql.Cmd(
+                "SELECT NOME_FANTASIA FROM DBO.UNIDADE WHERE CODIGO_UNIDADE = @Id;", new { Id = f.UnidadeId.Value }, ct: ct));
+            if (nome is null) throw Erro.Validacao("unidadeId", "Unidade não encontrada");
+            unidade = new ReferenciaDto { Id = f.UnidadeId.Value, Nome = nome };
+        }
+        if (f.ProfissionalId.HasValue)
+        {
+            var nome = await con.QueryFirstOrDefaultAsync<string?>(Sql.Cmd(
+                "SELECT NOME FROM DBO.PROFISSIONAL WHERE CODIGO_PROFISSIONAL = @Id;", new { Id = f.ProfissionalId.Value }, ct: ct));
+            if (nome is null) throw Erro.Validacao("profissionalId", "Profissional não encontrado");
+            profissional = new ReferenciaDto { Id = f.ProfissionalId.Value, Nome = nome };
+        }
+
+        // Concluídas entram no faturado; as ainda ativas, no previsto. Canceladas, remarcadas e faltas não contam.
+        var linhas = (await con.QueryAsync<LinhaFinanceira>(Sql.Cmd(@"
+SELECT C.STATUS AS Status, C.TIPO_ATENDIMENTO AS Tipo, C.DATA_INICIO AS Inicio, C.VALOR AS Valor, C.PAGAMENTO_CONFIRMADO AS Pago,
+       C.GUIA_STATUS AS GuiaStatus, COALESCE(CV.NOME_FANTASIA, CV.RAZAO_SOCIAL) AS Convenio, E.NOME AS Especialidade, PR.NOME AS Profissional
+FROM DBO.CONSULTA C
+JOIN DBO.ESPECIALIDADE E ON E.CODIGO_ESPECIALIDADE = C.CODIGO_ESPECIALIDADE
+JOIN DBO.PROFISSIONAL PR ON PR.CODIGO_PROFISSIONAL = C.CODIGO_PROFISSIONAL
+LEFT JOIN DBO.CONVENIO CV ON CV.CODIGO_CONVENIO = C.CODIGO_CONVENIO
+WHERE C.STATUS IN ('CONCLUIDA', 'AGENDADA', 'CONFIRMADA', 'CHECK_IN', 'EM_ATENDIMENTO')
+  AND C.DATA_INICIO >= @De AND C.DATA_INICIO < @Ate
+  AND (@Unidade IS NULL OR C.CODIGO_UNIDADE = @Unidade)
+  AND (@Prof IS NULL OR C.CODIGO_PROFISSIONAL = @Prof)
+  AND (@Tipo IS NULL OR C.TIPO_ATENDIMENTO = @Tipo);",
+            new { De = de, Ate = ate, Unidade = f.UnidadeId, Prof = f.ProfissionalId, Tipo = tipo }, ct: ct))).ToList();
+
+        var concluidas = linhas.Where(l => l.Status == "CONCLUIDA").ToList();
+        var previstas = linhas.Where(l => l.Status != "CONCLUIDA").ToList();
+
+        static PainelValorDto Soma(IEnumerable<LinhaFinanceira> itens)
+        {
+            var lista = itens.ToList();
+            return new PainelValorDto { Quantidade = lista.Count, Valor = lista.Sum(i => i.Valor) };
+        }
+
+        var particulares = concluidas.Where(l => l.Tipo == "PARTICULAR").ToList();
+        var convenios = concluidas.Where(l => l.Tipo == "CONVENIO").ToList();
+        var faturado = Soma(concluidas);
+
+        var painel = new PainelFinanceiroDto
+        {
+            DataInicial = inicio,
+            DataFinal = fim,
+            Unidade = unidade,
+            Profissional = profissional,
+            Tipo = tipo,
+            AtualizadoEm = DateTime.UtcNow,
+            Agrupamento = fim.DayNumber - inicio.DayNumber > 61 ? "MES" : "DIA",
+            Totais = new PainelFinanceiroTotaisDto
+            {
+                Faturado = faturado,
+                TicketMedio = faturado.Quantidade == 0 ? 0 : Math.Round(faturado.Valor / faturado.Quantidade, 2),
+                ParticularRecebido = Soma(particulares.Where(l => l.Pago)),
+                ParticularAConfirmar = Soma(particulares.Where(l => !l.Pago)),
+                ConvenioAutorizado = Soma(convenios.Where(l => l.GuiaStatus == "AUTORIZADA")),
+                ConvenioNegado = Soma(convenios.Where(l => l.GuiaStatus == "NEGADA")),
+                ConvenioPendente = Soma(convenios.Where(l => l.GuiaStatus is not ("AUTORIZADA" or "NEGADA"))),
+                Previsto = Soma(previstas)
+            }
+        };
+
+        // Evolução: dia a dia (com os dias sem faturamento zerados) ou mês a mês.
+        string Chave(DateTime inicioUtc)
+        {
+            var d = DataBrasil.ParaBrasilia(DataBrasil.Utc(inicioUtc));
+            return painel.Agrupamento == "MES" ? d.ToString("yyyy-MM") : d.ToString("yyyy-MM-dd");
+        }
+        var porPeriodo = concluidas.GroupBy(l => Chave(l.Inicio)).ToDictionary(g => g.Key, g => g.ToList());
+        var chaves = new List<string>();
+        if (painel.Agrupamento == "MES")
+        {
+            for (var m = new DateOnly(inicio.Year, inicio.Month, 1); m <= fim; m = m.AddMonths(1)) chaves.Add(m.ToString("yyyy-MM"));
+        }
+        else
+        {
+            for (var d = inicio; d <= fim; d = d.AddDays(1)) chaves.Add(d.ToString("yyyy-MM-dd"));
+        }
+        painel.Evolucao = chaves.Select(c =>
+        {
+            var itens = porPeriodo.TryGetValue(c, out var l) ? l : new List<LinhaFinanceira>();
+            return new PainelEvolucaoDto { Periodo = c, Quantidade = itens.Count, Valor = itens.Sum(i => i.Valor) };
+        }).ToList();
+
+        decimal Percentual(decimal valor) => faturado.Valor == 0 ? 0 : Math.Round(valor / faturado.Valor * 100, 1);
+
+        painel.PorConvenio = concluidas
+            .GroupBy(l => l.Tipo == "PARTICULAR" ? "Particular" : (l.Convenio ?? "Convênio"))
+            .Select(g =>
+            {
+                var itens = g.ToList();
+                var valor = itens.Sum(i => i.Valor);
+                var conv = itens[0].Tipo == "CONVENIO";
+                return new PainelFinanceiroLinhaDto
+                {
+                    Tipo = itens[0].Tipo,
+                    Nome = g.Key,
+                    Quantidade = itens.Count,
+                    Valor = valor,
+                    Percentual = Percentual(valor),
+                    Autorizado = conv ? itens.Where(i => i.GuiaStatus == "AUTORIZADA").Sum(i => i.Valor) : null,
+                    Negado = conv ? itens.Where(i => i.GuiaStatus == "NEGADA").Sum(i => i.Valor) : null,
+                    Pendente = conv ? itens.Where(i => i.GuiaStatus is not ("AUTORIZADA" or "NEGADA")).Sum(i => i.Valor) : null
+                };
+            })
+            .OrderByDescending(x => x.Valor).ThenBy(x => x.Nome).ToList();
+
+        List<PainelFinanceiroLinhaDto> Agrupar(Func<LinhaFinanceira, string> chave) => concluidas
+            .GroupBy(chave)
+            .Select(g =>
+            {
+                var valor = g.Sum(i => i.Valor);
+                return new PainelFinanceiroLinhaDto { Nome = g.Key, Quantidade = g.Count(), Valor = valor, Percentual = Percentual(valor) };
+            })
+            .OrderByDescending(x => x.Valor).ThenBy(x => x.Nome).ToList();
+
+        painel.PorEspecialidade = Agrupar(l => l.Especialidade);
+        painel.PorProfissional = Agrupar(l => l.Profissional);
+        return painel;
+    }
 }

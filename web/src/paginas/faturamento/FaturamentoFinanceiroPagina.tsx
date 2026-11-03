@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, App, Button, Card, Col, Input, Row, Select, Space, Spin, Statistic, Tabs, Typography } from 'antd';
-import { DownloadOutlined } from '@ant-design/icons';
+import { Alert, Card, Col, Input, Row, Select, Space, Spin, Statistic, Tabs, Typography } from 'antd';
 import { api, ApiErro, obterToken } from '../../api/cliente';
 import type { ItemApoio } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
 import { hojeIso } from '../../util/formatos';
+import { baixarPdf } from '../../util/exportar';
+import type { TabelaExportacao } from '../../util/exportar';
+import MenuExportar from '../../componentes/MenuExportar';
 import GuiasConvenioAba from './FaturamentoGuiasPagina';
 import ParticularesAba from './ParticularesAba';
 
@@ -32,8 +34,7 @@ function Indicador({ titulo, v, cor }: { titulo: string; v: QuantidadeValor; cor
 }
 
 function ResumoAba() {
-  const { message } = App.useApp();
-  const { pode } = useAuth();
+  const { pode, sessao } = useAuth();
   const podeExportar = pode('faturamento.financeiro', 'exportar');
 
   const [de, setDe] = useState(() => hojeIso().slice(0, 8) + '01');
@@ -42,7 +43,6 @@ function ResumoAba() {
   const [unidades, setUnidades] = useState<ItemApoio[]>([]);
   const [resumo, setResumo] = useState<Resumo | null>(null);
   const [carregando, setCarregando] = useState(false);
-  const [exportando, setExportando] = useState(false);
   const [erro, setErro] = useState('');
 
   useEffect(() => {
@@ -71,37 +71,39 @@ function ResumoAba() {
     void carregar();
   }, [carregar]);
 
-  async function exportar() {
-    setExportando(true);
-    try {
-      const consulta = new URLSearchParams({ dataInicial: de, dataFinal: ate });
-      if (unidadeId) consulta.set('unidadeId', String(unidadeId));
-      const resposta = await fetch(`/api/v1/faturamento/exportacao?${consulta.toString()}`, {
-        headers: { Authorization: `Bearer ${obterToken() ?? ''}` }
-      });
-      if (!resposta.ok) {
-        let texto = 'Não foi possível exportar.';
-        try {
-          const j = await resposta.json();
-          texto = j.detail ?? j.title ?? texto;
-        } catch {
-          // mantém a mensagem padrão
-        }
-        throw new Error(texto);
+  async function exportarCsv() {
+    const consulta = new URLSearchParams({ dataInicial: de, dataFinal: ate });
+    if (unidadeId) consulta.set('unidadeId', String(unidadeId));
+    const resposta = await fetch(`/api/v1/faturamento/exportacao?${consulta.toString()}`, {
+      headers: { Authorization: `Bearer ${obterToken() ?? ''}` }
+    });
+    if (!resposta.ok) {
+      let texto = 'Não foi possível exportar.';
+      try {
+        const j = await resposta.json();
+        texto = j.detail ?? j.title ?? texto;
+      } catch {
+        // mantém a mensagem padrão
       }
-      const blob = await resposta.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `faturamento_${de.replace(/-/g, '')}_${ate.replace(/-/g, '')}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      throw new Error(texto);
+    }
+    const blob = await resposta.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `faturamento_${de.replace(/-/g, '')}_${ate.replace(/-/g, '')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportarPdf() {
+    try {
+      const tabela = await api.get<TabelaExportacao>('/faturamento/exportacao-tabela', { dataInicial: de, dataFinal: ate, unidadeId });
+      await baixarPdf(tabela, sessao?.usuario.nomeCompleto ?? '');
     } catch (e) {
-      message.error(e instanceof Error ? e.message : 'Não foi possível exportar.');
-    } finally {
-      setExportando(false);
+      throw new Error(e instanceof ApiErro ? e.message : 'Não foi possível gerar o PDF.');
     }
   }
 
@@ -123,9 +125,7 @@ function ResumoAba() {
           options={unidades.map((u) => ({ value: u.id, label: u.nome }))}
         />
         {podeExportar && (
-          <Button icon={<DownloadOutlined />} loading={exportando} disabled={!resumo} onClick={() => void exportar()}>
-            Exportar CSV
-          </Button>
+          <MenuExportar disabled={!resumo} onCsv={exportarCsv} onPdf={exportarPdf} />
         )}
       </Space>
 

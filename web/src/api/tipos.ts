@@ -345,6 +345,7 @@ export interface HistoricoProfissional {
   dataInicio: string;
   dataFim?: string | null;
   alteradoPor?: UsuarioReferencia | null;
+  motivo?: string | null;
 }
 
 export interface ConsentimentoHistorico extends ConsentimentoPaciente {
@@ -370,6 +371,13 @@ export interface Paciente {
   cidade: string;
   uf: string;
   escolaridade?: string | null;
+  sexo?: 'M' | 'F' | 'O' | null;
+  nomeMae?: string | null;
+  maeNaoPossui?: boolean;
+  nomePai?: string | null;
+  pais?: string;
+  cep?: string | null;
+  bairro?: string | null;
   convenio?: {
     convenio: { id: number; nomeFantasia: string };
     numeroCarteirinha: string;
@@ -394,4 +402,69 @@ export interface ListaEspera {
   notificadoEm?: string | null;
   criadoEm: string;
   criadoPor?: { id: number; nomeCompleto: string } | null;
+}
+
+// ---- Prontuário ----
+export interface ProfissionalRegistro {
+  id: number;
+  nome: string;
+  registroProfissional: 'CRM' | 'CRP';
+  numeroConselho: string;
+  ufConselho: string;
+}
+
+export interface DocumentoAutorizacao {
+  id: string;
+  nomeArquivo: string;
+  tamanhoBytes: number;
+}
+
+export interface InclusaoAdministrativa {
+  incluidoPor: { id: number; nomeCompleto: string };
+  solicitadoPor: string;
+  autorizadoPor: string;
+  observacaoAutorizacao: string;
+  documento?: DocumentoAutorizacao | null;
+}
+
+export interface RegistroProntuario {
+  id: string;
+  paciente: { id: string; nome: string };
+  consultaId?: string | null;
+  profissional: ProfissionalRegistro;
+  registradoEm: string;
+  observacao: string;
+  inclusaoAdministrativa?: InclusaoAdministrativa | null;
+  corrigido: boolean;
+  corrigidoEm?: string | null;
+}
+
+export interface CorrecaoProntuario {
+  origem: 'SISTEMA' | 'BANCO';
+  observacaoAnterior: string;
+  observacaoNova: string;
+  solicitadoPor: string;
+  autorizadoPor: string;
+  observacaoAutorizacao: string;
+  executadoPor: string;
+  corrigidoEm: string;
+  documento?: DocumentoAutorizacao | null;
+}
+
+export type TipoNotificacao = 'HORARIO_DISPONIVEL' | 'SEM_RESPOSTA_48H' | 'SEM_RESPOSTA_24H' | 'CONTATO_MANUAL' | 'RESPOSTA_PACIENTE' | 'FALHA_ENVIO' | 'CREDENCIAMENTO';
+
+export interface NotificacaoInterna {
+  id: number;
+  tipo: TipoNotificacao;
+  mensagem: string;
+  consulta?: { id: string; inicio: string; paciente: { id: string; nome: string } } | null;
+  criadaEm: string;
+  lida: boolean;
+  lidaEm?: string | null;
+  lidaPor?: { id: number; nomeCompleto: string } | null;
+}
+
+export interface ContagemNaoLidas {
+  total: number;
+  porTipo: { tipo: TipoNotificacao; total: number }[];
 }

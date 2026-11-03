@@ -18,6 +18,10 @@ import AgendaProfissionalPagina from "./paginas/agenda/AgendaProfissionalPagina"
 import CredenciamentosPagina from "./paginas/credenciamentos/CredenciamentosPagina";
 import FaturamentoFinanceiroPagina from "./paginas/faturamento/FaturamentoFinanceiroPagina";
 import ListaEsperaPagina from "./paginas/listaespera/ListaEsperaPagina";
+import PainelFinanceiroPagina from "./paginas/dashboards/PainelFinanceiroPagina";
+import RelatoriosPagina from "./paginas/relatorios/RelatoriosPagina";
+import ProntuarioPagina from "./paginas/prontuario/ProntuarioPagina";
+import ConsultasSemCredenciamentoPagina from "./paginas/consultas/ConsultasSemCredenciamentoPagina";
 
 export default function App() {
   return (
@@ -76,6 +80,14 @@ export default function App() {
           element={
             <RotaProtegida tela="faturamento.financeiro">
               <FaturamentoFinanceiroPagina />
+            </RotaProtegida>
+          }
+        />
+        <Route
+          path="/painel-financeiro"
+          element={
+            <RotaProtegida tela="dashboard.financeiro">
+              <PainelFinanceiroPagina />
             </RotaProtegida>
           }
         />
@@ -151,6 +163,23 @@ export default function App() {
             </RotaProtegida>
           }
         />
+        <Route
+          path="pacientes/:pacienteId/prontuario"
+          element={
+            <RotaProtegida tela="prontuario.registro">
+              <ProntuarioPagina />
+            </RotaProtegida>
+          }
+        />
+        <Route
+          path="consultas-sem-credenciamento"
+          element={
+            <RotaProtegida tela="consulta.agendamento">
+              <ConsultasSemCredenciamentoPagina />
+            </RotaProtegida>
+          }
+        />
+        <Route path="relatorios" element={<RelatoriosPagina />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

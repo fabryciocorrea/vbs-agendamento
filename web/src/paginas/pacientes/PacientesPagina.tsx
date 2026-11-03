@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { App, Button, Form, Input, Modal, Select, Space, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { EditOutlined, PlusOutlined, PoweroffOutlined, SearchOutlined } from '@ant-design/icons';
+import { EditOutlined, FileTextOutlined, PlusOutlined, PoweroffOutlined, SearchOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { ItemApoio, Pagina, Paciente, PacienteResumo } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
@@ -105,6 +106,8 @@ export default function PacientesPagina() {
   const { pode } = useAuth();
   const podeIncluir = pode('paciente.cadastro', 'incluir');
   const podeEditar = pode('paciente.cadastro', 'editar');
+  const podeProntuario = pode('prontuario.registro', 'visualizar');
+  const navegar = useNavigate();
 
   const [dados, setDados] = useState<Pagina<PacienteResumo>>({ itens: [], pagina: 1, tamanho: TAMANHO, total: 0 });
   const [carregando, setCarregando] = useState(false);
@@ -221,19 +224,26 @@ export default function PacientesPagina() {
     },
     {
       title: 'Ações',
-      width: 140,
+      width: 180,
       render: (_, r) =>
-        podeEditar && (
+        (podeEditar || podeProntuario) && (
           <Space>
-            <Button size="small" icon={<EditOutlined />} title="Editar" onClick={() => void abrirEdicao(r.id)} />
-            <Button
-              size="small"
-              danger={r.ativo}
-              icon={<PoweroffOutlined />}
-              title={r.ativo ? 'Inativar' : 'Ativar'}
-              onClick={() => alterarStatus(r)}
-            />
-            <BotaoExcluir artigoTipo="o paciente" nome={r.nome} caminho={`/pacientes/${r.id}`} aoExcluir={carregar} />
+            {podeProntuario && (
+              <Button size="small" icon={<FileTextOutlined />} title="Prontuário" onClick={() => navegar(`/pacientes/${r.id}/prontuario`)} />
+            )}
+            {podeEditar && (
+              <>
+                <Button size="small" icon={<EditOutlined />} title="Editar" onClick={() => void abrirEdicao(r.id)} />
+                <Button
+                  size="small"
+                  danger={r.ativo}
+                  icon={<PoweroffOutlined />}
+                  title={r.ativo ? 'Inativar' : 'Ativar'}
+                  onClick={() => alterarStatus(r)}
+                />
+                <BotaoExcluir artigoTipo="o paciente" nome={r.nome} caminho={`/pacientes/${r.id}`} aoExcluir={carregar} />
+              </>
+            )}
           </Space>
         )
     }

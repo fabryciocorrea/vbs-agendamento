@@ -21,6 +21,11 @@ public sealed class ConsultasController : ControllerBase
     public async Task<ActionResult<ConsultaPaginaDto>> Listar([FromQuery] FiltroConsultas filtro, CancellationToken ct) =>
         Ok(await _servico.ListarAsync(filtro, User.ObterUsuarioAtual(), ct));
 
+    [HttpGet("sem-credenciamento")]
+    [Permissao("consulta.agendamento:visualizar")]
+    public async Task<ActionResult<ConsultaPaginaDto>> ListarSemCredenciamento([FromQuery] FiltroSemCredenciamento filtro, CancellationToken ct) =>
+        Ok(await _servico.ListarSemCredenciamentoAsync(filtro, User.ObterUsuarioAtual(), ct));
+
     [HttpPost]
     [Permissao("consulta.agendamento:incluir")]
     public async Task<ActionResult<ConsultaDto>> Agendar([FromBody] ConsultaEntrada? entrada, CancellationToken ct)

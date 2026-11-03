@@ -45,7 +45,7 @@ public sealed class PacientesController : ControllerBase
         Ok(await _servico.AlterarStatusAsync(pacienteId, entrada, User.ObterUsuarioAtual(), ct));
 
     [HttpPut("{pacienteId:guid}/profissional-responsavel")]
-    [Permissao("paciente.cadastro:editar")]
+    [Permissao("prontuario.transferencia:editar")]
     public async Task<ActionResult<PacienteDto>> TrocarProfissional(Guid pacienteId, [FromBody] TrocaProfissionalEntrada? entrada, CancellationToken ct) =>
         Ok(await _servico.TrocarProfissionalAsync(pacienteId, entrada, User.ObterUsuarioAtual(), ct));
 

@@ -28,6 +28,8 @@ Detalhes técnicos (camadas, regras, fluxos e banco): veja [ARCHITECTURE.md](ARC
 | Faturamento | Tela única com resumo financeiro, guias de convênio (inclusive pendentes e canceladas), particulares e exportação CSV; o nome do paciente abre o cadastro dele |
 | Lista de espera | Tela própria: paciente aguardando horário, aviso quando um horário é liberado por cancelamento, atendido ou cancelado |
 | Painel | Tela de Início para quem tem a permissão (nunca para o médico): totais por situação, pendências, lista de espera, gráficos por convênio e particular com porcentagem e consultas em andamento. Filtros: Dia, Semana, data inicial e final, unidade, profissional e tipo; atualiza a cada 30 segundos |
+| Painel financeiro | Tela própria para a gestão e o faturamento (permissão do perfil; nunca para o médico): faturado (só consultas concluídas), ticket médio, particular recebido e a confirmar, convênio autorizado, pendente e negado, previsto, evolução por dia ou mês e quadros por convênio, especialidade e profissional, com porcentagem. Filtros: Dia, Semana, Mês, datas, unidade, profissional e tipo |
+| Relatórios | Tela com abas, só para quem tem a permissão de cada relatório (nunca para o médico): consultas por profissional, ocupação da agenda, cancelamentos e faltas (resumo e detalhado), lista de espera, faturamento por tipo, faturamento por convênio, faturamento particular (por forma de pagamento) e faturamento mensal, mais os relatórios cadastrais (pacientes, profissionais, colaboradores e prestadores, convênios e credenciamentos) com todos os dados e o CPF completo, cada um com permissão própria e registro de consulta e exportação no log. Filtros: Dia, Semana, Mês, datas, profissional, unidade, convênio e tipo (conforme o relatório). Exportação em PDF e CSV (permissão de exportação separada); o Faturamento também exporta em PDF e CSV |
 | Cadastro de paciente | CPF obrigatório para todo brasileiro, inclusive o menor de idade (o estrangeiro pode usar outro documento); menor exige responsável legal |
 | Exclusão | O administrador exclui cadastros sem histórico (pacientes, convênios, credenciamentos, profissionais, colaboradores, especialidades, formas de pagamento, unidades, salas e usuários); com histórico, o caminho é Inativar |
 | Administrador | Sem bloqueios: ao esbarrar numa regra, informa uma justificativa (10 a 500 caracteres) e a operação é refeita e registrada |
@@ -37,7 +39,7 @@ Detalhes técnicos (camadas, regras, fluxos e banco): veja [ARCHITECTURE.md](ARC
 
 **Requisitos:** .NET SDK 8, Node.js 18 ou mais novo, SQL Server Express com o banco `VBSAGENDA`.
 
-1. **Banco:** no SSMS, rode os scripts de `banco/` na ordem numérica (01 a 31). Depois de cada atualização do projeto, rode os scripts novos.
+1. **Banco:** no SSMS, rode os scripts de `banco/` na ordem numérica (01 a 34). Depois de cada atualização do projeto, rode os scripts novos.
 2. **Conexão:** confira `src/VBS.Agendamento.Api/appsettings.Development.json` (autenticação integrada do Windows, sem criar login novo).
 3. **API:**
    ```
@@ -62,7 +64,7 @@ Para o usuário ver só **Agenda** e **Pacientes** no menu, marque no perfil: Ag
 ## Estrutura de pastas
 
 ```
-banco/                      scripts SQL (01 a 31), rodar em ordem no SSMS
+banco/                      scripts SQL (01 a 34), rodar em ordem no SSMS
 docs/                       roteiros de teste e notas de cada funcionalidade
 postman/                    coleção de testes da API
 src/VBS.Agendamento.Api/    servidor (Program.cs, Common, Infra, Features, contrato)
@@ -72,7 +74,7 @@ web/                        telas (src/api, auth, layout, paginas, util)
 ## Pendências conhecidas
 
 - Retenção de logs (RNF04) em aberto.
-- Notificações, relatórios, painel financeiro e prontuário ainda sem tela. O Painel está na tela de Início.
+- O Painel está na tela de Início. O sino de avisos fica na barra superior.
 - Link de videochamada (Google Meet) para consultas online.
 - Liberação campo a campo (catálogo `CAMPO_SISTEMA` vazio).
 - Testes automáticos.

@@ -20,12 +20,18 @@ public sealed partial class PacienteService
         public DateTime? DataFim { get; set; }
         public int? AlteradoPorId { get; set; }
         public string? AlteradoPorNome { get; set; }
+        public string? Motivo { get; set; }
     }
 
     // ------------------------------------------------- troca do profissional responsável
     public async Task<PacienteDto> TrocarProfissionalAsync(Guid id, TrocaProfissionalEntrada? d, UsuarioAtual usuario, CancellationToken ct)
     {
-        if (d?.ProfissionalId is null or <= 0) throw Erro.Validacao("profissionalId", "Campo Não Preenchido");
+        var e = new List<ErroCampo>();
+        if (d?.ProfissionalId is null or <= 0) e.Add(new ErroCampo("profissionalId", "Campo Não Preenchido"));
+        var motivo = d?.Motivo?.Trim();
+        if (string.IsNullOrEmpty(motivo)) e.Add(new ErroCampo("motivo", "Campo Não Preenchido"));
+        else if (motivo.Length is < 10 or > 500) e.Add(new ErroCampo("motivo", "Entre 10 e 500 caracteres, sem texto clínico"));
+        if (e.Count > 0) throw Erro.Validacao(e);
 
         await using var con = await _db.AbrirAsync(ct);
         await using var tx = (SqlTransaction)await con.BeginTransactionAsync(ct);
@@ -33,7 +39,7 @@ public sealed partial class PacienteService
         var atual = await CarregarLinhaAsync(con, tx, id, usuario, ct)
             ?? throw Erro.NaoEncontrado("Paciente não encontrado.");
 
-        if (atual.ProfissionalId == d.ProfissionalId.Value)
+        if (atual.ProfissionalId == d!.ProfissionalId!.Value)
             throw Erro.Conflito("Este profissional já é o responsável atual do paciente.", "PROFISSIONAL_JA_RESPONSAVEL");
 
         var ativo = await con.ExecuteScalarAsync<int>(Sql.Cmd(
@@ -45,15 +51,15 @@ public sealed partial class PacienteService
         await con.ExecuteAsync(Sql.Cmd(@"
 UPDATE DBO.PACIENTE_PROFISSIONAL_HISTORICO SET DATA_FIM = SYSUTCDATETIME()
 WHERE CODIGO_PACIENTE = @Paciente AND DATA_FIM IS NULL;
-INSERT INTO DBO.PACIENTE_PROFISSIONAL_HISTORICO (CODIGO_PACIENTE, CODIGO_PROFISSIONAL, DATA_INICIO, ALTERACAO_USUARIO)
-VALUES (@Paciente, @Profissional, SYSUTCDATETIME(), @Usuario);
+INSERT INTO DBO.PACIENTE_PROFISSIONAL_HISTORICO (CODIGO_PACIENTE, CODIGO_PROFISSIONAL, DATA_INICIO, ALTERACAO_USUARIO, MOTIVO)
+VALUES (@Paciente, @Profissional, SYSUTCDATETIME(), @Usuario, @Motivo);
 UPDATE DBO.PACIENTE SET CODIGO_PROFISSIONAL_RESPONSAVEL = @Profissional,
        DATA_ATUALIZACAO = SYSUTCDATETIME(), ATUALIZACAO_USUARIO = @Usuario
 WHERE CODIGO_PACIENTE = @Paciente;",
-            new { Paciente = atual.Codigo, Profissional = d.ProfissionalId.Value, Usuario = usuario.Id }, tx, ct));
+            new { Paciente = atual.Codigo, Profissional = d.ProfissionalId.Value, Usuario = usuario.Id, Motivo = motivo }, tx, ct));
 
         await _auditoria.RegistrarAsync("EDITAR", "PACIENTE", atual.Codigo, atual.Codigo, usuario.Id,
-            new { campos = new[] { "profissionalResponsavelId" } }, con, tx, ct);
+            new { campos = new[] { "profissionalResponsavelId" }, motivo }, con, tx, ct);
 
         var nova = await CarregarLinhaPorCodigoAsync(con, tx, atual.Codigo, ct)
             ?? throw new InvalidOperationException("Paciente não encontrado após a troca.");
@@ -72,7 +78,7 @@ WHERE CODIGO_PACIENTE = @Paciente;",
 
         var linhas = await con.QueryAsync<HistoricoLinha>(Sql.Cmd(@"
 SELECT H.CODIGO_PROFISSIONAL AS ProfissionalId, PR.NOME AS ProfissionalNome, H.DATA_INICIO AS DataInicio, H.DATA_FIM AS DataFim,
-       H.ALTERACAO_USUARIO AS AlteradoPorId, U.NOME_COMPLETO AS AlteradoPorNome
+       H.ALTERACAO_USUARIO AS AlteradoPorId, U.NOME_COMPLETO AS AlteradoPorNome, H.MOTIVO AS Motivo
 FROM DBO.PACIENTE_PROFISSIONAL_HISTORICO H
 JOIN DBO.PROFISSIONAL PR ON PR.CODIGO_PROFISSIONAL = H.CODIGO_PROFISSIONAL
 LEFT JOIN DBO.USUARIO U ON U.CODIGO_USUARIO = H.ALTERACAO_USUARIO
@@ -89,7 +95,8 @@ ORDER BY H.DATA_INICIO DESC, H.CODIGO_HISTORICO DESC;", new { paciente.Codigo },
             DataFim = DataBrasil.Utc(l.DataFim),
             AlteradoPor = l.AlteradoPorId.HasValue
                 ? new UsuarioReferenciaDto { Id = l.AlteradoPorId.Value, NomeCompleto = l.AlteradoPorNome ?? string.Empty }
-                : null
+                : null,
+            Motivo = l.Motivo
         }).ToList();
     }
 

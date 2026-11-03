@@ -5,12 +5,19 @@ import type { ConsentimentoPaciente, ItemApoio, Paciente, ResponsavelLegal } fro
 import { useAuth } from '../../auth/AuthContext';
 import CampoNumeroEndereco from '../../componentes/CampoNumeroEndereco';
 import ConsentimentosModal, { estadoAtual } from './ConsentimentosModal';
-import { HistoricoProfissionaisModal, TrocaProfissionalModal } from './ProfissionalResponsavelModais';
+import { HistoricoProfissionaisModal } from './ProfissionalResponsavelModais';
+import TransferenciaProntuarioModal from '../prontuario/TransferenciaProntuarioModal';
 import ResponsavelModal from './ResponsavelModal';
-import { celularValido, cpfValido, ehMenorDeIdade, formatarCelular, formatarCpf, formatarDataIso, formatarTelefone, hojeIso, somenteDigitos, UFS } from '../../util/formatos';
+import { celularValido, cpfValido, ehMenorDeIdade, formatarCelular, formatarCep, formatarCpf, formatarDataIso, formatarTelefone, hojeIso, somenteDigitos, UFS } from '../../util/formatos';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const ufOpcoes = UFS.map((u) => ({ value: u, label: u }));
+const TIPOS_DOCUMENTO = ['Passaporte de origem', 'RNE / CRNM', 'Outro documento'].map((t) => ({ value: t, label: t }));
+const SEXOS = [
+  { value: 'F', label: 'Feminino' },
+  { value: 'M', label: 'Masculino' },
+  { value: 'O', label: 'Outro / não informado' }
+];
 
 interface ValoresFormulario {
   nome: string;
@@ -21,6 +28,13 @@ interface ValoresFormulario {
   numeroDocumentoEstrangeiro?: string;
   rg?: string;
   escolaridade?: string;
+  sexo?: 'M' | 'F' | 'O';
+  nomeMae?: string;
+  maeNaoPossui?: boolean;
+  nomePai?: string;
+  pais: string;
+  cep?: string;
+  bairro?: string;
   telefone?: string;
   email?: string;
   endereco: string;
@@ -56,6 +70,7 @@ function campoDoFormulario(campo: string): keyof ValoresFormulario | null {
     case 'convenio.dataValidadeCarteirinha': return 'validadeCarteirinha';
     case 'profissionalResponsavelId': return 'profissionalId';
     case 'nome': case 'dataNascimento': case 'cpf': case 'tipoDocumentoEstrangeiro': case 'numeroDocumentoEstrangeiro':
+    case 'sexo': case 'nomeMae': case 'nomePai': case 'pais': case 'cep': case 'bairro':
     case 'rg': case 'escolaridade': case 'telefone': case 'email': case 'endereco': case 'numero': case 'complemento': case 'cidade': case 'uf':
       return campo;
     default:
@@ -67,6 +82,7 @@ export default function FormularioPaciente({ aberto, paciente, cpfInicial, aoFec
   const { message } = App.useApp();
   const { pode } = useAuth();
   const podeEditar = pode('paciente.cadastro', 'editar');
+  const podeTransferir = pode('prontuario.transferencia', 'editar');
   const [form] = Form.useForm<ValoresFormulario>();
   const [salvando, setSalvando] = useState(false);
   const [convenios, setConvenios] = useState<ItemApoio[]>([]);
@@ -90,6 +106,7 @@ export default function FormularioPaciente({ aberto, paciente, cpfInicial, aoFec
   const usaConvenio = Form.useWatch('usaConvenio', form);
   const dataNascimento = Form.useWatch('dataNascimento', form);
   const cpfDigitado = Form.useWatch('cpf', form);
+  const maeNaoPossui = Form.useWatch('maeNaoPossui', form);
 
   useEffect(() => {
     if (!aberto) return;
@@ -202,6 +219,13 @@ export default function FormularioPaciente({ aberto, paciente, cpfInicial, aoFec
       cidade: v.cidade.trim(),
       uf: v.uf,
       escolaridade: opcional(v.escolaridade),
+      sexo: v.sexo ?? null,
+      nomeMae: v.maeNaoPossui ? null : opcional(v.nomeMae),
+      maeNaoPossui: v.maeNaoPossui === true,
+      nomePai: opcional(v.nomePai),
+      pais: v.pais.trim(),
+      cep: somenteDigitos(v.cep),
+      bairro: v.bairro!.trim(),
       convenio: v.usaConvenio
         ? { convenioId: v.convenioId, numeroCarteirinha: v.numeroCarteirinha?.trim(), dataValidadeCarteirinha: v.validadeCarteirinha }
         : null,
@@ -278,6 +302,13 @@ export default function FormularioPaciente({ aberto, paciente, cpfInicial, aoFec
                 numeroDocumentoEstrangeiro: paciente.numeroDocumentoEstrangeiro ?? '',
                 rg: paciente.rg ?? '',
                 escolaridade: paciente.escolaridade ?? '',
+                sexo: paciente.sexo ?? undefined,
+                nomeMae: paciente.nomeMae ?? '',
+                maeNaoPossui: paciente.maeNaoPossui ?? false,
+                nomePai: paciente.nomePai ?? '',
+                pais: paciente.pais ?? '',
+                cep: formatarCep(paciente.cep),
+                bairro: paciente.bairro ?? '',
                 telefone: formatarTelefone(paciente.telefone),
                 email: paciente.email ?? '',
                 endereco: paciente.endereco,
@@ -290,7 +321,7 @@ export default function FormularioPaciente({ aberto, paciente, cpfInicial, aoFec
                 numeroCarteirinha: paciente.convenio?.numeroCarteirinha ?? '',
                 validadeCarteirinha: paciente.convenio?.dataValidadeCarteirinha.slice(0, 10)
               }
-            : { estrangeiro: false, usaConvenio: false, cpf: formatarCpf(cpfInicial) }
+            : { estrangeiro: false, usaConvenio: false, maeNaoPossui: false, cpf: formatarCpf(cpfInicial) }
         }
       >
         {avisos.length > 0 && (
@@ -326,6 +357,38 @@ export default function FormularioPaciente({ aberto, paciente, cpfInicial, aoFec
           <Col xs={24} md={6}>
             <Form.Item name="estrangeiro" label="Paciente estrangeiro" valuePropName="checked">
               <Switch checkedChildren="Sim" unCheckedChildren="Não" />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Row gutter={16}>
+          <Col xs={24} md={6}>
+            <Form.Item name="sexo" label="Sexo">
+              <Select allowClear placeholder="Selecione" options={SEXOS} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={9}>
+            <Form.Item
+              name="nomeMae"
+              label="Nome da mãe"
+              rules={[{ required: !maeNaoPossui, whitespace: true, message: OBRIGATORIO }]}
+              extra={
+                <Form.Item name="maeNaoPossui" valuePropName="checked" noStyle>
+                  <Checkbox
+                    onChange={(e) => {
+                      if (e.target.checked) form.setFields([{ name: 'nomeMae', value: '', errors: [] }]);
+                    }}
+                  >
+                    Não possui (o documento não registra a mãe)
+                  </Checkbox>
+                </Form.Item>
+              }
+            >
+              <Input maxLength={150} disabled={maeNaoPossui === true} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={9}>
+            <Form.Item name="nomePai" label="Nome do pai">
+              <Input maxLength={150} />
             </Form.Item>
           </Col>
         </Row>
@@ -419,7 +482,7 @@ export default function FormularioPaciente({ aberto, paciente, cpfInicial, aoFec
                 label="Tipo do documento"
                 rules={[{ required: somenteDigitos(cpfDigitado) === '', message: OBRIGATORIO }]}
               >
-                <Input maxLength={30} placeholder="Passaporte, RNE..." />
+                <Select options={TIPOS_DOCUMENTO} placeholder="Passaporte de origem, RNE / CRNM..." allowClear />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
@@ -465,6 +528,26 @@ export default function FormularioPaciente({ aberto, paciente, cpfInicial, aoFec
           </Col>
         </Row>
         <Row gutter={16}>
+          <Col xs={24} md={8}>
+            <Form.Item name="pais" label="País" rules={[{ required: true, whitespace: true, message: OBRIGATORIO }]}>
+              <Input maxLength={60} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={6}>
+            <Form.Item
+              name="cep"
+              label="CEP"
+              normalize={(v: string) => formatarCep(v)}
+              rules={[
+                { required: true, message: OBRIGATORIO },
+                { validator: (_, v: string) => (!v || somenteDigitos(v).length === 8 ? Promise.resolve() : Promise.reject(new Error('CEP inválido.'))) }
+              ]}
+            >
+              <Input placeholder="00000-000" inputMode="numeric" maxLength={9} />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Row gutter={16}>
           <Col xs={24} md={12}>
             <Form.Item name="endereco" label="Endereço" rules={[{ required: true, whitespace: true, message: OBRIGATORIO }]}>
               <Input maxLength={250} />
@@ -478,6 +561,11 @@ export default function FormularioPaciente({ aberto, paciente, cpfInicial, aoFec
           <Col xs={24} md={6}>
             <Form.Item name="complemento" label="Complemento">
               <Input maxLength={60} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={8}>
+            <Form.Item name="bairro" label="Bairro" rules={[{ required: true, whitespace: true, message: OBRIGATORIO }]}>
+              <Input maxLength={80} />
             </Form.Item>
           </Col>
           <Col xs={24} md={8}>
@@ -526,9 +614,9 @@ export default function FormularioPaciente({ aberto, paciente, cpfInicial, aoFec
             <Descriptions.Item label="Profissional">
               {profissionalAtual?.nome ?? paciente.profissionalResponsavel.nome}
               <Space style={{ marginLeft: 12 }}>
-                {podeEditar && (
+                {podeTransferir && (
                   <Button size="small" onClick={() => setModalTroca(true)}>
-                    Trocar profissional
+                    Transferir prontuário
                   </Button>
                 )}
                 <Button size="small" onClick={() => setModalHistorico(true)}>
@@ -623,13 +711,14 @@ export default function FormularioPaciente({ aberto, paciente, cpfInicial, aoFec
       />
       {paciente && (
         <>
-          <TrocaProfissionalModal
+          <TransferenciaProntuarioModal
             aberto={modalTroca}
             pacienteId={paciente.id}
-            profissionalAtualId={profissionalAtual?.id ?? paciente.profissionalResponsavel.id}
+            pacienteNome={paciente.nome}
+            profissionalAtual={profissionalAtual ?? paciente.profissionalResponsavel}
             aoFechar={() => setModalTroca(false)}
-            aoTrocar={(p) => {
-              setProfissionalAtual(p.profissionalResponsavel);
+            aoTransferir={(novo) => {
+              setProfissionalAtual(novo);
               setAlterouRelacionados(true);
               setModalTroca(false);
             }}

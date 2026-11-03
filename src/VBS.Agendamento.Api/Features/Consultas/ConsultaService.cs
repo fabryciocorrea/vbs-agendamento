@@ -225,6 +225,44 @@ WHERE (@Prof IS NULL OR C.CODIGO_PROFISSIONAL = @Prof) AND C.DATA_INICIO < @Ate 
     }
 
     // ----------------------------------------------------------------- lista
+    /// <summary>
+    /// Consultas futuras (AGENDADA ou CONFIRMADA) por convênio cujo credenciamento deixou de valer na unidade e especialidade (J4).
+    /// Usa a mesma regra do banco (FN_CREDENCIADO, com a data no horário de Brasília) e deixa de fora as liberadas pelo administrador.
+    /// Nada é cancelado aqui: a recepção contata o paciente. O médico recebe só as próprias consultas.
+    /// </summary>
+    public async Task<ConsultaPaginaDto> ListarSemCredenciamentoAsync(FiltroSemCredenciamento f, UsuarioAtual usuario, CancellationToken ct)
+    {
+        var erros = new List<ErroCampo>();
+        if (f.Pagina < 1) erros.Add(new ErroCampo("pagina", "Deve ser 1 ou mais"));
+        if (f.Tamanho is < 1 or > 100) erros.Add(new ErroCampo("tamanho", "Deve estar entre 1 e 100"));
+        if (erros.Count > 0) throw Erro.Validacao(erros);
+
+        var p = new DynamicParameters();
+        var onde = new StringBuilder(@"
+ WHERE C.TIPO_ATENDIMENTO = 'CONVENIO' AND C.STATUS IN ('AGENDADA', 'CONFIRMADA') AND C.DATA_INICIO >= SYSUTCDATETIME()
+   AND C.CREDENCIAMENTO_LIBERADO_POR IS NULL
+   AND DBO.FN_CREDENCIADO(C.CODIGO_CONVENIO, C.CODIGO_UNIDADE, C.CODIGO_ESPECIALIDADE, CONVERT(DATE, DATEADD(HOUR, -3, C.DATA_INICIO))) = 0");
+        if (usuario.EhMedico) { onde.Append(" AND C.CODIGO_PROFISSIONAL = @Medico"); p.Add("Medico", usuario.ProfissionalId!.Value); }
+        if (f.UnidadeId.HasValue) { onde.Append(" AND C.CODIGO_UNIDADE = @UnidadeId"); p.Add("UnidadeId", f.UnidadeId.Value); }
+        if (f.ConvenioId.HasValue) { onde.Append(" AND C.CODIGO_CONVENIO = @ConvenioId"); p.Add("ConvenioId", f.ConvenioId.Value); }
+
+        await using var con = await _db.AbrirAsync(ct);
+        var total = await con.ExecuteScalarAsync<int>(Sql.Cmd("SELECT COUNT(1) FROM DBO.CONSULTA C" + onde, p, ct: ct));
+
+        p.Add("Deslocamento", (f.Pagina - 1) * f.Tamanho);
+        p.Add("Tamanho", f.Tamanho);
+        var linhas = await con.QueryAsync<ConsultaLinha>(Sql.Cmd(
+            SelectConsulta + onde + " ORDER BY C.DATA_INICIO, C.CODIGO_CONSULTA OFFSET @Deslocamento ROWS FETCH NEXT @Tamanho ROWS ONLY;", p, ct: ct));
+
+        return new ConsultaPaginaDto
+        {
+            Itens = linhas.Select(l => ParaResumo(l, usuario.EhMedico)).ToList(),
+            Pagina = f.Pagina,
+            Tamanho = f.Tamanho,
+            Total = total
+        };
+    }
+
     public async Task<ConsultaPaginaDto> ListarAsync(FiltroConsultas f, UsuarioAtual usuario, CancellationToken ct)
     {
         var erros = new List<ErroCampo>();

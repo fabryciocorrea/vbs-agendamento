@@ -19,9 +19,13 @@ import {
   SafetyCertificateOutlined,
   DollarOutlined,
   ClockCircleOutlined,
+  LineChartOutlined,
+  BarChartOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../auth/AuthContext";
 import { cores } from "../tema";
+import SinoNotificacoes from "./SinoNotificacoes";
+import MenuUsuario from "./MenuUsuario";
 
 const { Sider, Header, Content } = Layout;
 
@@ -29,7 +33,7 @@ interface ItemMenu {
   key: string;
   label: string;
   icon: ReactNode;
-  tela?: string;
+  tela?: string | string[];
 }
 
 // Cada item só aparece se o perfil puder visualizar a tela correspondente.
@@ -71,6 +75,33 @@ const ITENS: ItemMenu[] = [
     label: "Faturamento",
     icon: <DollarOutlined />,
     tela: "faturamento.financeiro",
+  },
+  {
+    key: "/painel-financeiro",
+    label: "Painel financeiro",
+    icon: <LineChartOutlined />,
+    tela: "dashboard.financeiro",
+  },
+  {
+    key: "/relatorios",
+    label: "Relatórios",
+    icon: <BarChartOutlined />,
+    tela: [
+      "relatorio.consultas_profissional",
+      "relatorio.ocupacao",
+      "relatorio.cancelamentos_faltas",
+      "relatorio.lista_espera",
+      "relatorio.faturamento_tipo",
+      "relatorio.faturamento_particular",
+      "relatorio.faturamento_convenio",
+      "relatorio.faturamento_mensal",
+      "relatorio.cadastro_pacientes",
+      "relatorio.cadastro_profissionais",
+      "relatorio.cadastro_colaboradores",
+      "relatorio.cadastro_convenios",
+      "relatorio.cadastro_credenciamentos",
+      "relatorio.prontuarios",
+    ],
   },
   {
     key: "/colaboradores",
@@ -136,9 +167,9 @@ export default function LayoutPrincipal() {
 
   const itens = useMemo(
     () =>
-      ITENS.filter((i) => !i.tela || pode(i.tela, "visualizar")).map(
-        ({ key, label, icon }) => ({ key, label, icon }),
-      ),
+      ITENS.filter(
+        (i) => !i.tela || [i.tela].flat().some((t) => pode(t, "visualizar")),
+      ).map(({ key, label, icon }) => ({ key, label, icon })),
     [pode],
   );
   const selecionado =
@@ -184,15 +215,8 @@ export default function LayoutPrincipal() {
           }}
         >
           <Space size="middle">
-            <Typography.Text>
-              {sessao?.usuario.nomeCompleto}{" "}
-              <Typography.Text type="secondary">
-                ({sessao?.usuario.perfil.nome})
-              </Typography.Text>
-            </Typography.Text>
-            <Button icon={<LogoutOutlined />} onClick={() => void sair()}>
-              Sair
-            </Button>
+            <SinoNotificacoes />
+            <MenuUsuario />
           </Space>
         </Header>
         <Content style={{ margin: 24 }}>

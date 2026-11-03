@@ -21,6 +21,7 @@ public sealed class ResponsavelLegalEntrada
 public sealed class TrocaProfissionalEntrada
 {
     public int? ProfissionalId { get; set; }
+    public string? Motivo { get; set; }
 }
 
 public sealed class HistoricoProfissionalDto
@@ -29,4 +30,6 @@ public sealed class HistoricoProfissionalDto
     public DateTime DataInicio { get; set; }
     public DateTime? DataFim { get; set; }
     public UsuarioReferenciaDto? AlteradoPor { get; set; }
+    /// <summary>Motivo da transferência de prontuário (nulo nas trocas feitas pelo cadastro do paciente).</summary>
+    public string? Motivo { get; set; }
 }

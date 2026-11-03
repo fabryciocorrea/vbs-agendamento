@@ -31,6 +31,7 @@ SELECT P.CODIGO_PACIENTE AS Codigo, P.CODIGO_PUBLIC AS Id, P.ATIVO AS Ativo, P.N
        P.CPF AS Cpf, P.TIPO_DOCUMENTO_ESTRANGEIRO AS TipoDocumentoEstrangeiro, P.NUMERO_DOCUMENTO_ESTRANGEIRO AS NumeroDocumentoEstrangeiro,
        P.RG AS Rg, P.DATA_NASCIMENTO AS DataNascimento, P.TELEFONE AS Telefone, P.EMAIL AS Email, P.ENDERECO AS Endereco, P.NUMERO AS Numero, P.COMPLEMENTO AS Complemento,
        P.CIDADE AS Cidade, P.UF AS Uf, P.ESCOLARIDADE AS Escolaridade,
+       P.SEXO AS Sexo, P.NOME_MAE AS NomeMae, P.MAE_NAO_POSSUI AS MaeNaoPossui, P.NOME_PAI AS NomePai, P.PAIS AS Pais, P.CEP AS Cep, P.BAIRRO AS Bairro,
        P.CODIGO_CONVENIO AS ConvenioId, COALESCE(C.NOME_FANTASIA, C.RAZAO_SOCIAL) AS ConvenioNome,
        P.NUMERO_CARTEIRINHA AS NumeroCarteirinha, P.DATA_VALIDADE_CARTEIRINHA AS DataValidadeCarteirinha,
        P.CODIGO_PROFISSIONAL_RESPONSAVEL AS ProfissionalId, PR.NOME AS ProfissionalNome,
@@ -73,6 +74,13 @@ JOIN DBO.PROFISSIONAL PR ON PR.CODIGO_PROFISSIONAL = P.CODIGO_PROFISSIONAL_RESPO
         public string Cidade { get; set; } = string.Empty;
         public string Uf { get; set; } = string.Empty;
         public string? Escolaridade { get; set; }
+        public string? Sexo { get; set; }
+        public string? NomeMae { get; set; }
+        public bool MaeNaoPossui { get; set; }
+        public string? NomePai { get; set; }
+        public string Pais { get; set; } = "Brasil";
+        public string? Cep { get; set; }
+        public string? Bairro { get; set; }
         public int? ConvenioId { get; set; }
         public string? ConvenioNome { get; set; }
         public string? NumeroCarteirinha { get; set; }
@@ -247,11 +255,11 @@ JOIN DBO.PROFISSIONAL PR ON PR.CODIGO_PROFISSIONAL = P.CODIGO_PROFISSIONAL_RESPO
             codigo = await con.ExecuteScalarAsync<int>(Sql.Cmd(@"
 INSERT INTO DBO.PACIENTE
   (NOME, ESTRANGEIRO, CPF, TIPO_DOCUMENTO_ESTRANGEIRO, NUMERO_DOCUMENTO_ESTRANGEIRO, RG, DATA_NASCIMENTO, TELEFONE, EMAIL,
-   ENDERECO, NUMERO, COMPLEMENTO, CIDADE, UF, ESCOLARIDADE, CODIGO_CONVENIO, NUMERO_CARTEIRINHA, DATA_VALIDADE_CARTEIRINHA,
+   ENDERECO, NUMERO, COMPLEMENTO, BAIRRO, CEP, CIDADE, UF, PAIS, ESCOLARIDADE, SEXO, NOME_MAE, MAE_NAO_POSSUI, NOME_PAI, CODIGO_CONVENIO, NUMERO_CARTEIRINHA, DATA_VALIDADE_CARTEIRINHA,
    CODIGO_PROFISSIONAL_RESPONSAVEL, CODIGO_RESPONSAVEL_LEGAL, CRIACAO_USUARIO, ATUALIZACAO_USUARIO)
 VALUES
   (@Nome, @Estrangeiro, @Cpf, @TipoDoc, @NumeroDoc, @Rg, @DataNascimento, @Telefone, @Email,
-   @Endereco, @Numero, @Complemento, @Cidade, @Uf, @Escolaridade, @ConvenioId, @Carteirinha, @ValidadeCarteirinha,
+   @Endereco, @Numero, @Complemento, @Bairro, @Cep, @Cidade, @Uf, @Pais, @Escolaridade, @Sexo, @NomeMae, @MaeNaoPossui, @NomePai, @ConvenioId, @Carteirinha, @ValidadeCarteirinha,
    @Profissional, @Responsavel, @Usuario, @Usuario);
 SELECT CAST(SCOPE_IDENTITY() AS INT);",
                 ParametrosGravacao(d, cpf, usuario.Id, null, d.ProfissionalResponsavelId), tx, ct));
@@ -309,7 +317,8 @@ VALUES (@Paciente, @Finalidade, @Concedido, @Origem, @Usuario);",
 UPDATE DBO.PACIENTE SET
   NOME = @Nome, ESTRANGEIRO = @Estrangeiro, CPF = @Cpf, TIPO_DOCUMENTO_ESTRANGEIRO = @TipoDoc,
   NUMERO_DOCUMENTO_ESTRANGEIRO = @NumeroDoc, RG = @Rg, DATA_NASCIMENTO = @DataNascimento, TELEFONE = @Telefone,
-  EMAIL = @Email, ENDERECO = @Endereco, NUMERO = @Numero, COMPLEMENTO = @Complemento, CIDADE = @Cidade, UF = @Uf, ESCOLARIDADE = @Escolaridade,
+  EMAIL = @Email, ENDERECO = @Endereco, NUMERO = @Numero, COMPLEMENTO = @Complemento, BAIRRO = @Bairro, CEP = @Cep, CIDADE = @Cidade, UF = @Uf, PAIS = @Pais, ESCOLARIDADE = @Escolaridade,
+  SEXO = @Sexo, NOME_MAE = @NomeMae, MAE_NAO_POSSUI = @MaeNaoPossui, NOME_PAI = @NomePai,
   CODIGO_CONVENIO = @ConvenioId, NUMERO_CARTEIRINHA = @Carteirinha, DATA_VALIDADE_CARTEIRINHA = @ValidadeCarteirinha,
   CODIGO_RESPONSAVEL_LEGAL = @Responsavel, DATA_ATUALIZACAO = SYSUTCDATETIME(), ATUALIZACAO_USUARIO = @Usuario
 WHERE CODIGO_PACIENTE = @Codigo;",
@@ -397,7 +406,14 @@ WHERE CODIGO_PACIENTE = @Codigo;", new { Ativo = d.Ativo.Value, Usuario = usuari
             Complemento = Limpo(d.Complemento),
             Cidade = d.Cidade!.Trim(),
             Uf = d.Uf,
+            Pais = d.Pais!.Trim(),
+            Bairro = d.Bairro!.Trim(),
+            Cep = Sql.Char(Limpo(d.Cep), 8),
             Escolaridade = Limpo(d.Escolaridade),
+            Sexo = Limpo(d.Sexo),
+            NomeMae = d.MaeNaoPossui == true ? null : Limpo(d.NomeMae),
+            MaeNaoPossui = d.MaeNaoPossui == true,
+            NomePai = Limpo(d.NomePai),
             ConvenioId = d.Convenio?.ConvenioId,
             Carteirinha = d.Convenio is null ? null : d.Convenio.NumeroCarteirinha!.Trim(),
             ValidadeCarteirinha = d.Convenio?.DataValidadeCarteirinha?.ToDateTime(TimeOnly.MinValue),
@@ -508,6 +524,13 @@ ORDER BY X.FINALIDADE;", new { Codigo = l.Codigo }, tx, ct))).ToList();
             Cidade = l.Cidade,
             Uf = l.Uf,
             Escolaridade = l.Escolaridade,
+            Sexo = l.Sexo?.Trim(),
+            NomeMae = l.NomeMae,
+            MaeNaoPossui = l.MaeNaoPossui,
+            NomePai = l.NomePai,
+            Pais = l.Pais,
+            Cep = l.Cep?.Trim(),
+            Bairro = l.Bairro,
             ProfissionalResponsavel = new ProfissionalReferenciaDto { Id = l.ProfissionalId, Nome = l.ProfissionalNome },
             ConsentimentosAtuais = consentimentos.Select(c => new ConsentimentoDto
             {
@@ -608,6 +631,13 @@ ORDER BY X.FINALIDADE;", new { Codigo = l.Codigo }, tx, ct))).ToList();
         Dif("cidade", a.Cidade, d.Cidade!.Trim());
         Dif("uf", a.Uf, d.Uf);
         Dif("escolaridade", a.Escolaridade, Limpo(d.Escolaridade));
+        Dif("sexo", a.Sexo?.Trim(), Limpo(d.Sexo));
+        Dif("nomeMae", a.NomeMae, d.MaeNaoPossui == true ? null : Limpo(d.NomeMae));
+        Dif("maeNaoPossui", a.MaeNaoPossui, d.MaeNaoPossui == true);
+        Dif("nomePai", a.NomePai, Limpo(d.NomePai));
+        Dif("pais", a.Pais, d.Pais!.Trim());
+        Dif("cep", a.Cep?.Trim(), Limpo(d.Cep));
+        Dif("bairro", a.Bairro, Limpo(d.Bairro));
         Dif("convenio.convenioId", a.ConvenioId, d.Convenio?.ConvenioId);
         Dif("convenio.numeroCarteirinha", a.NumeroCarteirinha, d.Convenio?.NumeroCarteirinha?.Trim());
         Dif("convenio.dataValidadeCarteirinha",

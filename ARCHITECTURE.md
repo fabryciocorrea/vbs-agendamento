@@ -90,9 +90,47 @@ Tela única (`faturamento.financeiro`): resumo do período (consultas concluída
 
 `Features/Dashboards`, `GET /api/v1/dashboards/painel-do-dia` (`dashboard.painel:visualizar`; médico recebe 403 `MEDICO_SEM_ACESSO`, RN20). Recebe `dataInicial` e `dataFinal` (um dia, uma semana ou até 366 dias) e filtros de unidade, profissional e tipo (convênio ou particular). Devolve totais por situação, pendências, distribuição por convênio e particular (sem canceladas, remarcadas e faltas), lista de espera e as consultas em andamento (até 12). Pendências de faturamento e lista de espera só vêm para quem tem essas permissões. O front-end atualiza a cada 30 segundos; as pendências abrem janelas (`PainelModais.tsx`) em vez de trocar de tela.
 
-### 3.8 Cadastro de paciente
+### 3.8 Painel financeiro
+
+`GET /api/v1/dashboards/financeiro` (`dashboard.financeiro:visualizar`; médico recebe 403 `MEDICO_SEM_ACESSO`). Período de até 366 dias (padrão: o mês atual) e filtros de unidade, profissional e tipo. O **faturado** soma só as consultas CONCLUIDAS; as ainda ativas (agendada, confirmada, check-in, em atendimento) vão em **previsto**; canceladas, remarcadas e faltas não contam. Devolve totais (particular recebido e a confirmar; convênio por situação da guia), evolução diária (períodos de até 62 dias) ou mensal, e quadros por convênio/particular, especialidade e profissional com a participação em %. Tela: `paginas/dashboards/PainelFinanceiroPagina.tsx`, rota `/painel-financeiro`. A comparação com o mês anterior e a liberação do campo de valor (RN20) seguem pendentes até existir o catálogo de campos.
+
+### 3.8b Consultas sem credenciamento (J4)
+
+`GET /consultas/sem-credenciamento` (em `ConsultaService`, permissão `consulta.agendamento:visualizar`): consultas de convênio AGENDADA ou CONFIRMADA, futuras, cujo credenciamento deixou de valer (`FN_CREDENCIADO` com a data de Brasília), exceto as liberadas pelo administrador. Filtros de unidade e convênio; o médico vê só as suas. Nada é cancelado. Na tela `/consultas-sem-credenciamento`; o aviso de credenciamento do sino abre essa tela.
+
+### 3.8a Sino de notificações
+
+`Features/Notificacoes` (`notificacao.interna`): lê `NOTIFICACAO_INTERNA`, onde as procedures gravam os avisos (horário liberado, credenciamento, guia cancelada etc.). `GET /notificacoes-internas` (filtros tipo, lida, consultaId), `GET /notificacoes-internas/nao-lidas/contagem` e `PATCH /notificacoes-internas/{id}/leitura`. Cada usuário vê os avisos dirigidos a todos e os dirigidos a ele; o usuário vinculado a profissional vê só os dele. Lido por um, lido por todos: a primeira leitura grava quem leu e quando e marcar de novo não muda nada. Nada é excluído. No navegador, `layout/SinoNotificacoes.tsx` consulta o contador a cada minuto (pausa com a aba escondida) e abre uma gaveta com a lista.
+
+### 3.9 Relatórios
+
+`Features/Relatorios` (`GET /api/v1/relatorios/...`, uma permissão por relatório; médico recebe 403 `MEDICO_SEM_ACESSO`). Período de até 366 dias e filtros de profissional, unidade, convênio e tipo. Cada geração vai para o log (`VISUALIZAR`).
+- **Consultas por profissional:** atendimentos (concluídas) e agendamentos (tudo, menos remarcadas).
+- **Ocupação da agenda:** minutos disponíveis (expediente do profissional sem intervalos, feriados e recesso, calculado por `AgendaService.MontarCalendarioAsync`) e ocupados (duração das consultas dentro do expediente; canceladas, remarcadas e encaixes ficam de fora; encaixes aparecem à parte).
+- **Cancelamentos e faltas:** por profissional, com cancelamento pelo paciente ou pela clínica (`CONSULTA_STATUS_HISTORICO.CANCELADO_POR`); a visão detalhada lista paciente, data, motivo e quem cancelou, com paginação.
+- **Lista de espera:** por data de entrada na fila, com totais por situação (aguardando, horário liberado, atendido, cancelado), tempo médio de espera de quem ainda está na fila e lista paginada filtrável por situação. Convênio e tipo não se aplicam.
+- **Prontuários:** registros por paciente e profissional no período (data do registro), com pacientes distintos e marcas de corrigido e incluído pelo administrador. Nunca traz o texto clínico (L7); só o administrador pode ver o texto na tela (`incluirTexto`), e a exportação nunca o inclui. Médico não acessa (RN20). Cada geração e exportação vão para o log.
+- **Financeiros** (mesma regra do Painel financeiro: só consultas CONCLUIDAS): **faturamento por tipo** (particular e convênio), **por convênio** (uma linha por convênio, do maior valor ao menor), **particular** (uma linha por forma de pagamento) e **mensal** (um mês por linha, meses sem faturamento zerados, variação contra o mês anterior do relatório). Cada linha separa confirmado (particular recebido; convênio com guia autorizada), pendente e negado. Código em `RelatorioService.Financeiro.cs` (classe `partial`).
+- **Cadastrais** (`RelatorioService.Cadastros.cs`, `GET /relatorios/cadastros/{pacientes|profissionais|colaboradores|convenios|credenciamentos}`): tabela genérica (colunas e linhas já formatadas) com **todos os dados** do cadastro e o **CPF completo, sem máscara**. Cada tipo tem permissão própria (`relatorio.cadastro_*`), nunca vale para o médico, e cada consulta (`VISUALIZAR`) e exportação (`EXPORTAR`) vão para o log (LGPD). Pacientes trazem também o responsável legal; profissionais, as especialidades e unidades; convênios, as especialidades; credenciamentos, vigência, protocolo e valor. Em colaboradores e prestadores, CTPS, PIS/PASEP e admissão só saem para quem também tem `colaborador.cadastro:visualizar`. Filtros: ativos/inativos e, por tipo, nacionalidade (pacientes nacionais ou estrangeiros; em "estrangeiros" a tabela mostra também o tipo e o número do documento, em "nacionais" os oculta), profissional responsável, convênio, unidade, vínculo ou situação do credenciamento.
+- Na tela, os relatórios ficam agrupados em **Operacionais**, **Financeiros** e **Cadastros**; o seletor só aparece se o usuário enxerga os dois grupos.
+
+**Exportação em PDF e CSV.** O servidor entrega a tabela já formatada (`TabelaExportacao`: título, filtros, colunas, linhas e totais) em `GET /relatorios/{relatorio}/exportacao` e, para o Faturamento, em `GET /faturamento/exportacao-tabela`; exige a permissão de exportação **e** a de visualização do relatório, limita a 10.000 linhas e grava `EXPORTAR` no log. O navegador (`util/exportar.ts`, com jsPDF e jspdf-autotable) monta o PDF (clínica, relatório, filtros, usuário, data e hora, número de página) ou o CSV (UTF-8 com BOM e `;`). O CSV do Faturamento continua sendo gerado pelo servidor (`/faturamento/exportacao`). Tela: `paginas/relatorios/RelatoriosPagina.tsx`, rota `/relatorios`; o botão é `componentes/MenuExportar.tsx`.
+
+### 3.10 Cadastro de paciente
 
 CPF obrigatório para todo paciente brasileiro, inclusive o menor de idade; o estrangeiro pode usar tipo e número de documento. Menor de 18 anos exige responsável legal; telefone e e-mail são opcionais para o menor.
+
+Campos de identificação e endereço (script `banco/32_PACIENTE_SEXO_FILIACAO_CEP_V1_3.sql`): **sexo** (M, F ou O, opcional); **nome da mãe obrigatório**, exceto quando o paciente marca **"Não possui"** (o documento não registra a mãe; nesse caso o nome deve ficar vazio); **nome do pai** opcional; **país** obrigatório (a tela não preenche sozinha; os cadastros antigos ficam com Brasil); **CEP** obrigatório, 8 dígitos; **bairro** obrigatório. O **tipo do documento do estrangeiro** é uma lista: Passaporte de origem, RNE / CRNM ou Outro documento. Cadastros antigos sem o nome da mãe, CEP ou bairro passam a exigi-los no próximo salvamento. O relatório cadastral de pacientes mostra todos esses campos (filiação em seção própria).
+
+### 3.11 Prontuário (`Features/Prontuarios`)
+- Rotas `api/v1/pacientes/{pacienteId}/prontuario` (listar, incluir), `/{registroId}` (consultar, editar) e `/{registroId}/correcoes`. Respostas com `Cache-Control: no-store`.
+- Acesso (H1): liberação da tela **e** ser o profissional responsável atual do paciente ou administrador. Quem não cumpre recebe 403 `ACESSO_PRONTUARIO_NEGADO`, e a tentativa fica no log (H2). Toda leitura grava VISUALIZAR com a quantidade de registros.
+- Inclusão: o profissional responsável faz INSERT direto (nome e conselho copiados do cadastro, data e hora do servidor). O administrador usa `USP_PRONTUARIO_INCLUIR_ADMIN` com profissional, solicitante, autorizador e observação. Registro idêntico ao anterior em menos de 2 minutos: 409 `REGISTRO_DUPLICADO` (H4).
+- Autorização do administrador (script 33): profissional solicitante escolhido na lista, nome do responsável legal, observação e **documento anexado** (PDF, JPG ou PNG, até 5 MB, tipo conferido pelo conteúdo, SHA-256, imutável em `PRONTUARIO_AUTORIZACAO_DOC`). O documento é enviado antes (`POST .../prontuario/autorizacoes`), vale para um uso e é baixado só por quem tem `prontuario.correcao:visualizar`.
+- Transferência (`POST .../prontuario/transferencia`, tela `prontuario.transferencia`, script 34): troca o profissional responsável (RN18) com motivo obrigatório, gravado em `PACIENTE_PROFISSIONAL_HISTORICO.MOTIVO` e no log. O anterior perde o acesso (RN16); os registros antigos seguem em nome de quem escreveu. Quem tem a liberação transfere sem precisar ser o responsável atual (a transferência não lê texto clínico). O cadastro do paciente usa a mesma transferência (botão "Transferir prontuário"; `PUT /pacientes/{id}/profissional-responsavel` também exige a liberação e o motivo). Consultas já agendadas não mudam; a resposta traz quantas ficaram com o profissional anterior e a tela avisa.
+- Edição: só o administrador, por `USP_PRONTUARIO_EDITAR_ADMIN`; o gatilho grava `PRONTUARIO_CORRECAO` e o log. Nada é excluído (RN19).
+- Acesso pelo cadastro do paciente: botão "Prontuário" na lista de Pacientes (liberação `prontuario.registro`, mais `paciente.cadastro:visualizar`). A Agenda tem o botão "Prontuário" nas consultas em atendimento ou concluídas, que abre o prontuário já vinculado à consulta.
+- Tela: `paginas/prontuario/ProntuarioPagina.tsx` (rota `/pacientes/:pacienteId/prontuario`), aberta pelo botão "Prontuário" da lista de pacientes. O rascunho fica só no `localStorage` do navegador.
 
 ## 4. Front-end (`web/src`)
 
@@ -139,4 +177,4 @@ Convenções: nomes de objetos e comandos em MAIÚSCULAS; sem criar outros login
 
 ## 7. Limitações e decisões em aberto
 
-- Retenção de logs (RNF04); P18 adiado; liberação campo a campo; Always Encrypted do prontuário; sino de notificações, relatórios, painel financeiro e Google Meet; produção (conta da API, e-mail, backup, disco criptografado).
+- Retenção de logs (RNF04); P18 adiado; liberação campo a campo; Always Encrypted do prontuário; Google Meet; produção (conta da API, e-mail, backup, disco criptografado).

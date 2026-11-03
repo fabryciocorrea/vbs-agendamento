@@ -71,7 +71,9 @@ function montarConsulta(parametros?: Parametros): string {
 
 async function requisitar<T>(metodo: Metodo, caminho: string, corpo?: unknown, publico = false): Promise<T> {
   const cabecalhos: Record<string, string> = { Accept: 'application/json' };
-  if (corpo !== undefined) cabecalhos['Content-Type'] = 'application/json';
+  // FormData (envio de arquivo): o navegador define o Content-Type com o limite do multipart.
+  const ehForm = typeof FormData !== 'undefined' && corpo instanceof FormData;
+  if (corpo !== undefined && !ehForm) cabecalhos['Content-Type'] = 'application/json';
   const token = obterToken();
   if (token && !publico) cabecalhos['Authorization'] = `Bearer ${token}`;
 
@@ -80,7 +82,7 @@ async function requisitar<T>(metodo: Metodo, caminho: string, corpo?: unknown, p
     resposta = await fetch(BASE + caminho, {
       method: metodo,
       headers: cabecalhos,
-      body: corpo === undefined ? undefined : JSON.stringify(corpo)
+      body: corpo === undefined ? undefined : ehForm ? (corpo as FormData) : JSON.stringify(corpo)
     });
   } catch {
     throw new ApiErro(0, 'Sem conexão', 'Não foi possível falar com o servidor. Confira se ele está rodando.');
@@ -113,6 +115,40 @@ export const api = {
   put: <T>(caminho: string, corpo: unknown) => requisitar<T>('PUT', caminho, corpo),
   patch: <T>(caminho: string, corpo: unknown) => requisitar<T>('PATCH', caminho, corpo),
   delete: <T>(caminho: string) => requisitar<T>('DELETE', caminho),
+  /** Envia um arquivo (multipart). O campo do formulário é "arquivo". */
+  upload: <T>(caminho: string, arquivo: File) => {
+    const form = new FormData();
+    form.append('arquivo', arquivo);
+    return requisitar<T>('POST', caminho, form);
+  },
+  /** Baixa um arquivo autenticado e o entrega ao navegador com o nome informado. */
+  baixar: async (caminho: string, nomeArquivo: string): Promise<void> => {
+    const token = obterToken();
+    let resposta: Response;
+    try {
+      resposta = await fetch(BASE + caminho, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    } catch {
+      throw new ApiErro(0, 'Sem conexão', 'Não foi possível falar com o servidor. Confira se ele está rodando.');
+    }
+    if (!resposta.ok) {
+      if (resposta.status === 401 && aoPerderSessao) aoPerderSessao();
+      let detalhe: string | undefined;
+      try {
+        detalhe = (await resposta.json())?.detail;
+      } catch {
+        detalhe = undefined;
+      }
+      throw new ApiErro(resposta.status, 'Erro', detalhe ?? 'Não foi possível baixar o arquivo.');
+    }
+    const url = URL.createObjectURL(await resposta.blob());
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nomeArquivo;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
   /** POST sem token e sem a reação de "sessão perdida" (login e rotas públicas). */
   postPublico: <T>(caminho: string, corpo: unknown) => requisitar<T>('POST', caminho, corpo, true)
 };

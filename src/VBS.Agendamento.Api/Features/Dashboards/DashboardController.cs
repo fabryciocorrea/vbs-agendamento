@@ -3,7 +3,7 @@ using VBS.Agendamento.Api.Infra.Seguranca;
 
 namespace VBS.Agendamento.Api.Features.Dashboards;
 
-/// <summary>Dashboards (RF15): painel do dia.</summary>
+/// <summary>Dashboards (RF15): painel (dia e período) e painel financeiro.</summary>
 [ApiController]
 [Route("api/v1/dashboards")]
 public sealed class DashboardController : ControllerBase
@@ -27,4 +27,9 @@ public sealed class DashboardController : ControllerBase
         var verListaEspera = await _permissoes.TemAsync(u.PerfilId, u.Administrador, "listaespera.cadastro:visualizar", ct);
         return Ok(await _servico.ObterPainelDoDiaAsync(filtro, u, verFaturamento, verListaEspera, ct));
     }
+
+    [HttpGet("financeiro")]
+    [Permissao("dashboard.financeiro:visualizar")]
+    public async Task<ActionResult<PainelFinanceiroDto>> Financeiro([FromQuery] FiltroPainelFinanceiro filtro, CancellationToken ct) =>
+        Ok(await _servico.ObterPainelFinanceiroAsync(filtro, User.ObterUsuarioAtual(), ct));
 }

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using VBS.Agendamento.Api.Common;
 using VBS.Agendamento.Api.Infra.Seguranca;
 
 namespace VBS.Agendamento.Api.Features.Faturamento;
@@ -28,4 +29,10 @@ public sealed class FinanceiroController : ControllerBase
         var bytes = await _servico.ExportarAsync(filtro, User.ObterUsuarioAtual(), ct);
         return File(bytes, "text/csv; charset=utf-8", $"faturamento_{filtro.DataInicial:yyyyMMdd}_{filtro.DataFinal:yyyyMMdd}.csv");
     }
+
+    /// <summary>A mesma exportação como tabela já formatada; o navegador a transforma em PDF.</summary>
+    [HttpGet("exportacao-tabela")]
+    [Permissao("faturamento.financeiro:exportar")]
+    public async Task<ActionResult<TabelaExportacao>> ExportarTabela([FromQuery] FiltroFinanceiro filtro, CancellationToken ct) =>
+        Ok(await _servico.ExportarTabelaAsync(filtro, User.ObterUsuarioAtual(), ct));
 }
