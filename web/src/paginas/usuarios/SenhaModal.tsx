@@ -5,7 +5,7 @@ import type { Usuario } from '../../api/tipos';
 import { TEXTO_REGRA_SENHA } from './UsuarioFormulario';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
-const REGRA_SENHA = /^(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{10,128}$/;
+const REGRA_SENHA = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{10,128}$/;
 
 interface Valores {
   novaSenha: string;

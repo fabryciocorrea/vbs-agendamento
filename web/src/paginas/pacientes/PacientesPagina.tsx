@@ -12,6 +12,7 @@ import FormularioPaciente from './FormularioPaciente';
 import VisualizarPacienteModal from './VisualizarPacienteModal';
 import { SolutionOutlined as IconeTela } from '@ant-design/icons';
 import CabecalhoPagina from '../../layout/CabecalhoPagina';
+import CampoBusca from '../../componentes/CampoBusca';
 
 const TAMANHO = 10;
 
@@ -110,7 +111,7 @@ export default function PacientesPagina() {
   const podeIncluir = pode('paciente.cadastro', 'incluir');
   const podeEditar = pode('paciente.cadastro', 'editar');
   // Quem não edita (ex.: o profissional) abre o cadastro só para leitura; a lista já traz só os pacientes dele.
-  const podeVisualizar = pode('paciente.cadastro', 'visualizar') && !podeEditar;
+  const podeVisualizar = pode('paciente.cadastro', 'visualizar');
   const podeProntuario = pode('prontuario.registro', 'visualizar');
   const navegar = useNavigate();
 
@@ -282,7 +283,7 @@ export default function PacientesPagina() {
       </Space>
 
       <Space style={{ marginBottom: 16 }} wrap>
-        <Input.Search
+        <CampoBusca
           placeholder="Buscar por nome ou celular"
           allowClear
           style={{ width: 280 }}
@@ -384,7 +385,7 @@ export default function PacientesPagina() {
         }}
       />
 
-      <VisualizarPacienteModal paciente={visualizando} aoFechar={() => setVisualizando(null)} />
+      <VisualizarPacienteModal paciente={visualizando} mascarar={!podeEditar} aoFechar={() => setVisualizando(null)} />
 
       <FormularioPaciente
         aberto={formAberto}

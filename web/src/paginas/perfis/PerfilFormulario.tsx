@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, App, Button, Checkbox, Form, Input, Modal, Space, Spin, Table, Tag, Typography } from 'antd';
+import { Alert, App, Button, Checkbox, Form, Input, Modal, Space, Spin, Switch, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { api, ApiErro } from '../../api/cliente';
 import type { Perfil, PerfilComAvisos, PerfilResumo, TelaSistema } from '../../api/tipos';
@@ -9,6 +9,7 @@ const OBRIGATORIO = 'Campo Não Preenchido';
 interface ValoresFormulario {
   nome: string;
   descricao?: string;
+  exigeVinculoProfissional?: boolean;
 }
 
 /** v = visualizar, i = incluir, e = editar, c = cancelar, x = excluir, p = exportar. */
@@ -74,7 +75,7 @@ export default function PerfilFormulario({ aberto, perfil, aoFechar, aoSalvar }:
         setMarcasTelas(t);
         setMarcasCampos(c);
         setProtegido(atual?.protegido ?? false);
-        form.setFieldsValue({ nome: atual?.nome ?? '', descricao: atual?.descricao ?? '' });
+        form.setFieldsValue({ nome: atual?.nome ?? '', descricao: atual?.descricao ?? '', exigeVinculoProfissional: atual?.exigeVinculoProfissional ?? false });
       })
       .catch((e) => {
         if (cancelado) return;
@@ -151,6 +152,7 @@ export default function PerfilFormulario({ aberto, perfil, aoFechar, aoSalvar }:
     const entrada = {
       nome: v.nome.trim(),
       descricao: v.descricao && v.descricao.trim() !== '' ? v.descricao.trim() : null,
+      exigeVinculoProfissional: v.exigeVinculoProfissional ?? false,
       permissoes: corpo
     };
     setSalvando(true);
@@ -244,6 +246,14 @@ export default function PerfilFormulario({ aberto, perfil, aoFechar, aoSalvar }:
           </Form.Item>
           <Form.Item name="descricao" label="Descrição">
             <Input.TextArea maxLength={250} rows={2} showCount />
+          </Form.Item>
+          <Form.Item
+            name="exigeVinculoProfissional"
+            label="Perfil de profissional (atende pacientes)"
+            valuePropName="checked"
+            extra="Marque para perfis de quem atende. O usuário desse perfil só entra no sistema com o campo 'Profissional vinculado' preenchido; sem ele, nenhum paciente ou consulta é exibido."
+          >
+            <Switch />
           </Form.Item>
         </Form>
 

@@ -46,6 +46,7 @@ export interface UsuarioAtualSaida {
   usuario: UsuarioResumo;
   administrador?: boolean;
   profissionalId: number | null;
+  semVinculoProfissional?: boolean;
   permissoes: {
     telas: PermissaoTela[];
     campos: PermissaoCampo[];
@@ -252,6 +253,7 @@ export interface PerfilResumo {
   nome: string;
   descricao?: string | null;
   protegido: boolean;
+  exigeVinculoProfissional?: boolean;
   quantidadeUsuarios: number;
 }
 

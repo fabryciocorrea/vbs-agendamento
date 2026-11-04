@@ -4,8 +4,8 @@ import { api, ApiErro } from '../../api/cliente';
 import type { ItemApoio, PerfilResumo, Usuario } from '../../api/tipos';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
-const REGRA_SENHA = /^(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{10,128}$/;
-export const TEXTO_REGRA_SENHA = 'Mínimo de 10 caracteres, com letras, números e pelo menos um caractere especial.';
+const REGRA_SENHA = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{10,128}$/;
+export const TEXTO_REGRA_SENHA = 'Mínimo de 10 caracteres, com letras maiúsculas e minúsculas, números e pelo menos um caractere especial.';
 
 interface ValoresFormulario {
   nomeCompleto: string;
@@ -45,6 +45,8 @@ export default function UsuarioFormulario({ aberto, usuario, aoFechar, aoSalvar 
       .catch(() => setProfissionais([]));
   }, [aberto, message]);
 
+  const perfilIdSelecionado = Form.useWatch('perfilId', form);
+  const perfilExige = perfis.find((p) => p.id === perfilIdSelecionado)?.exigeVinculoProfissional === true;
   const opcoesPerfis = useMemo(() => perfis.map((p) => ({ value: p.id, label: p.nome })), [perfis]);
 
   // O profissional já vinculado pode estar inativo e não vir na lista de apoio.
@@ -172,7 +174,8 @@ export default function UsuarioFormulario({ aberto, usuario, aoFechar, aoSalvar 
             <Form.Item
               name="profissionalId"
               label="Profissional vinculado"
-              extra="Preencha para quem atende pacientes. Um profissional só pode ter um usuário."
+              extra={perfilExige ? 'Obrigatório para este perfil. Um profissional só pode ter um usuário.' : 'Preencha para quem atende pacientes. Um profissional só pode ter um usuário.'}
+              rules={perfilExige ? [{ required: true, message: OBRIGATORIO }] : []}
             >
               <Select allowClear showSearch optionFilterProp="label" options={opcoesProfissionais} placeholder="Nenhum" />
             </Form.Item>

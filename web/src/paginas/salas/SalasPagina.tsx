@@ -8,6 +8,7 @@ import { useAuth } from '../../auth/AuthContext';
 import BotaoExcluir from '../../componentes/BotaoExcluir';
 import { ApartmentOutlined as IconeTela } from '@ant-design/icons';
 import CabecalhoPagina from '../../layout/CabecalhoPagina';
+import CampoBusca from '../../componentes/CampoBusca';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -242,7 +243,7 @@ export default function SalasPagina() {
       </Space>
 
       <Space style={{ marginBottom: 16 }} wrap>
-        <Input.Search
+        <CampoBusca
           placeholder="Buscar por identificação, andar ou unidade"
           allowClear
           style={{ width: 300 }}

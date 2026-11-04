@@ -186,6 +186,34 @@ paths:
         '429':
           $ref: '#/components/responses/MuitasRequisicoes'
       x-permissao: pública
+  /auth/alterar-senha:
+    post:
+      tags:
+      - Autenticação
+      operationId: alterarSenha
+      summary: Trocar a própria senha (usuário logado)
+      description: |
+        Exige a senha atual e a nova senha (10 a 128 caracteres, com letras maiúsculas e minúsculas, números e pelo menos um caractere especial,
+        diferente da atual). Mantém a sessão em uso e encerra as outras sessões do usuário (motivo `SENHA_ALTERADA`).
+        Fica na auditoria, sem a senha. Vale mesmo para usuário sem profissional vinculado (RN49).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlterarSenhaEntrada'
+      responses:
+        '204':
+          description: Senha alterada.
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          description: Não autenticado.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problema'
+      x-permissao: logado
   /auth/redefinir-senha:
     post:
       tags:
@@ -5751,8 +5779,8 @@ components:
       format: password
       minLength: 10
       maxLength: 128
-      pattern: ^(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{10,128}$
-      description: Mínimo de 10 caracteres, com letras, números e pelo menos um caractere especial (D4).
+      pattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{10,128}$
+      description: Mínimo de 10 caracteres, com letras maiúsculas e minúsculas, números e pelo menos um caractere especial (D4).
     LoginEntrada:
       type: object
       required:
@@ -5795,6 +5823,16 @@ components:
           type: string
           format: email
           maxLength: 150
+    AlterarSenhaEntrada:
+      type: object
+      required:
+      - senhaAtual
+      - novaSenha
+      properties:
+        senhaAtual:
+          type: string
+        novaSenha:
+          $ref: '#/components/schemas/Senha'
     RedefinirSenhaEntrada:
       type: object
       required:
@@ -5837,6 +5875,9 @@ components:
           type: integer
           nullable: true
           description: Cadastro de profissional vinculado, quando o usuário é médico.
+        semVinculoProfissional:
+          type: boolean
+          description: Perfil exige profissional vinculado e o usuário não tem (acesso bloqueado, RN49).
         permissoes:
           $ref: '#/components/schemas/Permissoes'
     PerfilReferencia:
@@ -6011,6 +6052,9 @@ components:
         protegido:
           type: boolean
           description: Verdadeiro no perfil Administrador (RN21).
+        exigeVinculoProfissional:
+          type: boolean
+          description: Perfil de profissional (RN49). Usuário deste perfil sem profissional vinculado recebe 403 SEM_VINCULO_PROFISSIONAL.
         quantidadeUsuarios:
           type: integer
     PermissaoTela:

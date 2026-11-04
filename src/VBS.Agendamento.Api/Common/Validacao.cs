@@ -54,8 +54,8 @@ public static class Formatos
     public static readonly Regex Email = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);
     public static readonly Regex Telefone = new(@"^[0-9]{10,13}$", RegexOptions.Compiled);
 
-    /// <summary>D4: mínimo de 10 caracteres, com letras, números e pelo menos um caractere especial.</summary>
-    public static readonly Regex Senha = new(@"^(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{10,128}$", RegexOptions.Compiled);
+    /// <summary>D4: mínimo de 10 caracteres, com letras maiúsculas e minúsculas, números e pelo menos um caractere especial.</summary>
+    public static readonly Regex Senha = new(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{10,128}$", RegexOptions.Compiled);
 
     public static readonly HashSet<string> Ufs = new(StringComparer.Ordinal)
     {

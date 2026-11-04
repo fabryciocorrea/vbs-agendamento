@@ -9,6 +9,7 @@ import BotaoExcluir from '../../componentes/BotaoExcluir';
 import { cnpjValido, formatarCnpj, formatarDataIso, hojeIso, somenteDigitos } from '../../util/formatos';
 import { IdcardOutlined as IconeTela } from '@ant-design/icons';
 import CabecalhoPagina from '../../layout/CabecalhoPagina';
+import CampoBusca from '../../componentes/CampoBusca';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -360,7 +361,7 @@ export default function ConveniosPagina() {
       </Space>
 
       <Space style={{ marginBottom: 16 }} wrap>
-        <Input.Search
+        <CampoBusca
           placeholder="Buscar por nome fantasia ou razão social"
           allowClear
           style={{ width: 340 }}

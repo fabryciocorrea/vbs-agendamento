@@ -3,7 +3,7 @@ using System.Security.Claims;
 namespace VBS.Agendamento.Api.Infra.Seguranca;
 
 /// <summary>Quem está fazendo a requisição, montado a partir da sessão validada.</summary>
-public sealed record UsuarioAtual(int Id, long SessaoId, int PerfilId, bool Administrador, int? ProfissionalId)
+public sealed record UsuarioAtual(int Id, long SessaoId, int PerfilId, bool Administrador, int? ProfissionalId, bool SemVinculoProfissional = false)
 {
     /// <summary>RN20: usuário vinculado a um profissional é tratado como médico.</summary>
     public bool EhMedico => ProfissionalId.HasValue;
@@ -16,6 +16,7 @@ public static class UsuarioAtualExtensoes
     public const string ClaimPerfil = "vbs:pid";
     public const string ClaimAdministrador = "vbs:adm";
     public const string ClaimProfissional = "vbs:prof";
+    public const string ClaimSemVinculo = "vbs:semv";
 
     public static UsuarioAtual ObterUsuarioAtual(this ClaimsPrincipal principal)
     {
@@ -29,6 +30,6 @@ public static class UsuarioAtualExtensoes
         }
 
         int? profissional = int.TryParse(Valor(ClaimProfissional), out var p) ? p : null;
-        return new UsuarioAtual(id, sessao, perfil, Valor(ClaimAdministrador) == "1", profissional);
+        return new UsuarioAtual(id, sessao, perfil, Valor(ClaimAdministrador) == "1", profissional, Valor(ClaimSemVinculo) == "1");
     }
 }

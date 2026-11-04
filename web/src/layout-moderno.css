@@ -325,3 +325,28 @@
 .ant-layout-content > .ant-table-wrapper .ant-table-tbody > tr > td:first-child a {
   font-weight: inherit;
 }
+
+/* busca com a lupa dentro do mesmo campo (uma pílula só) */
+.ant-layout-content > .ant-space .ant-input-search {
+  background: var(--vbs-superficie);
+  border-radius: 999px;
+  box-shadow: var(--vbs-sombra);
+}
+
+.ant-layout-content > .ant-space .ant-input-search .ant-input-affix-wrapper,
+.ant-layout-content > .ant-space .ant-input-search .ant-input-group-addon {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.ant-layout-content > .ant-space .ant-input-search .ant-input-group-addon {
+  padding-inline: 0 6px;
+}
+
+.ant-layout-content > .ant-space .ant-input-search .ant-input-search-button {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: var(--vbs-texto-suave);
+}

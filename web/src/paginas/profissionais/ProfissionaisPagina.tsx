@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Button, Input, Select, Space, Table, Tag } from 'antd';
+import { App, Button, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { ClockCircleOutlined, EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
@@ -10,6 +10,7 @@ import FormularioProfissional from './FormularioProfissional';
 import ExpedienteModal from './ExpedienteModal';
 import { TeamOutlined as IconeTela } from '@ant-design/icons';
 import CabecalhoPagina from '../../layout/CabecalhoPagina';
+import CampoBusca from '../../componentes/CampoBusca';
 
 const TAMANHO = 10;
 
@@ -167,7 +168,7 @@ export default function ProfissionaisPagina() {
       </Space>
 
       <Space style={{ marginBottom: 16 }} wrap>
-        <Input.Search
+        <CampoBusca
           placeholder="Buscar por nome ou número do conselho"
           allowClear
           style={{ width: 330 }}

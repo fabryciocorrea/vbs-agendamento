@@ -5,6 +5,7 @@ import { HomeOutlined, BarChartOutlined, CalendarOutlined, CheckCircleOutlined, 
 import type { ReactNode } from 'react';
 import CabecalhoPagina from '../layout/CabecalhoPagina';
 import MeuDia from './MeuDia';
+import AvisoSemVinculo from '../auth/AvisoSemVinculo';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiErro } from '../api/cliente';
 import type { ItemApoio } from '../api/tipos';
@@ -402,6 +403,7 @@ function PainelDia() {
 
 export default function Inicio() {
   const { sessao, pode } = useAuth();
+  if (sessao?.semVinculoProfissional) return <AvisoSemVinculo />;
   // O painel não é para o médico (RN20): mesmo com a liberação no perfil, o servidor responde 403.
   const medico = (sessao?.profissionalId ?? null) !== null;
   if (pode('dashboard.painel', 'visualizar') && !medico) return <PainelDia />;

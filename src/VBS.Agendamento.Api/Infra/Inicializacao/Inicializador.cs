@@ -113,15 +113,17 @@ VALUES (@Perfil, NULL, @NomeUsuario, @Hash, @NomeCompleto, @Email, @Cargo);",
         }
     }
 
-    /// <summary>16 caracteres, com letras, números e caracteres especiais (D4).</summary>
+    /// <summary>16 caracteres, com letras maiúsculas e minúsculas, números e caracteres especiais (D4).</summary>
     private static string GerarSenha()
     {
-        const string letras = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz";
+        const string maiusculas = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        const string minusculas = "abcdefghijkmnpqrstuvwxyz";
         const string numeros = "23456789";
         const string especiais = "!@#$%*?-_";
 
         var caracteres = new List<char>();
-        for (var i = 0; i < 9; i++) caracteres.Add(letras[RandomNumberGenerator.GetInt32(letras.Length)]);
+        for (var i = 0; i < 5; i++) caracteres.Add(maiusculas[RandomNumberGenerator.GetInt32(maiusculas.Length)]);
+        for (var i = 0; i < 4; i++) caracteres.Add(minusculas[RandomNumberGenerator.GetInt32(minusculas.Length)]);
         for (var i = 0; i < 4; i++) caracteres.Add(numeros[RandomNumberGenerator.GetInt32(numeros.Length)]);
         for (var i = 0; i < 3; i++) caracteres.Add(especiais[RandomNumberGenerator.GetInt32(especiais.Length)]);
 

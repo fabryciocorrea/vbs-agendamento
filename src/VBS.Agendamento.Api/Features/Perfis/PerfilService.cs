@@ -29,6 +29,7 @@ public sealed class PerfilService
         public string Nome { get; set; } = string.Empty;
         public string? Descricao { get; set; }
         public bool Protegido { get; set; }
+        public bool ExigeVinculoProfissional { get; set; }
         public int QuantidadeUsuarios { get; set; }
     }
 
@@ -50,7 +51,7 @@ public sealed class PerfilService
     }
 
     private const string SelectPerfil = @"
-SELECT P.CODIGO_PERFIL AS Id, P.NOME AS Nome, P.DESCRICAO AS Descricao, P.PROTEGIDO AS Protegido,
+SELECT P.CODIGO_PERFIL AS Id, P.NOME AS Nome, P.DESCRICAO AS Descricao, P.PROTEGIDO AS Protegido, P.EXIGE_VINCULO_PROFISSIONAL AS ExigeVinculoProfissional,
        (SELECT COUNT(1) FROM DBO.USUARIO U WHERE U.CODIGO_PERFIL = P.CODIGO_PERFIL) AS QuantidadeUsuarios
 FROM DBO.PERFIL_ACESSO P";
 
@@ -61,7 +62,8 @@ FROM DBO.PERFIL_ACESSO P";
         var linhas = await con.QueryAsync<LinhaPerfil>(Sql.Cmd(SelectPerfil + " ORDER BY P.PROTEGIDO DESC, P.NOME;", ct: ct));
         return linhas.Select(l => new PerfilResumoDto
         {
-            Id = l.Id, Nome = l.Nome, Descricao = l.Descricao, Protegido = l.Protegido, QuantidadeUsuarios = l.QuantidadeUsuarios
+            Id = l.Id, Nome = l.Nome, Descricao = l.Descricao, Protegido = l.Protegido,
+            ExigeVinculoProfissional = l.ExigeVinculoProfissional, QuantidadeUsuarios = l.QuantidadeUsuarios
         }).ToList();
     }
 
@@ -111,8 +113,8 @@ FROM DBO.PERFIL_ACESSO P";
         try
         {
             id = await con.ExecuteScalarAsync<int>(Sql.Cmd(@"
-INSERT INTO DBO.PERFIL_ACESSO (NOME, DESCRICAO) VALUES (@Nome, @Descricao);
-SELECT CAST(SCOPE_IDENTITY() AS INT);", new { Nome = nome, Descricao = descricao }, tx, ct));
+INSERT INTO DBO.PERFIL_ACESSO (NOME, DESCRICAO, EXIGE_VINCULO_PROFISSIONAL) VALUES (@Nome, @Descricao, @Exige);
+SELECT CAST(SCOPE_IDENTITY() AS INT);", new { Nome = nome, Descricao = descricao, Exige = d!.ExigeVinculoProfissional }, tx, ct));
         }
         catch (SqlException ex) when (EhNomeDuplicado(ex))
         {
@@ -143,8 +145,8 @@ SELECT CAST(SCOPE_IDENTITY() AS INT);", new { Nome = nome, Descricao = descricao
         try
         {
             await con.ExecuteAsync(Sql.Cmd(
-                "UPDATE DBO.PERFIL_ACESSO SET NOME = @Nome, DESCRICAO = @Descricao WHERE CODIGO_PERFIL = @Id;",
-                new { Nome = nome, Descricao = descricao, Id = id }, tx, ct));
+                "UPDATE DBO.PERFIL_ACESSO SET NOME = @Nome, DESCRICAO = @Descricao, EXIGE_VINCULO_PROFISSIONAL = @Exige WHERE CODIGO_PERFIL = @Id;",
+                new { Nome = nome, Descricao = descricao, Exige = d!.ExigeVinculoProfissional, Id = id }, tx, ct));
         }
         catch (SqlException ex) when (EhNomeDuplicado(ex))
         {
@@ -342,14 +344,16 @@ WHERE PC.CODIGO_PERFIL = @Id ORDER BY PC.CODIGO_CAMPO;", new { Id = id }, tx, ct
 
         return new PerfilDto
         {
-            Id = l.Id, Nome = l.Nome, Descricao = l.Descricao, Protegido = l.Protegido, QuantidadeUsuarios = l.QuantidadeUsuarios,
+            Id = l.Id, Nome = l.Nome, Descricao = l.Descricao, Protegido = l.Protegido,
+            ExigeVinculoProfissional = l.ExigeVinculoProfissional, QuantidadeUsuarios = l.QuantidadeUsuarios,
             Permissoes = new PermissoesSaida { Telas = telas.ToList(), Campos = campos.ToList() }
         };
     }
 
     private static PerfilComAvisosDto ComAvisos(PerfilDto p, List<AvisoPerfilDto> avisos) => new()
     {
-        Id = p.Id, Nome = p.Nome, Descricao = p.Descricao, Protegido = p.Protegido, QuantidadeUsuarios = p.QuantidadeUsuarios,
+        Id = p.Id, Nome = p.Nome, Descricao = p.Descricao, Protegido = p.Protegido,
+        ExigeVinculoProfissional = p.ExigeVinculoProfissional, QuantidadeUsuarios = p.QuantidadeUsuarios,
         Permissoes = p.Permissoes, Avisos = avisos
     };
 

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Avatar, Button, Descriptions, Divider, Modal, Popover, Typography } from 'antd';
-import { LogoutOutlined, UserOutlined } from '@ant-design/icons';
+import { KeyOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons';
 import { useAuth } from '../auth/AuthContext';
 import { cores } from '../tema';
+import AlterarSenhaModal from './AlterarSenhaModal';
 
 /** Iniciais do primeiro e do último nome (ex.: "Fabrycio Correa" vira "FC"); ignora traços e símbolos. */
 function iniciais(nome: string): string {
@@ -18,6 +19,7 @@ export default function MenuUsuario() {
   const { sessao, sair } = useAuth();
   const [aberto, setAberto] = useState(false);
   const [perfilAberto, setPerfilAberto] = useState(false);
+  const [senhaAberta, setSenhaAberta] = useState(false);
   if (!sessao) return null;
   const u = sessao.usuario;
 
@@ -37,6 +39,18 @@ export default function MenuUsuario() {
         }}
       >
         Meu perfil
+      </Button>
+      <Button
+        type="text"
+        block
+        icon={<KeyOutlined />}
+        style={{ textAlign: 'left' }}
+        onClick={() => {
+          setAberto(false);
+          setSenhaAberta(true);
+        }}
+      >
+        Alterar senha
       </Button>
       <Button type="text" block danger icon={<LogoutOutlined />} style={{ textAlign: 'left' }} onClick={() => void sair()}>
         Sair
@@ -65,7 +79,18 @@ export default function MenuUsuario() {
           <Descriptions.Item label="Usuário (login)">{u.nomeUsuario}</Descriptions.Item>
           <Descriptions.Item label="Perfil de acesso">{u.perfil.nome}</Descriptions.Item>
         </Descriptions>
+        <Button
+          icon={<KeyOutlined />}
+          style={{ marginTop: 16 }}
+          onClick={() => {
+            setPerfilAberto(false);
+            setSenhaAberta(true);
+          }}
+        >
+          Alterar minha senha
+        </Button>
       </Modal>
+      <AlterarSenhaModal aberto={senhaAberta} aoFechar={() => setSenhaAberta(false)} />
     </>
   );
 }

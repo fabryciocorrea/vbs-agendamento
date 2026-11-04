@@ -31,6 +31,11 @@ public sealed class PermissaoAttribute : Attribute, IAsyncAuthorizationFilter
         if (http.User.Identity?.IsAuthenticated != true) return;
 
         var usuario = http.User.ObterUsuarioAtual();
+        if (usuario.SemVinculoProfissional)
+            throw Erro.SemPermissao(
+                "Seu usuário não está vinculado a um profissional. Procure o administrador do sistema.",
+                "SEM_VINCULO_PROFISSIONAL");
+
         var servico = http.RequestServices.GetRequiredService<IPermissaoService>();
 
         foreach (var exigencia in _exigencias)

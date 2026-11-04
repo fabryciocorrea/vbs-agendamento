@@ -33,6 +33,15 @@ public sealed class AuthController : ControllerBase
     public async Task<ActionResult<UsuarioAtualSaida>> ObterUsuarioAtual(CancellationToken ct) =>
         Ok(await _servico.ObterAtualAsync(User.ObterUsuarioAtual(), ct));
 
+    /// <summary>Troca a senha do próprio usuário logado (P70): exige a senha atual.</summary>
+    [HttpPost("alterar-senha")]
+    [EnableRateLimiting("login")]
+    public async Task<IActionResult> AlterarSenha([FromBody] AlterarSenhaEntrada? entrada, CancellationToken ct)
+    {
+        await _servico.AlterarSenhaAsync(entrada, User.ObterUsuarioAtual(), ct);
+        return NoContent();
+    }
+
     [HttpPost("recuperar-senha")]
     [AllowAnonymous]
     [EnableRateLimiting("login")]

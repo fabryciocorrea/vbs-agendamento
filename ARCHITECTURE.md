@@ -17,7 +17,7 @@ Navegador (React + Ant Design)  ──HTTP/JSON──►  API ASP.NET Core  ─�
 Program.cs                 configuração, pipeline, AddScoped dos serviços
 Common/                    erros (Erro.Validacao/Regra/Conflito/NaoEncontrado/SemPermissao), CPF, e-mail, DataBrasil, Formatos
 Infra/Db/                  ConexaoFactory, Sql.Cmd (comando com transação e cancelamento), auditoria
-Infra/Seguranca/           SessaoAuthHandler, PermissaoService, [Permissao], hash de senha
+Infra/Seguranca/           SessaoAuthHandler, PermissaoService, [Permissao], hash de senha, UsuarioAtual (claims)
 Infra/Inicializacao/       CatalogoTelas (telas gravadas ao iniciar), administrador inicial
 Features/<Nome>/           Dtos.cs, Service.cs, Controller.cs
 contrato/openapi.yaml      contrato da API (servido em /openapi.yaml em desenvolvimento)
@@ -28,8 +28,10 @@ Funcionalidades: Auth, Pacientes, Profissionais, Colaboradores, Unidades, Salas,
 ### 2.1 Segurança
 
 - **Sessão opaca no servidor:** token aleatório; só o hash vai para `SESSAO_USUARIO`. Expira após 30 minutos de inatividade, encerra no logout, no bloqueio ou na troca de senha.
-- **Senha:** PBKDF2-SHA256, 210 mil iterações, sal por senha. Bloqueio após 5 erros; limite de 10 tentativas por minuto nas rotas públicas.
+- **Senha:** PBKDF2-SHA256, 210 mil iterações, sal por senha. Bloqueio após 5 erros; limite de 10 tentativas por minuto nas rotas públicas. Três caminhos de troca, todos com regra de 10 a 128 caracteres (letras maiúsculas e minúsculas, números e caractere especial, `Formatos.Senha`), encerramento de sessões (`SENHA_ALTERADA`) e auditoria sem a senha: recuperação por e-mail (`/auth/redefinir-senha`), definição pelo administrador (`PUT /usuarios/{id}/senha`) e a troca da própria senha (`POST /auth/alterar-senha`, P70), que exige a senha atual, mantém a sessão em uso e encerra as outras.
 - **Permissão por tela e ação** em toda requisição: `[Permissao("tela:acao", ...)]`. Várias exigências funcionam como **OU**. O administrador passa por `PermissaoService.TemAsync`. Ações: visualizar, incluir, editar, cancelar, excluir, exportar. A ação **cancelar** é separada de editar (`PERFIL_TELA_PERMISSAO.PODE_CANCELAR`) e é exigida para cancelar consulta (`consulta.status`), guia (`faturamento.financeiro`) e item da lista de espera (`listaespera.cadastro`); quem só edita não cancela. As permissões são lidas no login: depois de mudar o perfil, o usuário entra de novo.
+- **Usuário vinculado a profissional (RN49):** `USUARIO.CODIGO_PROFISSIONAL` vira a claim `vbs:prof` a cada requisição (`SessaoAuthHandler` lê do banco, então a mudança vale na próxima chamada). Com ela, as consultas de agenda, início, lista, lista de espera e sem credenciamento, e os pacientes, são filtrados pelo responsável atual (`PACIENTE.CODIGO_PROFISSIONAL_RESPONSAVEL`; helper `FiltroPacientesTransferidos` em `ConsultaService`). "Incluído por" e o documento da autorização do prontuário só saem para o administrador.
+- **Perfil de profissional (script 35):** `PERFIL_ACESSO.EXIGE_VINCULO_PROFISSIONAL`. Se o perfil exige e o usuário (que não é administrador) não tem profissional vinculado, o handler põe a claim `vbs:semv` e o `[Permissao]` responde 403 `SEM_VINCULO_PROFISSIONAL` em toda tela com permissão; `/auth/eu` devolve `semVinculoProfissional` e a tela mostra o aviso (`auth/AvisoSemVinculo.tsx`). A tela de Usuários exige o vínculo ao escolher um perfil assim.
 - **Catálogo de telas** (`CatalogoTelas.cs`) gravado em `TELA_SISTEMA` a cada início (insere novas, atualiza nomes, nunca apaga). Permissões do administrador são protegidas por gatilho.
 - **Listas de apoio** (`/apoio/{tipo}`) aceitam a permissão de qualquer tela que as use (agenda, agendamento, pacientes, convênios, faturamento), para que a Recepção funcione sem a tela "Listas de apoio".
 - **Auditoria:** `LOG_AUDITORIA` somente de inclusão (ações VISUALIZAR, INCLUIR, EDITAR, EXCLUIR, EXPORTAR, LOGIN, LOGIN_FALHA, CORRECAO_PRONTUARIO).
@@ -137,15 +139,21 @@ Campos de identificação e endereço (script `banco/32_PACIENTE_SEXO_FILIACAO_C
 ```
 main.tsx, App.tsx           rotas; cada rota protegida por <RotaProtegida tela="...">
 layout/LayoutPrincipal.tsx  menu lateral (itens com { key, label, icon, tela }); só aparece o que o perfil permite
-auth/                       AuthContext (sessao, pode(tela, acao)) e RotaProtegida
+auth/                       AuthContext (sessao, pode(tela, acao)), RotaProtegida e AvisoSemVinculo
 api/cliente.ts, tipos.ts    cliente HTTP (api.get/post/put/patch), ApiErro (status, codigo, erros, extras) e tipos
 paginas/<área>/             uma pasta por tela (agenda, pacientes, convenios, credenciamentos, faturamento, perfis, usuarios, ...)
-componentes/, util/         componentes e formatadores compartilhados (LinkPaciente e LinkConvenio abrem o cadastro em uma janela)
+componentes/, util/         componentes e formatadores compartilhados (LinkPaciente e LinkConvenio abrem o cadastro em uma janela; CampoBusca é o campo de busca das listas, que tira o texto de ajuda ao focar)
+ModoTema.tsx, tema.ts       tema claro e escuro (antd ConfigProvider), guardado no navegador (`vbs.tema`) e aplicado em `<html data-tema>`
+tema-escuro.css,            variáveis `--vbs-*` e estilo moderno das listas, cartões e filtros (escopo `.ant-layout-content`)
+layout-moderno.css
+layout/                     LayoutPrincipal, CabecalhoPagina (título com ícone), BotaoTema, MenuUsuario (Meu perfil e Alterar senha), AlterarSenhaModal
 ```
 
 Pontos importantes:
 - **Menu e rotas** dependem das permissões do perfil. Para um perfil ver só Agenda e Pacientes, basta liberar só essas telas em Perfis de acesso.
 - **Agenda** (`paginas/agenda`): `AgendaProfissionalPagina` (semana por profissional, filtro de situação, etiqueta Remarcada), `NovaConsultaModal`, `AcoesConsulta` (botões do fluxo de status, pagamento, remarcação) e `liberacao.tsx` (justificativa do administrador).
+- **Login** (`paginas/Login.tsx`, `RedefinirSenha.tsx`, `LoginMoldura.tsx`): tela dividida sempre no tema claro (ConfigProvider aninhado com `inherit: false`); só o nome de usuário pode ficar lembrado no navegador.
+- **Profissional:** `Inicio.tsx` mostra `MeuDia.tsx` quando há `profissionalId`; `VisualizarPacienteModal` (ação Visualizar da lista de pacientes) é só leitura e mascara CPF e RG quando o usuário não edita pacientes; o atalho do prontuário só aparece para o administrador e o responsável atual.
 - Botões são exibidos conforme o status, a permissão e o tipo (particular ou convênio); o servidor revalida tudo.
 
 ## 5. Banco de dados (`banco/`)
@@ -163,6 +171,10 @@ Scripts numerados, executados em ordem no SSMS. Marcos:
 | 28–29 | Inativação de credenciamento; exclusão pelo administrador (retira as chaves que ligavam log e consentimentos ao paciente) |
 | 30 | Guia cancelada: guia autorizada impede cancelar a consulta (o faturamento cancela a guia antes; administrador pode liberar); consulta cancelada cancela a guia pendente ou negada |
 | 31 | Permissão "Cancelar" nos perfis de acesso (separada de "Editar"): cancelar consulta, guia e item da lista de espera |
+| 32 | Paciente: sexo, nome da mãe e do pai, país, CEP e bairro |
+| 33 | Prontuário: documento da autorização do administrador (`PRONTUARIO_AUTORIZACAO_DOC`) |
+| 34 | Transferência de prontuário: `MOTIVO` em `PACIENTE_PROFISSIONAL_HISTORICO` |
+| 35 | Perfil de profissional: `PERFIL_ACESSO.EXIGE_VINCULO_PROFISSIONAL` (marca automaticamente os perfis Médico e Profissional) |
 
 Convenções: nomes de objetos e comandos em MAIÚSCULAS; sem criar outros logins no SQL Server; conexão por autenticação integrada em desenvolvimento.
 

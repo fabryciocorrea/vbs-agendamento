@@ -9,6 +9,7 @@ import { formatarDataHora } from '../../util/formatos';
 import NovaConsultaModal from '../agenda/NovaConsultaModal';
 import { ClockCircleOutlined as IconeTela } from '@ant-design/icons';
 import CabecalhoPagina from '../../layout/CabecalhoPagina';
+import CampoBusca from '../../componentes/CampoBusca';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -311,7 +312,7 @@ export default function ListaEsperaPagina() {
       )}
 
       <Space style={{ marginBottom: 16 }} wrap>
-        <Input.Search
+        <CampoBusca
           allowClear
           placeholder="Buscar por nome do paciente"
           style={{ width: 260 }}

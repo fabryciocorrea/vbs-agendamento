@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { App, Button, Space, Table, Tag } from 'antd';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { App, Button, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
@@ -8,6 +8,7 @@ import { useAuth } from '../../auth/AuthContext';
 import PerfilFormulario from './PerfilFormulario';
 import { SafetyOutlined as IconeTela } from '@ant-design/icons';
 import CabecalhoPagina from '../../layout/CabecalhoPagina';
+import CampoBusca from '../../componentes/CampoBusca';
 
 export default function PerfisPagina() {
   const { message, modal } = App.useApp();
@@ -18,6 +19,8 @@ export default function PerfisPagina() {
 
   const [perfis, setPerfis] = useState<PerfilResumo[]>([]);
   const [carregando, setCarregando] = useState(false);
+  const [filtroNome, setFiltroNome] = useState<string | undefined>();
+  const [filtroDescricao, setFiltroDescricao] = useState('');
   const [formAberto, setFormAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<PerfilResumo | null>(null);
 
@@ -55,6 +58,14 @@ export default function PerfisPagina() {
       }
     });
   }
+
+  const opcoesNomes = useMemo(() => perfis.map((p) => ({ value: p.nome, label: p.nome })), [perfis]);
+  const perfisFiltrados = useMemo(() => {
+    const termo = filtroDescricao.trim().toLowerCase();
+    return perfis.filter(
+      (p) => (!filtroNome || p.nome === filtroNome) && (termo === '' || (p.descricao ?? '').toLowerCase().includes(termo))
+    );
+  }, [perfis, filtroNome, filtroDescricao]);
 
   const colunas: TableColumnsType<PerfilResumo> = [
     {
@@ -120,13 +131,34 @@ export default function PerfisPagina() {
         )}
       </Space>
 
+      <Space style={{ marginBottom: 16 }} wrap>
+        <Select
+          allowClear
+          showSearch
+          optionFilterProp="label"
+          placeholder="Nome"
+          style={{ width: 240 }}
+          options={opcoesNomes}
+          value={filtroNome}
+          onChange={(v) => setFiltroNome(v)}
+        />
+        <CampoBusca
+          placeholder="Descrição"
+          allowClear
+          style={{ width: 280 }}
+          value={filtroDescricao}
+          onChange={(e) => setFiltroDescricao(e.target.value)}
+          onSearch={(v) => setFiltroDescricao(v)}
+        />
+      </Space>
+
       <Table<PerfilResumo>
         rowKey="id"
         columns={colunas}
-        dataSource={perfis}
+        dataSource={perfisFiltrados}
         loading={carregando}
         pagination={false}
-        locale={{ emptyText: 'Nenhum perfil cadastrado.' }}
+        locale={{ emptyText: perfis.length === 0 ? 'Nenhum perfil cadastrado.' : 'Nenhum perfil encontrado com os filtros.' }}
       />
 
       <PerfilFormulario

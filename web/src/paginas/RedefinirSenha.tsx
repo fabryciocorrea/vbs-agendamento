@@ -10,7 +10,7 @@ interface Valores {
   confirmacao: string;
 }
 
-const REGRA_SENHA = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{10,128}$/;
+const REGRA_SENHA = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{10,128}$/;
 
 /** Tela aberta pelo link do e-mail (/redefinir-senha?token=...): define a nova senha. */
 export default function RedefinirSenha() {
@@ -43,7 +43,7 @@ export default function RedefinirSenha() {
       <Form<Valores> layout="vertical" onFinish={enviar} requiredMark={false}>
         <Form.Item
           name="novaSenha"
-          extra={<span style={{ color: 'rgba(255,255,255,0.7)' }}>De 10 a 128 caracteres, com letras, números e pelo menos um caractere especial.</span>}
+          extra={<span style={{ color: 'rgba(255,255,255,0.7)' }}>De 10 a 128 caracteres, com letras maiúsculas e minúsculas, números e pelo menos um caractere especial.</span>}
           rules={[
             { required: true, message: 'Campo Não Preenchido' },
             { pattern: REGRA_SENHA, message: 'A senha não atende às regras' }

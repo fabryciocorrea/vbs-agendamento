@@ -122,6 +122,40 @@
      }
     },
     {
+     "name": "POST /auth/alterar-senha",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{baseUrl}}/auth/alterar-senha",
+       "host": [
+        "{{baseUrl}}"
+       ],
+       "path": [
+        "auth",
+        "alterar-senha"
+       ],
+       "variable": [],
+       "query": []
+      },
+      "description": "**Trocar a própria senha (usuário logado)**\n\nLiberação exigida: `logado`\n\nExige a senha atual e a nova senha (10 a 128 caracteres, com letras maiúsculas e minúsculas, números e pelo menos um caractere especial, diferente da atual). Mantém a sessão em uso e encerra as outras sessões do usuário (motivo `SENHA_ALTERADA`). Fica na auditoria, sem a senha.\n",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"senhaAtual\": \"texto\",\n  \"novaSenha\": \"xxxxxxxxxx\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
      "name": "POST /auth/recuperar-senha",
      "request": {
       "method": "POST",

@@ -13,6 +13,12 @@ public sealed class RecuperarSenhaEntrada
     public string? Email { get; set; }
 }
 
+public sealed class AlterarSenhaEntrada
+{
+    public string? SenhaAtual { get; set; }
+    public string? NovaSenha { get; set; }
+}
+
 public sealed class RedefinirSenhaEntrada
 {
     public string? Token { get; set; }
@@ -74,5 +80,6 @@ public sealed class UsuarioAtualSaida
     public UsuarioResumoDto Usuario { get; set; } = new();
     public bool Administrador { get; set; }
     public int? ProfissionalId { get; set; }
+    public bool SemVinculoProfissional { get; set; }
     public PermissoesSaida Permissoes { get; set; } = new();
 }

@@ -15,6 +15,7 @@ public sealed class PerfilEntrada
 {
     public string? Nome { get; set; }
     public string? Descricao { get; set; }
+    public bool ExigeVinculoProfissional { get; set; }
     public PermissoesEntrada? Permissoes { get; set; }
 }
 
@@ -26,6 +27,7 @@ public class PerfilResumoDto
     public string Nome { get; set; } = string.Empty;
     public string? Descricao { get; set; }
     public bool Protegido { get; set; }
+    public bool ExigeVinculoProfissional { get; set; }
     public int QuantidadeUsuarios { get; set; }
 }
 

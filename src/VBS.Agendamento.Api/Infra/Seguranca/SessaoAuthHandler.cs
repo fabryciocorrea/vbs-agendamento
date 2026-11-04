@@ -47,6 +47,7 @@ public sealed class SessaoAuthHandler : AuthenticationHandler<AuthenticationSche
         public int PerfilId { get; set; }
         public bool PerfilProtegido { get; set; }
         public int? ProfissionalId { get; set; }
+        public bool ExigeVinculo { get; set; }
     }
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -67,7 +68,8 @@ public sealed class SessaoAuthHandler : AuthenticationHandler<AuthenticationSche
 SELECT S.CODIGO_SESSAO AS SessaoId, S.CODIGO_USUARIO AS UsuarioId, S.DATA_ULTIMA_ATIVIDADE AS UltimaAtividade,
        S.DATA_ENCERRAMENTO AS Encerramento, SYSUTCDATETIME() AS Agora,
        U.ATIVO AS UsuarioAtivo, U.DATA_BLOQUEIO AS Bloqueio, U.CODIGO_PERFIL AS PerfilId,
-       P.PROTEGIDO AS PerfilProtegido, U.CODIGO_PROFISSIONAL AS ProfissionalId
+       P.PROTEGIDO AS PerfilProtegido, U.CODIGO_PROFISSIONAL AS ProfissionalId,
+       P.EXIGE_VINCULO_PROFISSIONAL AS ExigeVinculo
 FROM DBO.SESSAO_USUARIO S
 JOIN DBO.USUARIO U ON U.CODIGO_USUARIO = S.CODIGO_USUARIO
 JOIN DBO.PERFIL_ACESSO P ON P.CODIGO_PERFIL = U.CODIGO_PERFIL
@@ -114,6 +116,10 @@ WHERE S.TOKEN_HASH = @Hash;";
         };
         if (s.ProfissionalId.HasValue)
             claims.Add(new Claim(UsuarioAtualExtensoes.ClaimProfissional, s.ProfissionalId.Value.ToString()));
+
+        // Perfil de profissional sem "Profissional vinculado": o acesso aos dados fica bloqueado (RN49).
+        if (s.ExigeVinculo && !s.PerfilProtegido && !s.ProfissionalId.HasValue)
+            claims.Add(new Claim(UsuarioAtualExtensoes.ClaimSemVinculo, "1"));
 
         var identidade = new ClaimsIdentity(claims, Esquema);
         var ticket = new AuthenticationTicket(new ClaimsPrincipal(identidade), Esquema);

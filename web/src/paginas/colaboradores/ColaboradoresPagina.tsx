@@ -23,6 +23,7 @@ import { formatarPis, pisValido } from './pis';
 import type { Colaborador, ColaboradorEntrada, TipoVinculo } from './tipos';
 import { ContactsOutlined as IconeTela } from '@ant-design/icons';
 import CabecalhoPagina from '../../layout/CabecalhoPagina';
+import CampoBusca from '../../componentes/CampoBusca';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -489,7 +490,7 @@ export default function ColaboradoresPagina() {
       </Space>
 
       <Space style={{ marginBottom: 16 }} wrap>
-        <Input.Search
+        <CampoBusca
           placeholder="Buscar por nome, razão social ou matrícula"
           allowClear
           style={{ width: 340 }}

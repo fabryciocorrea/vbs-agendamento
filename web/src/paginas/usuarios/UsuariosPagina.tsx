@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Button, Input, Select, Space, Table, Tag } from 'antd';
+import { App, Button, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { EditOutlined, KeyOutlined, PlusOutlined, PoweroffOutlined, UnlockOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
@@ -10,6 +10,7 @@ import UsuarioFormulario from './UsuarioFormulario';
 import SenhaModal from './SenhaModal';
 import { UserOutlined as IconeTela } from '@ant-design/icons';
 import CabecalhoPagina from '../../layout/CabecalhoPagina';
+import CampoBusca from '../../componentes/CampoBusca';
 
 const TAMANHO = 10;
 
@@ -173,7 +174,7 @@ export default function UsuariosPagina() {
       </Space>
 
       <Space style={{ marginBottom: 16 }} wrap>
-        <Input.Search
+        <CampoBusca
           placeholder="Buscar por nome, usuário ou e-mail"
           allowClear
           style={{ width: 320 }}

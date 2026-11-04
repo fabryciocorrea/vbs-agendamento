@@ -9,6 +9,7 @@ import { formatarDataHora } from '../../util/formatos';
 import FormularioPaciente from '../pacientes/FormularioPaciente';
 import { CORES_STATUS, NOMES_STATUS } from '../agenda/tipos';
 import type { StatusConsulta } from '../agenda/tipos';
+import CampoBusca from '../../componentes/CampoBusca';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -305,7 +306,7 @@ export default function GuiasConvenioAba() {
         />
         <Input type="date" style={{ width: 150 }} value={de} onChange={(e) => filtrar(setDe)(e.target.value)} title="Consultas a partir de" />
         <Input type="date" style={{ width: 150 }} value={ate} onChange={(e) => filtrar(setAte)(e.target.value)} title="Consultas até" />
-        <Input.Search
+        <CampoBusca
           placeholder="Paciente, carteirinha ou nº da guia"
           allowClear
           style={{ width: 280 }}

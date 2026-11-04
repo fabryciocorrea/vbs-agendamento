@@ -88,6 +88,7 @@ LEFT JOIN DBO.USUARIO UA ON UA.CODIGO_USUARIO = U.ATUALIZACAO_USUARIO";
     {
         public int Id { get; set; }
         public bool Protegido { get; set; }
+        public bool ExigeVinculo { get; set; }
     }
 
     // ---------------------------------------------------------------- lista e consulta
@@ -141,7 +142,7 @@ LEFT JOIN DBO.USUARIO UA ON UA.CODIGO_USUARIO = U.ATUALIZACAO_USUARIO";
         var dados = ValidarDados(d, erros);
         if (string.IsNullOrEmpty(d?.Senha)) erros.Add(new ErroCampo("senha", NaoPreenchido));
         else if (!Formatos.Senha.IsMatch(d.Senha))
-            erros.Add(new ErroCampo("senha", "Mínimo de 10 caracteres, com letras, números e pelo menos um caractere especial"));
+            erros.Add(new ErroCampo("senha", "Mínimo de 10 caracteres, com letras maiúsculas e minúsculas, números e pelo menos um caractere especial"));
         if (erros.Count > 0) throw Erro.Validacao(erros);
 
         await using var con = await _db.AbrirAsync(ct);
@@ -301,7 +302,7 @@ WHERE CODIGO_USUARIO = @Id;", new { Usuario = usuario.Id, Id = id }, tx, ct));
     {
         if (string.IsNullOrEmpty(d?.NovaSenha)) throw Erro.Validacao("novaSenha", NaoPreenchido);
         if (!Formatos.Senha.IsMatch(d.NovaSenha))
-            throw Erro.Validacao("novaSenha", "Mínimo de 10 caracteres, com letras, números e pelo menos um caractere especial");
+            throw Erro.Validacao("novaSenha", "Mínimo de 10 caracteres, com letras maiúsculas e minúsculas, números e pelo menos um caractere especial");
 
         await using var con = await _db.AbrirAsync(ct);
         await using var tx = (SqlTransaction)await con.BeginTransactionAsync(ct);
@@ -362,7 +363,7 @@ WHERE CODIGO_USUARIO = @Id;", new { Hash = _hash.Gerar(d.NovaSenha), Usuario = u
         SqlConnection con, SqlTransaction tx, DadosValidados dados, Linha? atual, UsuarioAtual quemEdita, CancellationToken ct)
     {
         var perfil = await con.QueryFirstOrDefaultAsync<PerfilInfo>(Sql.Cmd(
-            "SELECT CODIGO_PERFIL AS Id, PROTEGIDO AS Protegido FROM DBO.PERFIL_ACESSO WHERE CODIGO_PERFIL = @Id;",
+            "SELECT CODIGO_PERFIL AS Id, PROTEGIDO AS Protegido, EXIGE_VINCULO_PROFISSIONAL AS ExigeVinculo FROM DBO.PERFIL_ACESSO WHERE CODIGO_PERFIL = @Id;",
             new { Id = dados.PerfilId }, tx, ct));
         if (perfil is null) throw Erro.Validacao("perfilId", "Perfil não encontrado");
 
@@ -370,6 +371,9 @@ WHERE CODIGO_USUARIO = @Id;", new { Hash = _hash.Gerar(d.NovaSenha), Usuario = u
         var mudaDePerfil = atual is null || atual.PerfilId != dados.PerfilId;
         if (mudaDePerfil && perfil.Protegido && !quemEdita.Administrador)
             throw Erro.SemPermissao("Somente o administrador pode atribuir o perfil Administrador.", "PERFIL_PROTEGIDO");
+
+        if (perfil.ExigeVinculo && !perfil.Protegido && !dados.ProfissionalId.HasValue)
+            throw Erro.Validacao("profissionalId", "Este perfil é de profissional: informe o Profissional vinculado");
 
         if (dados.ProfissionalId.HasValue)
         {

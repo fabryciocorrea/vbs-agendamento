@@ -173,6 +173,7 @@ WHERE U.CODIGO_USUARIO = @Id;", new { Id = usuario.Id }, ct: ct))
             },
             Administrador = usuario.Administrador,
             ProfissionalId = usuario.ProfissionalId,
+            SemVinculoProfissional = usuario.SemVinculoProfissional,
             Permissoes = await _permissoes.ListarAsync(usuario.PerfilId, usuario.Administrador, ct)
         };
     }
@@ -201,6 +202,52 @@ VALUES (@Id, @Hash, DATEADD(MINUTE, @Minutos, SYSUTCDATETIME()));",
             $"Use o link para criar uma nova senha (vale por {_seguranca.ValidadeTokenRecuperacaoMinutos} minutos e só pode ser usado uma vez): {link}", ct);
     }
 
+    // ------------------------------------------------------ alterar a própria senha (P70)
+    /// <summary>
+    /// O usuário logado troca a própria senha informando a atual. Mantém a sessão em uso e encerra as outras
+    /// (motivo SENHA_ALTERADA). Não mexe em bloqueio nem em perfil. Fica registrado na auditoria (sem a senha).
+    /// </summary>
+    public async Task AlterarSenhaAsync(AlterarSenhaEntrada? entrada, UsuarioAtual usuario, CancellationToken ct)
+    {
+        var erros = new List<ErroCampo>();
+        if (string.IsNullOrEmpty(entrada?.SenhaAtual)) erros.Add(new ErroCampo("senhaAtual", "Campo Não Preenchido"));
+        if (string.IsNullOrEmpty(entrada?.NovaSenha)) erros.Add(new ErroCampo("novaSenha", "Campo Não Preenchido"));
+        else if (!Formatos.Senha.IsMatch(entrada.NovaSenha))
+            erros.Add(new ErroCampo("novaSenha", "A senha deve ter de 10 a 128 caracteres, com letras maiúsculas e minúsculas, números e pelo menos um caractere especial."));
+        else if (entrada.NovaSenha == entrada.SenhaAtual)
+            erros.Add(new ErroCampo("novaSenha", "A nova senha deve ser diferente da atual."));
+        if (erros.Count > 0) throw Erro.Validacao(erros);
+
+        await using var con = await _db.AbrirAsync(ct);
+        await using var tx = (Microsoft.Data.SqlClient.SqlTransaction)await con.BeginTransactionAsync(ct);
+
+        var hashAtual = await con.ExecuteScalarAsync<string?>(Sql.Cmd(
+            "SELECT SENHA_HASH FROM DBO.USUARIO WHERE CODIGO_USUARIO = @Id AND ATIVO = 1;", new { Id = usuario.Id }, tx, ct))
+            ?? throw Erro.NaoAutenticado("Usuário não encontrado.");
+
+        if (!_hash.Verificar(entrada!.SenhaAtual!, hashAtual))
+        {
+            await _auditoria.RegistrarAsync("EDITAR", "USUARIO", usuario.Id, null, usuario.Id,
+                new { campo = "senha", origem = "propria", resultado = "senha atual incorreta" }, con, tx, ct);
+            await tx.CommitAsync(ct);
+            throw Erro.Validacao("senhaAtual", "Senha atual incorreta");
+        }
+
+        await con.ExecuteAsync(Sql.Cmd(
+            "UPDATE DBO.USUARIO SET SENHA_HASH = @Hash, DATA_ATUALIZACAO = SYSUTCDATETIME() WHERE CODIGO_USUARIO = @Id;",
+            new { Id = usuario.Id, Hash = _hash.Gerar(entrada.NovaSenha!) }, tx, ct));
+
+        await con.ExecuteAsync(Sql.Cmd(@"
+UPDATE DBO.SESSAO_USUARIO SET DATA_ENCERRAMENTO = SYSUTCDATETIME(), MOTIVO_ENCERRAMENTO = 'SENHA_ALTERADA'
+WHERE CODIGO_USUARIO = @Id AND CODIGO_SESSAO <> @Sessao AND DATA_ENCERRAMENTO IS NULL;",
+            new { Id = usuario.Id, Sessao = usuario.SessaoId }, tx, ct));
+
+        await _auditoria.RegistrarAsync("EDITAR", "USUARIO", usuario.Id, null, usuario.Id,
+            new { campo = "senha", origem = "propria" }, con, tx, ct);
+
+        await tx.CommitAsync(ct);
+    }
+
     // ------------------------------------------------------ redefinir senha
     public async Task RedefinirSenhaAsync(RedefinirSenhaEntrada? entrada, CancellationToken ct)
     {
@@ -208,7 +255,7 @@ VALUES (@Id, @Hash, DATEADD(MINUTE, @Minutos, SYSUTCDATETIME()));",
         if (string.IsNullOrWhiteSpace(entrada?.Token)) erros.Add(new ErroCampo("token", "Campo Não Preenchido"));
         if (string.IsNullOrEmpty(entrada?.NovaSenha)) erros.Add(new ErroCampo("novaSenha", "Campo Não Preenchido"));
         else if (!Formatos.Senha.IsMatch(entrada.NovaSenha))
-            erros.Add(new ErroCampo("novaSenha", "A senha deve ter de 10 a 128 caracteres, com letras, números e pelo menos um caractere especial."));
+            erros.Add(new ErroCampo("novaSenha", "A senha deve ter de 10 a 128 caracteres, com letras maiúsculas e minúsculas, números e pelo menos um caractere especial."));
         if (erros.Count > 0) throw Erro.Validacao(erros);
 
         await using var con = await _db.AbrirAsync(ct);
