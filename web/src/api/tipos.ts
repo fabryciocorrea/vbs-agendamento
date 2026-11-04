@@ -395,6 +395,21 @@ export interface Paciente {
   dadosMascarados?: boolean;
 }
 
+export type TipoDocumentoPaciente = 'IDENTIDADE' | 'ENCAMINHAMENTO' | 'AUTORIZACAO' | 'CARTEIRINHA' | 'EXAME' | 'OUTRO';
+
+/** Documento anexado ao cadastro do paciente (carteira de identidade, encaminhamento, autorização...). */
+export interface DocumentoPaciente {
+  id: string;
+  tipo: TipoDocumentoPaciente;
+  tipoNome: string;
+  descricao?: string | null;
+  nomeArquivo: string;
+  tipoConteudo: string;
+  tamanhoBytes: number;
+  enviadoEm: string;
+  enviadoPor?: UsuarioReferencia | null;
+}
+
 export type StatusListaEspera = 'AGUARDANDO' | 'NOTIFICADO' | 'ATENDIDO' | 'CANCELADO';
 
 export interface ListaEspera {

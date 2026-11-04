@@ -27,6 +27,7 @@ public static class CatalogoTelas
         ("notificacao.interna", "Notificações internas", "Notificações"),
         ("notificacao.parametros", "Parâmetros das notificações", "Notificações"),
         ("paciente.cadastro", "Cadastro de pacientes", "Cadastros"),
+        ("paciente.documento", "Documentos do paciente", "Cadastros"),
         ("perfil.cadastro", "Perfis de acesso", "Segurança"),
         ("profissional.cadastro", "Cadastro de profissionais", "Cadastros"),
         ("prontuario.correcao", "Correções do prontuário", "Prontuário"),

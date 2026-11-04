@@ -115,11 +115,41 @@ export const api = {
   put: <T>(caminho: string, corpo: unknown) => requisitar<T>('PUT', caminho, corpo),
   patch: <T>(caminho: string, corpo: unknown) => requisitar<T>('PATCH', caminho, corpo),
   delete: <T>(caminho: string) => requisitar<T>('DELETE', caminho),
-  /** Envia um arquivo (multipart). O campo do formulário é "arquivo". */
-  upload: <T>(caminho: string, arquivo: File) => {
+  /** Envia um arquivo (multipart). O campo do formulário é "arquivo"; `campos` acrescenta outros campos de texto. */
+  upload: <T>(caminho: string, arquivo: File, campos?: Record<string, string | undefined>) => {
     const form = new FormData();
     form.append('arquivo', arquivo);
+    for (const [chave, valor] of Object.entries(campos ?? {})) {
+      if (valor !== undefined && valor !== '') form.append(chave, valor);
+    }
     return requisitar<T>('POST', caminho, form);
+  },
+  /** Abre um arquivo autenticado (PDF ou imagem) em outra aba, sem baixar. */
+  abrir: async (caminho: string): Promise<void> => {
+    // A aba é aberta antes da requisição para o navegador não bloquear a janela.
+    const janela = window.open('', '_blank');
+    if (!janela) throw new ApiErro(0, 'Janela bloqueada', 'O navegador bloqueou a nova aba. Libere as janelas deste site e tente de novo.');
+    const token = obterToken();
+    try {
+      const resposta = await fetch(BASE + caminho, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      if (!resposta.ok) {
+        if (resposta.status === 401 && aoPerderSessao) aoPerderSessao();
+        let detalhe: string | undefined;
+        try {
+          detalhe = (await resposta.json())?.detail;
+        } catch {
+          detalhe = undefined;
+        }
+        throw new ApiErro(resposta.status, 'Erro', detalhe ?? 'Não foi possível abrir o arquivo.');
+      }
+      const url = URL.createObjectURL(await resposta.blob());
+      janela.location.href = url;
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      janela.close();
+      if (e instanceof ApiErro) throw e;
+      throw new ApiErro(0, 'Sem conexão', 'Não foi possível falar com o servidor. Confira se ele está rodando.');
+    }
   },
   /** Baixa um arquivo autenticado e o entrega ao navegador com o nome informado. */
   baixar: async (caminho: string, nomeArquivo: string): Promise<void> => {

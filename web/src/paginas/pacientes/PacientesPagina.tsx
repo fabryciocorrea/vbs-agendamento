@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { App, Button, Form, Input, Modal, Select, Space, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { EditOutlined, EyeOutlined, FileTextOutlined, PlusOutlined, PoweroffOutlined, SearchOutlined } from '@ant-design/icons';
+import { EditOutlined, EyeOutlined, FileTextOutlined, PaperClipOutlined, PlusOutlined, PoweroffOutlined, SearchOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { ItemApoio, Pagina, Paciente, PacienteResumo } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
@@ -10,6 +10,7 @@ import BotaoExcluir from '../../componentes/BotaoExcluir';
 import { cpfValido, formatarCpf, formatarDataIso, formatarTelefone, somenteDigitos } from '../../util/formatos';
 import FormularioPaciente from './FormularioPaciente';
 import VisualizarPacienteModal from './VisualizarPacienteModal';
+import DocumentosPacienteModal from './DocumentosPacienteModal';
 import { SolutionOutlined as IconeTela } from '@ant-design/icons';
 import CabecalhoPagina from '../../layout/CabecalhoPagina';
 import CampoBusca from '../../componentes/CampoBusca';
@@ -113,6 +114,7 @@ export default function PacientesPagina() {
   // Quem não edita (ex.: o profissional) abre o cadastro só para leitura; a lista já traz só os pacientes dele.
   const podeVisualizar = pode('paciente.cadastro', 'visualizar');
   const podeProntuario = pode('prontuario.registro', 'visualizar');
+  const podeDocumentos = pode('paciente.documento', 'visualizar');
   const navegar = useNavigate();
 
   const [dados, setDados] = useState<Pagina<PacienteResumo>>({ itens: [], pagina: 1, tamanho: TAMANHO, total: 0 });
@@ -172,6 +174,7 @@ export default function PacientesPagina() {
 
   // A lista traz só o resumo; para editar, busca o cadastro completo (a consulta fica registrada no log).
   const [visualizando, setVisualizando] = useState<Paciente | null>(null);
+  const [documentosDe, setDocumentosDe] = useState<{ id: string; nome: string } | null>(null);
 
   async function abrirVisualizacao(id: string) {
     try {
@@ -240,11 +243,14 @@ export default function PacientesPagina() {
     },
     {
       title: 'Ações',
-      width: 180,
+      width: 220,
       render: (_, r) =>
-        (podeEditar || podeProntuario || podeVisualizar) && (
+        (podeEditar || podeProntuario || podeVisualizar || podeDocumentos) && (
           <Space>
             {podeVisualizar && <Button size="small" icon={<EyeOutlined />} title="Visualizar cadastro" onClick={() => void abrirVisualizacao(r.id)} />}
+            {podeDocumentos && (
+              <Button size="small" icon={<PaperClipOutlined />} title="Documentos do paciente" onClick={() => setDocumentosDe({ id: r.id, nome: r.nome })} />
+            )}
             {podeProntuario && (
               <Button size="small" icon={<FileTextOutlined />} title="Prontuário" onClick={() => navegar(`/pacientes/${r.id}/prontuario`)} />
             )}
@@ -386,6 +392,7 @@ export default function PacientesPagina() {
       />
 
       <VisualizarPacienteModal paciente={visualizando} mascarar={!podeEditar} aoFechar={() => setVisualizando(null)} />
+      <DocumentosPacienteModal paciente={documentosDe} aoFechar={() => setDocumentosDe(null)} />
 
       <FormularioPaciente
         aberto={formAberto}

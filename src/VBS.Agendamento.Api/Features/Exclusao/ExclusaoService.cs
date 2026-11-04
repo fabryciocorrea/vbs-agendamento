@@ -93,6 +93,8 @@ public sealed class ExclusaoService
         if (prontuario > 0) bloqueios.Add($"{prontuario} registro(s) de prontuário");
         var espera = await con.ExecuteScalarAsync<int>(Sql.Cmd("SELECT COUNT(1) FROM DBO.LISTA_ESPERA WHERE CODIGO_PACIENTE = @Id;", new { p.Id }, tx, ct));
         if (espera > 0) bloqueios.Add($"{espera} item(ns) na lista de espera");
+        var documentos = await con.ExecuteScalarAsync<int>(Sql.Cmd("SELECT COUNT(1) FROM DBO.PACIENTE_DOCUMENTO WHERE CODIGO_PACIENTE = @Id;", new { p.Id }, tx, ct));
+        if (documentos > 0) bloqueios.Add($"{documentos} documento(s) anexado(s)");
         if (bloqueios.Count > 0) throw ComVinculos("este paciente", string.Join(", ", bloqueios));
 
         try

@@ -46,6 +46,7 @@ builder.Services.AddScoped<IPermissaoService, PermissaoService>();
 builder.Services.AddScoped<IEnviadorEmail, EnviadorEmailConsole>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<PacienteService>();
+builder.Services.AddScoped<DocumentoPacienteService>();
 builder.Services.AddScoped<ResponsavelLegalService>();
 builder.Services.AddScoped<UnidadeService>();
 builder.Services.AddScoped<SalaService>();

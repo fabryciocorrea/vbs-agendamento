@@ -57,6 +57,8 @@ tags:
   description: Cadastro, consulta e inativação de pacientes (RF03, RN25).
 - name: Profissional responsável
   description: Troca do profissional que atende o paciente e histórico (RN18).
+- name: Documentos do paciente
+  description: Carteira de identidade, encaminhamentos, autorizações e outros arquivos anexados ao cadastro do paciente.
 - name: Consentimentos LGPD
   description: Histórico de consentimentos do paciente (RNF03).
 - name: Responsáveis legais
@@ -991,6 +993,129 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/HistoricoProfissional'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /pacientes/{pacienteId}/documentos:
+    parameters:
+    - $ref: '#/components/parameters/PacienteId'
+    get:
+      tags:
+      - Documentos do paciente
+      operationId: listarDocumentosPaciente
+      summary: Listar os documentos do paciente
+      x-permissao: paciente.documento:visualizar
+      description: Lista os documentos anexados, do mais recente para o mais antigo (sem o conteúdo). O usuário vinculado a um profissional só vê os documentos dos pacientes de que é o responsável atual (RN16, RN49). Sem cache.
+      responses:
+        '200':
+          description: Documentos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentoPaciente'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    post:
+      tags:
+      - Documentos do paciente
+      operationId: anexarDocumentoPaciente
+      summary: Anexar um documento ao cadastro do paciente
+      x-permissao: paciente.documento:incluir
+      description: |
+        Envia o documento (multipart: `arquivo`, `tipo` e, opcionalmente, `descricao`). Aceita PDF, JPG ou PNG de até 5 MB; o tipo é conferido pelo conteúdo, não pela extensão. Guarda nome, tamanho, impressão digital SHA-256, paciente, usuário e data. No máximo 50 documentos por paciente (409 `LIMITE_DOCUMENTOS`). A descrição é obrigatória para o tipo `OUTRO`. O envio fica no log.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - arquivo
+              - tipo
+              properties:
+                arquivo:
+                  type: string
+                  format: binary
+                tipo:
+                  type: string
+                  enum: [IDENTIDADE, ENCAMINHAMENTO, AUTORIZACAO, CARTEIRINHA, EXAME, OUTRO]
+                descricao:
+                  type: string
+                  maxLength: 150
+      responses:
+        '201':
+          description: Documento guardado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentoPaciente'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+  /pacientes/{pacienteId}/documentos/{documentoId}:
+    parameters:
+    - $ref: '#/components/parameters/PacienteId'
+    - name: documentoId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags:
+      - Documentos do paciente
+      operationId: baixarDocumentoPaciente
+      summary: Abrir ou baixar o documento do paciente
+      x-permissao: paciente.documento:visualizar
+      description: Devolve o arquivo original. O acesso fica no log. Sem cache.
+      responses:
+        '200':
+          description: Arquivo.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      tags:
+      - Documentos do paciente
+      operationId: excluirDocumentoPaciente
+      summary: Excluir o documento do paciente
+      x-permissao: paciente.documento:excluir
+      description: Apaga o arquivo de vez. O log guarda o tipo, o nome do arquivo e a impressão digital SHA-256.
+      responses:
+        '204':
+          description: Excluído.
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '403':
@@ -9032,6 +9157,41 @@ components:
           type: string
           format: uuid
           description: Documento de autorização anexado antes por `POST /pacientes/{pacienteId}/prontuario/autorizacoes`. Vale para um único uso, do mesmo paciente e do mesmo administrador que o enviou.
+    DocumentoPaciente:
+      type: object
+      required:
+      - id
+      - tipo
+      - tipoNome
+      - nomeArquivo
+      - tipoConteudo
+      - tamanhoBytes
+      - enviadoEm
+      properties:
+        id:
+          type: string
+          format: uuid
+        tipo:
+          type: string
+          enum: [IDENTIDADE, ENCAMINHAMENTO, AUTORIZACAO, CARTEIRINHA, EXAME, OUTRO]
+        tipoNome:
+          type: string
+          example: Documento de identidade
+        descricao:
+          type: string
+          nullable: true
+        nomeArquivo:
+          type: string
+        tipoConteudo:
+          type: string
+          enum: [application/pdf, image/jpeg, image/png]
+        tamanhoBytes:
+          type: integer
+        enviadoEm:
+          type: string
+          format: date-time
+        enviadoPor:
+          $ref: '#/components/schemas/UsuarioReferencia'
     DocumentoAutorizacao:
       type: object
       required:
