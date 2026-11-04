@@ -19,8 +19,8 @@ Detalhes técnicos (camadas, regras, fluxos e banco): veja [ARCHITECTURE.md](ARC
 | Área | Conteúdo |
 |---|---|
 | Acesso | Login em tela dividida, sessão com expiração por inatividade, bloqueio após 5 senhas erradas, recuperação de senha por e-mail, troca da própria senha em "Meu perfil" (pede a senha atual e encerra os outros acessos), senha com 10 a 128 caracteres, letras maiúsculas e minúsculas, números e caractere especial, perfis de acesso com permissão por tela e ação (visualizar, incluir, editar, cancelar, excluir, exportar). O perfil pode ser marcado como "de profissional": o usuário dele sem o profissional vinculado não acessa dados e vê um aviso |
-| Interface | Layout moderno em todas as telas (menu em degradê, cartões, títulos com ícone, listas em cartão com ações redondas e filtros em pílula), tema claro e escuro por botão ao lado do sino (o login fica sempre claro) e campo de busca padronizado |
-| Profissional | O usuário vinculado a um profissional vê o início "Meu dia" e só os pacientes e consultas de que é o responsável atual (agenda sem filtro de profissional); a ação Visualizar abre o cadastro em leitura, com CPF e RG mascarados e só o tipo de atendimento (convênio ou Particular). Administrador e recepção também têm Visualizar, com os dados completos |
+| Interface | Layout moderno em todas as telas (menu em degradê, cartões, títulos com ícone, listas em cartão com ações redondas e filtros em pílula), tema claro e escuro por botão ao lado do sino (o login fica sempre claro) e campo de busca padronizado (lupa dentro do campo, texto de ajuda que some ao clicar). Todas as telas de cadastro e de faturamento têm a ação Visualizar (olho), em leitura, para quem vê a tela; Perfis de acesso e Usuários, para o administrador. Perfis de acesso filtra por nome e descrição |
+| Profissional | O usuário vinculado a um profissional vê o início "Meu dia" e só os pacientes e consultas de que é o responsável atual (agenda sem filtro de profissional); a ação Visualizar abre o cadastro em leitura, com CPF, RG e documento de estrangeiro (RNE/CRNM) mascarados pelo próprio servidor (a API não envia os dados completos) e só o tipo de atendimento (convênio ou Particular). Administrador e recepção também têm Visualizar, com os dados completos |
 | Cadastros | Pacientes (com responsável legal e consentimento), profissionais, colaboradores, unidades, salas, especialidades, formas de pagamento, convênios, usuários e perfis |
 | Convênios | Valor por especialidade, credenciamento por unidade, valor vigente na data da consulta |
 | Agenda | Agenda semanal do profissional, nova consulta (particular ou convênio, presencial ou online), encaixe, remarcação (a consulta sai do horário antigo e aparece como Remarcada no novo), filtros de unidade, profissional e situação, horários livres conforme expediente, feriados e recessos |
@@ -80,11 +80,12 @@ web/                        telas (src/api, auth, layout, paginas, util)
 ## Pendências conhecidas
 
 - Retenção de logs (RNF04) em aberto.
+- Levantamento da infraestrutura de produção (servidor, SQL Server, Microsoft 365, SMS e WhatsApp, antivírus) feito à parte; orçamentos em andamento.
 - O Painel está na tela de Início. O sino de avisos fica na barra superior.
 - Link de videochamada (Google Meet) para consultas online.
 - Liberação campo a campo (catálogo `CAMPO_SISTEMA` vazio).
 - Testes automáticos.
-- Produção: conta própria da API na `ROLE_APP_AGENDAMENTO`, servidor de e-mail real (hoje o link de recuperação aparece no console), backup e criptografia de disco.
+- Produção (adiada até a preparação do ambiente): conta própria da API na `ROLE_APP_AGENDAMENTO`, servidor de e-mail real (hoje o link de recuperação aparece no console), backup e criptografia de disco.
 
 ## Se o `dotnet build` reclamar
 

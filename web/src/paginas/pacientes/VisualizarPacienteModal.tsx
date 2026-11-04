@@ -22,10 +22,15 @@ function texto(v?: string | null): string {
 }
 
 /** Cadastro completo do paciente, só para leitura (abre pela ação "Visualizar" da lista). */
-/** `mascarar`: CPF e RG parciais para quem só visualiza (profissional); recepção e administrador veem completos. */
+/**
+ * P73: o servidor já devolve CPF e RG mascarados a quem só visualiza (`dadosMascarados`), então a tela mostra o texto como veio.
+ * `mascarar` só vale como reserva, se a resposta não trouxer esse aviso.
+ */
 export default function VisualizarPacienteModal({ paciente, aoFechar, mascarar = true }: { paciente: Paciente | null; aoFechar: () => void; mascarar?: boolean }) {
   const p = paciente;
   const resp = p?.responsavelLegal ?? null;
+  const jaMascarado = p?.dadosMascarados === true;
+  const mascararAqui = p?.dadosMascarados === undefined ? mascarar : false;
   return (
     <Modal open={!!p} title={p ? `Cadastro — ${p.nome}` : ''} onCancel={aoFechar} footer={null} width={900} destroyOnClose>
       {p && (
@@ -36,11 +41,11 @@ export default function VisualizarPacienteModal({ paciente, aoFechar, mascarar =
             </Descriptions.Item>
             <Descriptions.Item label="Situação">{p.ativo ? <Tag color="green">Ativo</Tag> : <Tag>Inativo</Tag>}</Descriptions.Item>
             {p.estrangeiro ? (
-              <Descriptions.Item label={`Documento (${texto(p.tipoDocumentoEstrangeiro)})`}>{texto(p.numeroDocumentoEstrangeiro)}</Descriptions.Item>
+              <Descriptions.Item label={`Documento (${texto(p.tipoDocumentoEstrangeiro)})`}>{!jaMascarado && mascararAqui ? mascararRg(p.numeroDocumentoEstrangeiro) : texto(p.numeroDocumentoEstrangeiro)}</Descriptions.Item>
             ) : (
-              <Descriptions.Item label="CPF">{p.cpf ? (mascarar ? mascararCpf(p.cpf) : formatarCpf(p.cpf)) : '—'}</Descriptions.Item>
+              <Descriptions.Item label="CPF">{p.cpf ? (jaMascarado ? p.cpf : mascararAqui ? mascararCpf(p.cpf) : formatarCpf(p.cpf)) : '—'}</Descriptions.Item>
             )}
-            <Descriptions.Item label="RG">{mascarar ? mascararRg(p.rg) : texto(p.rg)}</Descriptions.Item>
+            <Descriptions.Item label="RG">{jaMascarado ? texto(p.rg) : mascararAqui ? mascararRg(p.rg) : texto(p.rg)}</Descriptions.Item>
             <Descriptions.Item label="Nascimento">{formatarDataIso(p.dataNascimento)}</Descriptions.Item>
             <Descriptions.Item label="Sexo">{p.sexo ? SEXOS[p.sexo] ?? p.sexo : '—'}</Descriptions.Item>
             <Descriptions.Item label="Escolaridade">{texto(p.escolaridade)}</Descriptions.Item>
@@ -74,7 +79,7 @@ export default function VisualizarPacienteModal({ paciente, aoFechar, mascarar =
           {resp && (
             <Descriptions title="Responsável legal" size="small" bordered column={2} labelStyle={{ width: 170 }} contentStyle={{ width: 230 }}>
               <Descriptions.Item label="Nome">{resp.nome}</Descriptions.Item>
-              <Descriptions.Item label="CPF">{mascarar ? mascararCpf(resp.cpf) : formatarCpf(resp.cpf)}</Descriptions.Item>
+              <Descriptions.Item label="CPF">{jaMascarado || resp.dadosMascarados ? resp.cpf : mascararAqui ? mascararCpf(resp.cpf) : formatarCpf(resp.cpf)}</Descriptions.Item>
               <Descriptions.Item label="Nascimento">{formatarDataIso(resp.dataNascimento)}</Descriptions.Item>
               <Descriptions.Item label="Celular">{formatarTelefone(resp.telefone)}</Descriptions.Item>
               <Descriptions.Item label="E-mail">{resp.email}</Descriptions.Item>

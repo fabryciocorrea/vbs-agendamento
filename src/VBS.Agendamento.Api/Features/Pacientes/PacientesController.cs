@@ -9,7 +9,12 @@ namespace VBS.Agendamento.Api.Features.Pacientes;
 public sealed class PacientesController : ControllerBase
 {
     private readonly PacienteService _servico;
-    public PacientesController(PacienteService servico) => _servico = servico;
+    private readonly IPermissaoService _permissoes;
+    public PacientesController(PacienteService servico, IPermissaoService permissoes)
+    {
+        _servico = servico;
+        _permissoes = permissoes;
+    }
 
     [HttpGet]
     [Permissao("paciente.cadastro:visualizar")]
@@ -31,8 +36,14 @@ public sealed class PacientesController : ControllerBase
 
     [HttpGet("{pacienteId:guid}")]
     [Permissao("paciente.cadastro:visualizar")]
-    public async Task<ActionResult<PacienteDto>> Obter(Guid pacienteId, CancellationToken ct) =>
-        Ok(await _servico.ObterAsync(pacienteId, User.ObterUsuarioAtual(), ct));
+    public async Task<ActionResult<PacienteDto>> Obter(Guid pacienteId, CancellationToken ct)
+    {
+        var usuario = User.ObterUsuarioAtual();
+        var paciente = await _servico.ObterAsync(pacienteId, usuario, ct);
+        // P73: quem só visualiza recebe CPF e RG mascarados (do paciente e do responsável legal).
+        if (!await MascaraDados.PodeVerCompletoAsync(_permissoes, usuario, ct)) MascaraDados.Aplicar(paciente);
+        return Ok(paciente);
+    }
 
     [HttpPut("{pacienteId:guid}")]
     [Permissao("paciente.cadastro:editar")]

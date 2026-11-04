@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { App, Button, Form, Input, Modal, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
+import { EditOutlined, EyeOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { CondicaoFormaPagamento, Convenio, FormaPagamento, Pagina, TipoFormaPagamento } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
@@ -37,12 +37,13 @@ interface ValoresFormulario {
 
 interface FormularioProps {
   aberto: boolean;
+  somenteLeitura?: boolean;
   forma: FormaPagamento | null;
   aoFechar: () => void;
   aoSalvar: () => void;
 }
 
-function FormularioFormaPagamento({ aberto, forma, aoFechar, aoSalvar }: FormularioProps) {
+function FormularioFormaPagamento({ aberto, somenteLeitura, forma, aoFechar, aoSalvar }: FormularioProps) {
   const { message } = App.useApp();
   const [form] = Form.useForm<ValoresFormulario>();
   const [salvando, setSalvando] = useState(false);
@@ -103,9 +104,10 @@ function FormularioFormaPagamento({ aberto, forma, aoFechar, aoSalvar }: Formula
   return (
     <Modal
       open={aberto}
-      title={forma ? 'Editar forma de pagamento' : 'Nova forma de pagamento'}
+      title={somenteLeitura ? 'Visualizar forma de pagamento' : forma ? 'Editar forma de pagamento' : 'Nova forma de pagamento'}
       okText="Salvar"
-      cancelText="Cancelar"
+      okButtonProps={{ style: somenteLeitura ? { display: 'none' } : undefined }}
+      cancelText={somenteLeitura ? 'Fechar' : 'Cancelar'}
       confirmLoading={salvando}
       onOk={() => void enviar()}
       onCancel={aoFechar}
@@ -114,6 +116,7 @@ function FormularioFormaPagamento({ aberto, forma, aoFechar, aoSalvar }: Formula
     >
       <Form<ValoresFormulario>
         form={form}
+        disabled={somenteLeitura}
         layout="vertical"
         requiredMark
         preserve={false}
@@ -156,6 +159,7 @@ export default function FormasPagamentoPagina() {
   const [tipoFiltro, setTipoFiltro] = useState<TipoFormaPagamento | 'todos'>('todos');
   const [situacao, setSituacao] = useState<FiltroSituacao>('todos');
   const [formAberto, setFormAberto] = useState(false);
+  const [somenteLeitura, setSomenteLeitura] = useState(false);
   const [emEdicao, setEmEdicao] = useState<FormaPagamento | null>(null);
 
   const carregar = useCallback(async () => {
@@ -214,15 +218,27 @@ export default function FormasPagamentoPagina() {
     {
       title: 'Ações',
       width: 150,
-      render: (_, f) =>
-        podeEditar && (
+      render: (_, f) => (
           <Space>
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              title="Visualizar"
+              onClick={() => {
+                setEmEdicao(f);
+                setSomenteLeitura(true);
+                setFormAberto(true);
+              }}
+            />
+            {podeEditar && (
+              <>
             <Button
               size="small"
               icon={<EditOutlined />}
               title="Editar"
               onClick={() => {
                 setEmEdicao(f);
+                setSomenteLeitura(false);
                 setFormAberto(true);
               }}
             />
@@ -234,6 +250,8 @@ export default function FormasPagamentoPagina() {
               onClick={() => alterarStatus(f)}
             />
             <BotaoExcluir artigoTipo="a forma de pagamento" nome={f.descricao} caminho={`/formas-pagamento/${f.id}`} aoExcluir={carregar} />
+              </>
+            )}
           </Space>
         )
     }
@@ -249,6 +267,7 @@ export default function FormasPagamentoPagina() {
             icon={<PlusOutlined />}
             onClick={() => {
               setEmEdicao(null);
+              setSomenteLeitura(false);
               setFormAberto(true);
             }}
           >
@@ -318,6 +337,7 @@ export default function FormasPagamentoPagina() {
 
       <FormularioFormaPagamento
         aberto={formAberto}
+        somenteLeitura={somenteLeitura}
         forma={emEdicao}
         aoFechar={() => setFormAberto(false)}
         aoSalvar={() => {

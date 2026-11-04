@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { App, Button, Form, Input, Modal, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
+import { EditOutlined, EyeOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { Especialidade, Pagina } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
@@ -21,12 +21,13 @@ interface ValoresFormulario {
 
 interface FormularioProps {
   aberto: boolean;
+  somenteLeitura?: boolean;
   especialidade: Especialidade | null;
   aoFechar: () => void;
   aoSalvar: () => void;
 }
 
-function FormularioEspecialidade({ aberto, especialidade, aoFechar, aoSalvar }: FormularioProps) {
+function FormularioEspecialidade({ aberto, somenteLeitura, especialidade, aoFechar, aoSalvar }: FormularioProps) {
   const { message } = App.useApp();
   const [form] = Form.useForm<ValoresFormulario>();
   const [salvando, setSalvando] = useState(false);
@@ -61,9 +62,10 @@ function FormularioEspecialidade({ aberto, especialidade, aoFechar, aoSalvar }: 
   return (
     <Modal
       open={aberto}
-      title={especialidade ? 'Editar especialidade' : 'Nova especialidade'}
+      title={somenteLeitura ? 'Visualizar especialidade' : especialidade ? 'Editar especialidade' : 'Nova especialidade'}
       okText="Salvar"
-      cancelText="Cancelar"
+      okButtonProps={{ style: somenteLeitura ? { display: 'none' } : undefined }}
+      cancelText={somenteLeitura ? 'Fechar' : 'Cancelar'}
       confirmLoading={salvando}
       onOk={() => void enviar()}
       onCancel={aoFechar}
@@ -72,6 +74,7 @@ function FormularioEspecialidade({ aberto, especialidade, aoFechar, aoSalvar }: 
     >
       <Form<ValoresFormulario>
         form={form}
+        disabled={somenteLeitura}
         layout="vertical"
         requiredMark
         preserve={false}
@@ -98,6 +101,7 @@ export default function EspecialidadesPagina() {
   const [buscaAplicada, setBuscaAplicada] = useState('');
   const [situacao, setSituacao] = useState<FiltroSituacao>('todos');
   const [formAberto, setFormAberto] = useState(false);
+  const [somenteLeitura, setSomenteLeitura] = useState(false);
   const [emEdicao, setEmEdicao] = useState<Especialidade | null>(null);
 
   const carregar = useCallback(async () => {
@@ -153,15 +157,27 @@ export default function EspecialidadesPagina() {
     {
       title: 'Ações',
       width: 170,
-      render: (_, e) =>
-        podeEditar && (
+      render: (_, e) => (
           <Space>
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              title="Visualizar"
+              onClick={() => {
+                setEmEdicao(e);
+                setSomenteLeitura(true);
+                setFormAberto(true);
+              }}
+            />
+            {podeEditar && (
+              <>
             <Button
               size="small"
               icon={<EditOutlined />}
               title="Editar"
               onClick={() => {
                 setEmEdicao(e);
+                setSomenteLeitura(false);
                 setFormAberto(true);
               }}
             />
@@ -173,6 +189,8 @@ export default function EspecialidadesPagina() {
               onClick={() => alterarStatus(e)}
             />
             <BotaoExcluir artigoTipo="a especialidade" nome={e.nome} caminho={`/especialidades/${e.id}`} aviso="Os vínculos com profissionais, convênios e credenciamentos saem junto." aoExcluir={carregar} />
+              </>
+            )}
           </Space>
         )
     }
@@ -188,6 +206,7 @@ export default function EspecialidadesPagina() {
             icon={<PlusOutlined />}
             onClick={() => {
               setEmEdicao(null);
+              setSomenteLeitura(false);
               setFormAberto(true);
             }}
           >
@@ -247,6 +266,7 @@ export default function EspecialidadesPagina() {
 
       <FormularioEspecialidade
         aberto={formAberto}
+        somenteLeitura={somenteLeitura}
         especialidade={emEdicao}
         aoFechar={() => setFormAberto(false)}
         aoSalvar={() => {

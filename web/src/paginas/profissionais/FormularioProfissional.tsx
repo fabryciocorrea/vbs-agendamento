@@ -31,6 +31,7 @@ interface ValoresFormulario {
 
 interface Props {
   aberto: boolean;
+  somenteLeitura?: boolean;
   /** Nulo para cadastrar um novo profissional. */
   profissional: Profissional | null;
   aoFechar: () => void;
@@ -46,7 +47,7 @@ function opcoes(itens: ItemApoio[], vinculadas: { id: number; nome: string }[]) 
   return lista;
 }
 
-export default function FormularioProfissional({ aberto, profissional, aoFechar, aoSalvar }: Props) {
+export default function FormularioProfissional({ aberto, somenteLeitura, profissional, aoFechar, aoSalvar }: Props) {
   const { message } = App.useApp();
   const [form] = Form.useForm<ValoresFormulario>();
   const [salvando, setSalvando] = useState(false);
@@ -139,9 +140,10 @@ export default function FormularioProfissional({ aberto, profissional, aoFechar,
   return (
     <Modal
       open={aberto}
-      title={profissional ? 'Editar profissional' : 'Novo profissional'}
+      title={somenteLeitura ? 'Visualizar profissional' : profissional ? 'Editar profissional' : 'Novo profissional'}
       okText="Salvar"
-      cancelText="Cancelar"
+      okButtonProps={{ style: somenteLeitura ? { display: 'none' } : undefined }}
+      cancelText={somenteLeitura ? 'Fechar' : 'Cancelar'}
       confirmLoading={salvando}
       onOk={() => void enviar()}
       onCancel={aoFechar}
@@ -152,6 +154,7 @@ export default function FormularioProfissional({ aberto, profissional, aoFechar,
     >
       <Form<ValoresFormulario>
         form={form}
+        disabled={somenteLeitura}
         layout="vertical"
         requiredMark
         preserve={false}

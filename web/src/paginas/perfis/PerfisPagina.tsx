@@ -23,6 +23,7 @@ export default function PerfisPagina() {
   const [filtroDescricao, setFiltroDescricao] = useState('');
   const [formAberto, setFormAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<PerfilResumo | null>(null);
+  const [somenteLeitura, setSomenteLeitura] = useState(false);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -84,23 +85,24 @@ export default function PerfisPagina() {
       width: 130,
       render: (_, p) => (
         <Space>
-          {p.protegido || !podeEditar ? (
-            <Button
-              size="small"
-              icon={<EyeOutlined />}
-              title="Consultar"
-              onClick={() => {
-                setEmEdicao(p);
-                setFormAberto(true);
-              }}
-            />
-          ) : (
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            title="Visualizar"
+            onClick={() => {
+              setEmEdicao(p);
+              setSomenteLeitura(true);
+              setFormAberto(true);
+            }}
+          />
+          {podeEditar && !p.protegido && (
             <Button
               size="small"
               icon={<EditOutlined />}
               title="Editar"
               onClick={() => {
                 setEmEdicao(p);
+                setSomenteLeitura(false);
                 setFormAberto(true);
               }}
             />
@@ -123,6 +125,7 @@ export default function PerfisPagina() {
             icon={<PlusOutlined />}
             onClick={() => {
               setEmEdicao(null);
+              setSomenteLeitura(false);
               setFormAberto(true);
             }}
           >
@@ -163,6 +166,7 @@ export default function PerfisPagina() {
 
       <PerfilFormulario
         aberto={formAberto}
+        somenteLeitura={somenteLeitura}
         perfil={emEdicao}
         aoFechar={() => setFormAberto(false)}
         aoSalvar={() => {

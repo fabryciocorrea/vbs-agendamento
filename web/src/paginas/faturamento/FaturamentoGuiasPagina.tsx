@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, App, Button, Form, Input, Modal, Radio, Select, Space, Table, Tag, Typography } from 'antd';
+import { Alert, App, Button, Descriptions, Form, Input, Modal, Radio, Select, Space, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { EditOutlined, StopOutlined } from '@ant-design/icons';
+import { EditOutlined, EyeOutlined, StopOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { ItemApoio, Pagina, Paciente } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
@@ -47,6 +47,39 @@ interface Valores {
   status: StatusGuia;
   numero?: string;
   observacao?: string;
+}
+
+/** Visualização da guia em leitura (a carteirinha aparece porque a tela de faturamento já a mostra na lista). */
+function DetalheGuiaModal({ guia, aoFechar }: { guia: Guia | null; aoFechar: () => void }) {
+  const traco = (v?: string | null) => (v && v.trim() !== '' ? v : '—');
+  return (
+    <Modal open={!!guia} title="Visualizar guia" footer={null} onCancel={aoFechar} destroyOnClose width={760}>
+      {guia && (
+        <Descriptions size="small" bordered column={2} labelStyle={{ width: 170 }} contentStyle={{ width: 230 }}>
+          <Descriptions.Item label="Data e hora">{formatarDataHora(guia.inicio)}</Descriptions.Item>
+          <Descriptions.Item label="Consulta">
+            <Tag color={CORES_STATUS[guia.statusConsulta]}>{NOMES_STATUS[guia.statusConsulta]}</Tag>
+          </Descriptions.Item>
+          <Descriptions.Item label="Paciente">{guia.paciente}</Descriptions.Item>
+          <Descriptions.Item label="Convênio">{guia.convenio.nome}</Descriptions.Item>
+          <Descriptions.Item label="Carteirinha">{traco(guia.numeroCarteirinha)}</Descriptions.Item>
+          <Descriptions.Item label="Especialidade">{guia.especialidade.nome}</Descriptions.Item>
+          <Descriptions.Item label="Profissional">{guia.profissional.nome}</Descriptions.Item>
+          <Descriptions.Item label="Valor">{REAIS.format(guia.valor)}</Descriptions.Item>
+          <Descriptions.Item label="Situação da guia">
+            <Tag color={NOMES_GUIA[guia.guiaStatus].cor}>{NOMES_GUIA[guia.guiaStatus].label}</Tag>
+          </Descriptions.Item>
+          <Descriptions.Item label="Número da guia">{traco(guia.guiaNumero)}</Descriptions.Item>
+          <Descriptions.Item label="Registrada em">{guia.guiaEm ? formatarDataHora(guia.guiaEm) : '—'}</Descriptions.Item>
+          <Descriptions.Item label="Registrada por">{traco(guia.guiaPor?.nomeCompleto)}</Descriptions.Item>
+          <Descriptions.Item label="Observação" span={2}>{traco(guia.guiaObservacao)}</Descriptions.Item>
+          {guia.liberacaoAdministrador && (
+            <Descriptions.Item label="Liberação do administrador" span={2}>{guia.liberacaoAdministrador}</Descriptions.Item>
+          )}
+        </Descriptions>
+      )}
+    </Modal>
+  );
 }
 
 function GuiaModal({ guia, podeEditar, podeCancelar, aoFechar, aoSalvar }: { guia: Guia | null; podeEditar: boolean; podeCancelar: boolean; aoFechar: () => void; aoSalvar: () => void }) {
@@ -192,6 +225,7 @@ export default function GuiasConvenioAba() {
   const [busca, setBusca] = useState('');
   const [buscaAplicada, setBuscaAplicada] = useState('');
   const [emEdicao, setEmEdicao] = useState<Guia | null>(null);
+  const [visualizando, setVisualizando] = useState<Guia | null>(null);
 
   useEffect(() => {
     api.get<ItemApoio[]>('/apoio/convenios', { incluirInativos: true }).then(setConvenios).catch(() => undefined);
@@ -263,18 +297,21 @@ export default function GuiasConvenioAba() {
     },
     {
       title: 'Ações',
-      width: 80,
-      render: (_, g) =>
-        g.guiaStatus !== 'CANCELADA' &&
-        (g.guiaStatus === 'AUTORIZADA' ? podeCancelar : podeEditar || podeCancelar) && (
-          <Button
-            size="small"
-            danger={g.guiaStatus === 'AUTORIZADA'}
-            icon={g.guiaStatus === 'AUTORIZADA' ? <StopOutlined /> : <EditOutlined />}
-            title={g.guiaStatus === 'AUTORIZADA' ? 'Cancelar guia' : 'Registrar guia'}
-            onClick={() => setEmEdicao(g)}
-          />
-        )
+      width: 110,
+      render: (_, g) => (
+        <Space>
+          <Button size="small" icon={<EyeOutlined />} title="Visualizar" onClick={() => setVisualizando(g)} />
+          {g.guiaStatus !== 'CANCELADA' && (g.guiaStatus === 'AUTORIZADA' ? podeCancelar : podeEditar || podeCancelar) && (
+            <Button
+              size="small"
+              danger={g.guiaStatus === 'AUTORIZADA'}
+              icon={g.guiaStatus === 'AUTORIZADA' ? <StopOutlined /> : <EditOutlined />}
+              title={g.guiaStatus === 'AUTORIZADA' ? 'Cancelar guia' : 'Registrar guia'}
+              onClick={() => setEmEdicao(g)}
+            />
+          )}
+        </Space>
+      )
     }
   ];
 
@@ -352,6 +389,7 @@ export default function GuiasConvenioAba() {
         }}
       />
 
+      <DetalheGuiaModal guia={visualizando} aoFechar={() => setVisualizando(null)} />
       <GuiaModal
         guia={emEdicao}
         podeEditar={podeEditar}

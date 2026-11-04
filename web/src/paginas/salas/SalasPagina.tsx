@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { App, Button, Form, Input, Modal, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
+import { EditOutlined, EyeOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { ItemApoio, Pagina, Sala, SalaEntrada } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
@@ -23,13 +23,14 @@ interface ValoresFormulario {
 
 interface FormularioProps {
   aberto: boolean;
+  somenteLeitura?: boolean;
   sala: Sala | null;
   unidades: ItemApoio[];
   aoFechar: () => void;
   aoSalvar: () => void;
 }
 
-function FormularioSala({ aberto, sala, unidades, aoFechar, aoSalvar }: FormularioProps) {
+function FormularioSala({ aberto, somenteLeitura, sala, unidades, aoFechar, aoSalvar }: FormularioProps) {
   const { message } = App.useApp();
   const [form] = Form.useForm<ValoresFormulario>();
   const [salvando, setSalvando] = useState(false);
@@ -76,9 +77,10 @@ function FormularioSala({ aberto, sala, unidades, aoFechar, aoSalvar }: Formular
   return (
     <Modal
       open={aberto}
-      title={sala ? 'Editar sala' : 'Nova sala'}
+      title={somenteLeitura ? 'Visualizar sala' : sala ? 'Editar sala' : 'Nova sala'}
       okText="Salvar"
-      cancelText="Cancelar"
+      okButtonProps={{ style: somenteLeitura ? { display: 'none' } : undefined }}
+      cancelText={somenteLeitura ? 'Fechar' : 'Cancelar'}
       confirmLoading={salvando}
       onOk={() => void enviar()}
       onCancel={aoFechar}
@@ -88,6 +90,7 @@ function FormularioSala({ aberto, sala, unidades, aoFechar, aoSalvar }: Formular
     >
       <Form<ValoresFormulario>
         form={form}
+        disabled={somenteLeitura}
         layout="vertical"
         requiredMark
         preserve={false}
@@ -127,6 +130,7 @@ export default function SalasPagina() {
   const [unidadeFiltro, setUnidadeFiltro] = useState<number | undefined>(undefined);
   const [situacao, setSituacao] = useState<FiltroSituacao>('todos');
   const [formAberto, setFormAberto] = useState(false);
+  const [somenteLeitura, setSomenteLeitura] = useState(false);
   const [emEdicao, setEmEdicao] = useState<Sala | null>(null);
 
   useEffect(() => {
@@ -198,6 +202,16 @@ export default function SalasPagina() {
       width: 170,
       render: (_, s) => (
         <Space>
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            title="Visualizar"
+            onClick={() => {
+              setEmEdicao(s);
+              setSomenteLeitura(true);
+              setFormAberto(true);
+            }}
+          />
           {podeEditar && (
             <Button
               size="small"
@@ -205,6 +219,7 @@ export default function SalasPagina() {
               title="Editar"
               onClick={() => {
                 setEmEdicao(s);
+                setSomenteLeitura(false);
                 setFormAberto(true);
               }}
             />
@@ -234,6 +249,7 @@ export default function SalasPagina() {
             icon={<PlusOutlined />}
             onClick={() => {
               setEmEdicao(null);
+              setSomenteLeitura(false);
               setFormAberto(true);
             }}
           >
@@ -307,6 +323,7 @@ export default function SalasPagina() {
 
       <FormularioSala
         aberto={formAberto}
+        somenteLeitura={somenteLeitura}
         sala={emEdicao}
         unidades={unidades}
         aoFechar={() => setFormAberto(false)}

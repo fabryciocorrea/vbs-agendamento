@@ -142,7 +142,7 @@ layout/LayoutPrincipal.tsx  menu lateral (itens com { key, label, icon, tela });
 auth/                       AuthContext (sessao, pode(tela, acao)), RotaProtegida e AvisoSemVinculo
 api/cliente.ts, tipos.ts    cliente HTTP (api.get/post/put/patch), ApiErro (status, codigo, erros, extras) e tipos
 paginas/<área>/             uma pasta por tela (agenda, pacientes, convenios, credenciamentos, faturamento, perfis, usuarios, ...)
-componentes/, util/         componentes e formatadores compartilhados (LinkPaciente e LinkConvenio abrem o cadastro em uma janela; CampoBusca é o campo de busca das listas, que tira o texto de ajuda ao focar)
+componentes/, util/         componentes e formatadores compartilhados (LinkPaciente e LinkConvenio abrem o cadastro em uma janela; CampoBusca é o campo de busca das listas, que tira o texto de ajuda ao focar; nas telas de cadastro e de faturamento a ação Visualizar reaproveita o formulário ou o detalhe em leitura, com a propriedade `somenteLeitura` e `<Form disabled>`)
 ModoTema.tsx, tema.ts       tema claro e escuro (antd ConfigProvider), guardado no navegador (`vbs.tema`) e aplicado em `<html data-tema>`
 tema-escuro.css,            variáveis `--vbs-*` e estilo moderno das listas, cartões e filtros (escopo `.ant-layout-content`)
 layout-moderno.css
@@ -153,7 +153,7 @@ Pontos importantes:
 - **Menu e rotas** dependem das permissões do perfil. Para um perfil ver só Agenda e Pacientes, basta liberar só essas telas em Perfis de acesso.
 - **Agenda** (`paginas/agenda`): `AgendaProfissionalPagina` (semana por profissional, filtro de situação, etiqueta Remarcada), `NovaConsultaModal`, `AcoesConsulta` (botões do fluxo de status, pagamento, remarcação) e `liberacao.tsx` (justificativa do administrador).
 - **Login** (`paginas/Login.tsx`, `RedefinirSenha.tsx`, `LoginMoldura.tsx`): tela dividida sempre no tema claro (ConfigProvider aninhado com `inherit: false`); só o nome de usuário pode ficar lembrado no navegador.
-- **Profissional:** `Inicio.tsx` mostra `MeuDia.tsx` quando há `profissionalId`; `VisualizarPacienteModal` (ação Visualizar da lista de pacientes) é só leitura e mascara CPF e RG quando o usuário não edita pacientes; o atalho do prontuário só aparece para o administrador e o responsável atual.
+- **Profissional:** `Inicio.tsx` mostra `MeuDia.tsx` quando há `profissionalId`; `VisualizarPacienteModal` (ação Visualizar da lista de pacientes) é só leitura e mostra CPF e RG como o servidor mandou: P73, `MascaraDados` mascara CPF, RG e documento de estrangeiro (do paciente e do responsável legal) em `GET /pacientes/{id}` e `GET /responsaveis-legais/{id}` para quem não é administrador nem pode incluir ou editar pacientes, e marca `dadosMascarados`; o atalho do prontuário só aparece para o administrador e o responsável atual.
 - Botões são exibidos conforme o status, a permissão e o tipo (particular ou convênio); o servidor revalida tudo.
 
 ## 5. Banco de dados (`banco/`)
@@ -189,4 +189,4 @@ Convenções: nomes de objetos e comandos em MAIÚSCULAS; sem criar outros login
 
 ## 7. Limitações e decisões em aberto
 
-- Retenção de logs (RNF04); P18 adiado; liberação campo a campo; Always Encrypted do prontuário; Google Meet; produção (conta da API, e-mail, backup, disco criptografado).
+- Retenção de logs (RNF04); conta própria da API no banco (P76, só na produção); contratações de produção em cotação (P75); P18 adiado; liberação campo a campo; Always Encrypted do prontuário; Google Meet; produção (conta da API, e-mail, backup, disco criptografado).

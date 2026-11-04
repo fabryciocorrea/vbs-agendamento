@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { App, Button, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { ClockCircleOutlined, EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
+import { ClockCircleOutlined, EditOutlined, EyeOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { ItemApoio, Pagina, Profissional, ProfissionalResumo } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
@@ -34,6 +34,7 @@ export default function ProfissionaisPagina() {
   const [unidades, setUnidades] = useState<ItemApoio[]>([]);
 
   const [formAberto, setFormAberto] = useState(false);
+  const [somenteLeitura, setSomenteLeitura] = useState(false);
   const [emEdicao, setEmEdicao] = useState<Profissional | null>(null);
   const [expediente, setExpediente] = useState<ProfissionalResumo | null>(null);
 
@@ -75,9 +76,10 @@ export default function ProfissionaisPagina() {
   }, [carregar]);
 
   // A lista traz só o resumo; para editar, busca o cadastro completo.
-  async function abrirEdicao(r: ProfissionalResumo) {
+  async function abrirEdicao(r: ProfissionalResumo, leitura = false) {
     try {
       setEmEdicao(await api.get<Profissional>(`/profissionais/${r.id}`));
+      setSomenteLeitura(leitura);
       setFormAberto(true);
     } catch (e) {
       message.error(e instanceof ApiErro ? e.message : 'Não foi possível abrir o cadastro.');
@@ -131,9 +133,11 @@ export default function ProfissionaisPagina() {
     {
       title: 'Ações',
       width: 190,
-      render: (_, r) =>
-        podeEditar && (
+      render: (_, r) => (
           <Space>
+            <Button size="small" icon={<EyeOutlined />} title="Visualizar" onClick={() => void abrirEdicao(r, true)} />
+            {podeEditar && (
+              <>
             <Button size="small" icon={<EditOutlined />} title="Editar" onClick={() => void abrirEdicao(r)} />
             <Button size="small" icon={<ClockCircleOutlined />} title="Expediente" onClick={() => setExpediente(r)} />
             <Button
@@ -144,6 +148,8 @@ export default function ProfissionaisPagina() {
               onClick={() => alterarStatus(r)}
             />
             <BotaoExcluir artigoTipo="o profissional" nome={r.nome} caminho={`/profissionais/${r.id}`} aviso="Especialidades, unidades e expediente do profissional saem junto." aoExcluir={carregar} />
+              </>
+            )}
           </Space>
         )
     }
@@ -159,6 +165,7 @@ export default function ProfissionaisPagina() {
             icon={<PlusOutlined />}
             onClick={() => {
               setEmEdicao(null);
+              setSomenteLeitura(false);
               setFormAberto(true);
             }}
           >
@@ -245,6 +252,7 @@ export default function ProfissionaisPagina() {
 
       <FormularioProfissional
         aberto={formAberto}
+        somenteLeitura={somenteLeitura}
         profissional={emEdicao}
         aoFechar={() => setFormAberto(false)}
         aoSalvar={() => {

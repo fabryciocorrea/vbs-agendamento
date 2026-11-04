@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { App, Button, Col, Divider, Form, Input, Modal, Radio, Row, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
+import { EditOutlined, EyeOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { Pagina } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
@@ -58,12 +58,13 @@ const textoOuNulo = (v?: string) => (v && v.trim() !== '' ? v.trim() : null);
 
 interface FormularioProps {
   aberto: boolean;
+  somenteLeitura?: boolean;
   colaborador: Colaborador | null;
   aoFechar: () => void;
   aoSalvar: () => void;
 }
 
-function FormularioColaborador({ aberto, colaborador, aoFechar, aoSalvar }: FormularioProps) {
+function FormularioColaborador({ aberto, somenteLeitura, colaborador, aoFechar, aoSalvar }: FormularioProps) {
   const { message } = App.useApp();
   const [form] = Form.useForm<ValoresFormulario>();
   const [salvando, setSalvando] = useState(false);
@@ -125,9 +126,10 @@ function FormularioColaborador({ aberto, colaborador, aoFechar, aoSalvar }: Form
   return (
     <Modal
       open={aberto}
-      title={colaborador ? 'Editar colaborador / prestador' : 'Novo colaborador / prestador'}
+      title={somenteLeitura ? 'Visualizar colaborador / prestador' : colaborador ? 'Editar colaborador / prestador' : 'Novo colaborador / prestador'}
       okText="Salvar"
-      cancelText="Cancelar"
+      okButtonProps={{ style: somenteLeitura ? { display: 'none' } : undefined }}
+      cancelText={somenteLeitura ? 'Fechar' : 'Cancelar'}
       confirmLoading={salvando}
       onOk={() => void enviar()}
       onCancel={aoFechar}
@@ -137,6 +139,7 @@ function FormularioColaborador({ aberto, colaborador, aoFechar, aoSalvar }: Form
     >
       <Form<ValoresFormulario>
         form={form}
+        disabled={somenteLeitura}
         layout="vertical"
         requiredMark
         preserve={false}
@@ -364,6 +367,7 @@ export default function ColaboradoresPagina() {
   const [vinculo, setVinculo] = useState<FiltroVinculo>('todos');
   const [situacao, setSituacao] = useState<FiltroSituacao>('todos');
   const [formAberto, setFormAberto] = useState(false);
+  const [somenteLeitura, setSomenteLeitura] = useState(false);
   const [emEdicao, setEmEdicao] = useState<Colaborador | null>(null);
 
   const carregar = useCallback(async () => {
@@ -445,6 +449,16 @@ export default function ColaboradoresPagina() {
       width: 150,
       render: (_, c) => (
         <Space>
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            title="Visualizar"
+            onClick={() => {
+              setEmEdicao(c);
+              setSomenteLeitura(true);
+              setFormAberto(true);
+            }}
+          />
           {podeEditar && (
             <Button
               size="small"
@@ -452,6 +466,7 @@ export default function ColaboradoresPagina() {
               title="Editar"
               onClick={() => {
                 setEmEdicao(c);
+                setSomenteLeitura(false);
                 setFormAberto(true);
               }}
             />
@@ -481,6 +496,7 @@ export default function ColaboradoresPagina() {
             icon={<PlusOutlined />}
             onClick={() => {
               setEmEdicao(null);
+              setSomenteLeitura(false);
               setFormAberto(true);
             }}
           >
@@ -554,6 +570,7 @@ export default function ColaboradoresPagina() {
 
       <FormularioColaborador
         aberto={formAberto}
+        somenteLeitura={somenteLeitura}
         colaborador={emEdicao}
         aoFechar={() => setFormAberto(false)}
         aoSalvar={() => {

@@ -6459,18 +6459,23 @@ components:
         estrangeiro:
           type: boolean
         cpf:
-          allOf:
-          - $ref: '#/components/schemas/Cpf'
+          type: string
           nullable: true
+          description: 'Onze dígitos. Para quem só visualiza cadastros (P73) vem mascarado, no formato ***.123.456-**, e dadosMascarados é true.'
         tipoDocumentoEstrangeiro:
           type: string
           nullable: true
         numeroDocumentoEstrangeiro:
           type: string
           nullable: true
+          description: 'RNE / CRNM. Para quem só visualiza cadastros (P73) vem mascarado, só com os 3 últimos caracteres.'
         rg:
           type: string
           nullable: true
+          description: 'Para quem só visualiza cadastros (P73) vem mascarado, só com os 3 últimos caracteres (ex.: ******789).'
+        dadosMascarados:
+          type: boolean
+          description: 'P73: true quando CPF e RG (do paciente e do responsável legal) foram mascarados. Administrador e quem pode incluir ou editar pacientes recebem os dados completos (false).'
         dataNascimento:
           type: string
           format: date
@@ -6746,10 +6751,15 @@ components:
         nome:
           type: string
         cpf:
-          $ref: '#/components/schemas/Cpf'
+          type: string
+          description: 'Onze dígitos. Mascarado (***.123.456-**) para quem só visualiza cadastros (P73).'
         rg:
           type: string
           nullable: true
+          description: 'Mascarado (só os 3 últimos caracteres) para quem só visualiza cadastros (P73).'
+        dadosMascarados:
+          type: boolean
+          description: 'P73: true quando CPF e RG foram mascarados.'
         dataNascimento:
           type: string
           format: date

@@ -28,6 +28,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/redefinir-senha" element={<RedefinirSenha />} />
       <Route
         element={
           <RotaProtegida>
@@ -180,7 +181,6 @@ export default function App() {
             </RotaProtegida>
           }
         />
-        <Route path="/redefinir-senha" element={<RedefinirSenha />} />
         <Route path="relatorios" element={<RelatoriosPagina />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

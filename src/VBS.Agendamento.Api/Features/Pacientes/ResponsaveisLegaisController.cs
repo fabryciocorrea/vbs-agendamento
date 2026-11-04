@@ -9,7 +9,12 @@ namespace VBS.Agendamento.Api.Features.Pacientes;
 public sealed class ResponsaveisLegaisController : ControllerBase
 {
     private readonly ResponsavelLegalService _servico;
-    public ResponsaveisLegaisController(ResponsavelLegalService servico) => _servico = servico;
+    private readonly IPermissaoService _permissoes;
+    public ResponsaveisLegaisController(ResponsavelLegalService servico, IPermissaoService permissoes)
+    {
+        _servico = servico;
+        _permissoes = permissoes;
+    }
 
     [HttpPost]
     [Permissao("paciente.cadastro:incluir")]
@@ -26,8 +31,14 @@ public sealed class ResponsaveisLegaisController : ControllerBase
 
     [HttpGet("{responsavelId:int}")]
     [Permissao("paciente.cadastro:visualizar")]
-    public async Task<ActionResult<ResponsavelLegalDto>> Obter(int responsavelId, CancellationToken ct) =>
-        Ok(await _servico.ObterAsync(responsavelId, User.ObterUsuarioAtual(), ct));
+    public async Task<ActionResult<ResponsavelLegalDto>> Obter(int responsavelId, CancellationToken ct)
+    {
+        var usuario = User.ObterUsuarioAtual();
+        var responsavel = await _servico.ObterAsync(responsavelId, usuario, ct);
+        // P73: quem só visualiza recebe CPF e RG mascarados.
+        if (!await MascaraDados.PodeVerCompletoAsync(_permissoes, usuario, ct)) MascaraDados.Aplicar(responsavel);
+        return Ok(responsavel);
+    }
 
     [HttpPut("{responsavelId:int}")]
     [Permissao("paciente.cadastro:editar")]

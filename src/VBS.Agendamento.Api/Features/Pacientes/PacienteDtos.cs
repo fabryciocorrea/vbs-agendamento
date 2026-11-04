@@ -119,6 +119,8 @@ public sealed class ResponsavelLegalDto
     public string? Uf { get; set; }
     public List<ConsentimentoDto> ConsentimentosAtuais { get; set; } = new();
     public int QuantidadePacientes { get; set; }
+    /// <summary>P73: true quando CPF e RG foram mascarados para quem só visualiza.</summary>
+    public bool DadosMascarados { get; set; }
 }
 
 public sealed class ConsentimentoDto
@@ -165,6 +167,8 @@ public sealed class PacienteDto
     public UsuarioReferenciaDto? CriadoPor { get; set; }
     public DateTime AtualizadoEm { get; set; }
     public UsuarioReferenciaDto? AtualizadoPor { get; set; }
+    /// <summary>P73: true quando CPF e RG (do paciente e do responsável) foram mascarados para quem só visualiza.</summary>
+    public bool DadosMascarados { get; set; }
 }
 
 public sealed class PacienteResumoDto

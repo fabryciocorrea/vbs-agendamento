@@ -42,12 +42,13 @@ const SEM_MARCAS: MarcasTela = { v: false, i: false, e: false, c: false, x: fals
 
 interface Props {
   aberto: boolean;
+  somenteLeitura?: boolean;
   perfil: PerfilResumo | null;
   aoFechar: () => void;
   aoSalvar: () => void;
 }
 
-export default function PerfilFormulario({ aberto, perfil, aoFechar, aoSalvar }: Props) {
+export default function PerfilFormulario({ aberto, somenteLeitura = false, perfil, aoFechar, aoSalvar }: Props) {
   const { message, modal } = App.useApp();
   const [form] = Form.useForm<ValoresFormulario>();
   const [carregando, setCarregando] = useState(false);
@@ -56,6 +57,7 @@ export default function PerfilFormulario({ aberto, perfil, aoFechar, aoSalvar }:
   const [marcasTelas, setMarcasTelas] = useState<Record<number, MarcasTela>>({});
   const [marcasCampos, setMarcasCampos] = useState<Record<number, MarcasCampo>>({});
   const [protegido, setProtegido] = useState(false);
+  const leitura = protegido || somenteLeitura;
 
   // Ao abrir, carrega o catálogo de telas e, na edição, as liberações atuais do perfil.
   useEffect(() => {
@@ -208,14 +210,14 @@ export default function PerfilFormulario({ aberto, perfil, aoFechar, aoSalvar }:
       render: (_: unknown, t: TelaSistema) => (
         <Checkbox
           checked={protegido ? true : marcasDe(t.id)[a.chave]}
-          disabled={protegido}
+          disabled={leitura}
           onChange={(e) => alterarTela(t.id, a.chave, e.target.checked)}
         />
       )
     }))
   ];
 
-  const titulo = protegido ? 'Perfil Administrador (somente consulta)' : perfil ? 'Editar perfil de acesso' : 'Novo perfil de acesso';
+  const titulo = protegido ? 'Perfil Administrador (somente consulta)' : somenteLeitura ? 'Visualizar perfil de acesso' : perfil ? 'Editar perfil de acesso' : 'Novo perfil de acesso';
 
   return (
     <Modal
@@ -223,8 +225,8 @@ export default function PerfilFormulario({ aberto, perfil, aoFechar, aoSalvar }:
       title={titulo}
       width={1000}
       okText="Salvar"
-      cancelText={protegido ? 'Fechar' : 'Cancelar'}
-      okButtonProps={{ style: protegido ? { display: 'none' } : undefined }}
+      cancelText={leitura ? 'Fechar' : 'Cancelar'}
+      okButtonProps={{ style: leitura ? { display: 'none' } : undefined }}
       confirmLoading={salvando}
       onOk={() => void enviar()}
       onCancel={aoFechar}
@@ -240,7 +242,7 @@ export default function PerfilFormulario({ aberto, perfil, aoFechar, aoSalvar }:
             message="O perfil Administrador é protegido: tem acesso a todas as telas e não pode ser alterado nem excluído."
           />
         )}
-        <Form<ValoresFormulario> form={form} layout="vertical" requiredMark preserve={false} disabled={protegido}>
+        <Form<ValoresFormulario> form={form} layout="vertical" requiredMark preserve={false} disabled={leitura}>
           <Form.Item name="nome" label="Nome do perfil" rules={[{ required: true, whitespace: true, message: OBRIGATORIO }]}>
             <Input maxLength={60} />
           </Form.Item>
@@ -259,7 +261,7 @@ export default function PerfilFormulario({ aberto, perfil, aoFechar, aoSalvar }:
 
         <Space style={{ marginBottom: 8, width: '100%', justifyContent: 'space-between' }} wrap>
           <Typography.Text strong>Liberações por tela</Typography.Text>
-          {!protegido && (
+          {!leitura && (
             <Space>
               <Button size="small" onClick={() => marcarTudo(true)}>
                 Marcar tudo
@@ -306,7 +308,7 @@ export default function PerfilFormulario({ aberto, perfil, aoFechar, aoSalvar }:
                     render: (_, c) => (
                       <Checkbox
                         checked={protegido ? true : (marcasCampos[c.id]?.v ?? false)}
-                        disabled={protegido}
+                        disabled={leitura}
                         onChange={(e) => alterarCampo(c.id, 'v', e.target.checked)}
                       />
                     )
@@ -318,7 +320,7 @@ export default function PerfilFormulario({ aberto, perfil, aoFechar, aoSalvar }:
                     render: (_, c) => (
                       <Checkbox
                         checked={protegido ? true : (marcasCampos[c.id]?.e ?? false)}
-                        disabled={protegido}
+                        disabled={leitura}
                         onChange={(e) => alterarCampo(c.id, 'e', e.target.checked)}
                       />
                     )

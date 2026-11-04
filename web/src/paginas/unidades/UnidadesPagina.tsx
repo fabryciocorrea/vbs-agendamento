@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { App, Button, Col, Form, Input, Modal, Row, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
+import { EditOutlined, EyeOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { Pagina, Unidade, UnidadeEntrada } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
@@ -45,12 +45,13 @@ function aplicarErrosDoServidor(e: unknown, form: ReturnType<typeof Form.useForm
 
 interface FormularioProps {
   aberto: boolean;
+  somenteLeitura?: boolean;
   unidade: Unidade | null;
   aoFechar: () => void;
   aoSalvar: () => void;
 }
 
-function FormularioUnidade({ aberto, unidade, aoFechar, aoSalvar }: FormularioProps) {
+function FormularioUnidade({ aberto, somenteLeitura, unidade, aoFechar, aoSalvar }: FormularioProps) {
   const { message } = App.useApp();
   const [form] = Form.useForm<ValoresFormulario>();
   const [salvando, setSalvando] = useState(false);
@@ -89,9 +90,10 @@ function FormularioUnidade({ aberto, unidade, aoFechar, aoSalvar }: FormularioPr
   return (
     <Modal
       open={aberto}
-      title={unidade ? 'Editar unidade' : 'Nova unidade'}
+      title={somenteLeitura ? 'Visualizar unidade' : unidade ? 'Editar unidade' : 'Nova unidade'}
       okText="Salvar"
-      cancelText="Cancelar"
+      okButtonProps={{ style: somenteLeitura ? { display: 'none' } : undefined }}
+      cancelText={somenteLeitura ? 'Fechar' : 'Cancelar'}
       confirmLoading={salvando}
       onOk={() => void enviar()}
       onCancel={aoFechar}
@@ -101,6 +103,7 @@ function FormularioUnidade({ aberto, unidade, aoFechar, aoSalvar }: FormularioPr
     >
       <Form<ValoresFormulario>
         form={form}
+        disabled={somenteLeitura}
         layout="vertical"
         requiredMark
         preserve={false}
@@ -191,6 +194,7 @@ export default function UnidadesPagina() {
   const [buscaAplicada, setBuscaAplicada] = useState('');
   const [situacao, setSituacao] = useState<FiltroSituacao>('todos');
   const [formAberto, setFormAberto] = useState(false);
+  const [somenteLeitura, setSomenteLeitura] = useState(false);
   const [emEdicao, setEmEdicao] = useState<Unidade | null>(null);
 
   const carregar = useCallback(async () => {
@@ -255,6 +259,16 @@ export default function UnidadesPagina() {
       width: 170,
       render: (_, u) => (
         <Space>
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            title="Visualizar"
+            onClick={() => {
+              setEmEdicao(u);
+              setSomenteLeitura(true);
+              setFormAberto(true);
+            }}
+          />
           {podeEditar && (
             <Button
               size="small"
@@ -262,6 +276,7 @@ export default function UnidadesPagina() {
               title="Editar"
               onClick={() => {
                 setEmEdicao(u);
+                setSomenteLeitura(false);
                 setFormAberto(true);
               }}
             />
@@ -291,6 +306,7 @@ export default function UnidadesPagina() {
             icon={<PlusOutlined />}
             onClick={() => {
               setEmEdicao(null);
+              setSomenteLeitura(false);
               setFormAberto(true);
             }}
           >
@@ -351,6 +367,7 @@ export default function UnidadesPagina() {
 
       <FormularioUnidade
         aberto={formAberto}
+        somenteLeitura={somenteLeitura}
         unidade={emEdicao}
         aoFechar={() => setFormAberto(false)}
         aoSalvar={() => {

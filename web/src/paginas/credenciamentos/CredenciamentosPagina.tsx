@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { App, Alert, Button, Checkbox, Col, Form, Input, Modal, Row, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
+import { EditOutlined, EyeOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { Convenio, Credenciamento, ItemApoio, Pagina, SituacaoCredenciamento } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
@@ -44,13 +44,14 @@ interface Valores {
 
 interface FormularioProps {
   aberto: boolean;
+  somenteLeitura?: boolean;
   credenciamento: Credenciamento | null;
   convenios: ItemApoio[];
   aoFechar: () => void;
   aoSalvar: () => void;
 }
 
-function FormularioCredenciamento({ aberto, credenciamento, convenios, aoFechar, aoSalvar }: FormularioProps) {
+function FormularioCredenciamento({ aberto, somenteLeitura, credenciamento, convenios, aoFechar, aoSalvar }: FormularioProps) {
   const { message, modal } = App.useApp();
   const [form] = Form.useForm<Valores>();
   const [salvando, setSalvando] = useState(false);
@@ -164,9 +165,10 @@ function FormularioCredenciamento({ aberto, credenciamento, convenios, aoFechar,
   return (
     <Modal
       open={aberto}
-      title={cr ? 'Editar credenciamento' : 'Incluir credenciamento'}
+      title={somenteLeitura ? 'Visualizar credenciamento' : cr ? 'Editar credenciamento' : 'Incluir credenciamento'}
       okText="Salvar"
-      cancelText="Cancelar"
+      okButtonProps={{ style: somenteLeitura ? { display: 'none' } : undefined }}
+      cancelText={somenteLeitura ? 'Fechar' : 'Cancelar'}
       confirmLoading={salvando}
       onOk={() => void enviar()}
       onCancel={aoFechar}
@@ -176,6 +178,7 @@ function FormularioCredenciamento({ aberto, credenciamento, convenios, aoFechar,
     >
       <Form<Valores>
         form={form}
+        disabled={somenteLeitura}
         layout="vertical"
         requiredMark
         preserve={false}
@@ -312,6 +315,7 @@ export default function CredenciamentosPagina() {
   const [vigente, setVigente] = useState(false);
   const [filtroAtivo, setFiltroAtivo] = useState<FiltroAtivo>('todos');
   const [formAberto, setFormAberto] = useState(false);
+  const [somenteLeitura, setSomenteLeitura] = useState(false);
   const [emEdicao, setEmEdicao] = useState<Credenciamento | null>(null);
 
   useEffect(() => {
@@ -405,15 +409,27 @@ export default function CredenciamentosPagina() {
     {
       title: 'Ações',
       width: 150,
-      render: (_, c) =>
-        podeEditar && (
+      render: (_, c) => (
           <Space>
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              title="Visualizar"
+              onClick={() => {
+                setEmEdicao(c);
+                setSomenteLeitura(true);
+                setFormAberto(true);
+              }}
+            />
+            {podeEditar && (
+              <>
             <Button
               size="small"
               icon={<EditOutlined />}
               title="Editar"
               onClick={() => {
                 setEmEdicao(c);
+                setSomenteLeitura(false);
                 setFormAberto(true);
               }}
             />
@@ -431,6 +447,8 @@ export default function CredenciamentosPagina() {
               aviso="Consultas futuras nessa combinação passarão a aparecer como sem credenciamento."
               aoExcluir={carregar}
             />
+              </>
+            )}
           </Space>
         )
     }
@@ -446,6 +464,7 @@ export default function CredenciamentosPagina() {
             icon={<PlusOutlined />}
             onClick={() => {
               setEmEdicao(null);
+              setSomenteLeitura(false);
               setFormAberto(true);
             }}
           >
@@ -534,6 +553,7 @@ export default function CredenciamentosPagina() {
 
       <FormularioCredenciamento
         aberto={formAberto}
+        somenteLeitura={somenteLeitura}
         credenciamento={emEdicao}
         convenios={convenios}
         aoFechar={() => setFormAberto(false)}

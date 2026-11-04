@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { App, Input, Select, Space, Table, Tag } from 'antd';
+import { App, Button, Descriptions, Input, Modal, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
+import { EyeOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { ItemApoio, Pagina } from '../../api/tipos';
 import LinkPaciente from '../../componentes/LinkPaciente';
@@ -28,6 +29,33 @@ interface Particular {
   pagamentoConfirmadoPor?: string | null;
 }
 
+/** Visualização do pagamento em leitura. */
+function DetalheParticularModal({ item, aoFechar }: { item: Particular | null; aoFechar: () => void }) {
+  return (
+    <Modal open={!!item} title="Visualizar pagamento" footer={null} onCancel={aoFechar} destroyOnClose width={760}>
+      {item && (
+        <Descriptions size="small" bordered column={2} labelStyle={{ width: 170 }} contentStyle={{ width: 230 }}>
+          <Descriptions.Item label="Data e hora">{formatarDataHora(item.inicio)}</Descriptions.Item>
+          <Descriptions.Item label="Consulta">
+            <Tag color={CORES_STATUS[item.statusConsulta]}>{NOMES_STATUS[item.statusConsulta]}</Tag>
+          </Descriptions.Item>
+          <Descriptions.Item label="Paciente">{item.paciente}</Descriptions.Item>
+          <Descriptions.Item label="Profissional">{item.profissional}</Descriptions.Item>
+          <Descriptions.Item label="Especialidade">{item.especialidade}</Descriptions.Item>
+          <Descriptions.Item label="Unidade">{item.unidade}</Descriptions.Item>
+          <Descriptions.Item label="Valor">{REAIS.format(item.valor)}</Descriptions.Item>
+          <Descriptions.Item label="Forma de pagamento">{item.formaPagamento}</Descriptions.Item>
+          <Descriptions.Item label="Pagamento">
+            {item.pagamentoConfirmado ? <Tag color="green">Confirmado</Tag> : <Tag color="gold">Pendente</Tag>}
+          </Descriptions.Item>
+          <Descriptions.Item label="Confirmado em">{item.pagamentoConfirmadoEm ? formatarDataHora(item.pagamentoConfirmadoEm) : '—'}</Descriptions.Item>
+          <Descriptions.Item label="Confirmado por" span={2}>{item.pagamentoConfirmadoPor ?? '—'}</Descriptions.Item>
+        </Descriptions>
+      )}
+    </Modal>
+  );
+}
+
 /** Acompanhamento dos pagamentos das consultas particulares (a confirmação é feita pela recepção, depois do check-in). */
 export default function ParticularesAba() {
   const { message } = App.useApp();
@@ -41,6 +69,7 @@ export default function ParticularesAba() {
   const [ate, setAte] = useState('');
   const [busca, setBusca] = useState('');
   const [buscaAplicada, setBuscaAplicada] = useState('');
+  const [visualizando, setVisualizando] = useState<Particular | null>(null);
 
   useEffect(() => {
     api.get<ItemApoio[]>('/apoio/unidades').then(setUnidades).catch(() => undefined);
@@ -100,6 +129,11 @@ export default function ParticularesAba() {
         ) : (
           <Tag color="gold">Pendente</Tag>
         )
+    },
+    {
+      title: 'Ações',
+      width: 80,
+      render: (_, c) => <Button size="small" icon={<EyeOutlined />} title="Visualizar" onClick={() => setVisualizando(c)} />
     }
   ];
 
@@ -145,6 +179,8 @@ export default function ParticularesAba() {
           }}
         />
       </Space>
+
+      <DetalheParticularModal item={visualizando} aoFechar={() => setVisualizando(null)} />
 
       <Table<Particular>
         rowKey="consultaId"

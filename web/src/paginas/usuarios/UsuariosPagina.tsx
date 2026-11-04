@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { App, Button, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { EditOutlined, KeyOutlined, PlusOutlined, PoweroffOutlined, UnlockOutlined } from '@ant-design/icons';
+import { EditOutlined, EyeOutlined, KeyOutlined, PlusOutlined, PoweroffOutlined, UnlockOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { Pagina, PerfilResumo, Usuario } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
@@ -36,6 +36,7 @@ export default function UsuariosPagina() {
   const [situacao, setSituacao] = useState<FiltroSituacao>('todos');
   const [perfis, setPerfis] = useState<PerfilResumo[]>([]);
   const [formAberto, setFormAberto] = useState(false);
+  const [somenteLeitura, setSomenteLeitura] = useState(false);
   const [emEdicao, setEmEdicao] = useState<Usuario | null>(null);
   const [paraSenha, setParaSenha] = useState<Usuario | null>(null);
 
@@ -128,15 +129,27 @@ export default function UsuariosPagina() {
     {
       title: 'Ações',
       width: 210,
-      render: (_, u) =>
-        podeEditar && (
+      render: (_, u) => (
           <Space>
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              title="Visualizar"
+              onClick={() => {
+                setEmEdicao(u);
+                setSomenteLeitura(true);
+                setFormAberto(true);
+              }}
+            />
+            {podeEditar && (
+              <>
             <Button
               size="small"
               icon={<EditOutlined />}
               title="Editar"
               onClick={() => {
                 setEmEdicao(u);
+                setSomenteLeitura(false);
                 setFormAberto(true);
               }}
             />
@@ -150,6 +163,8 @@ export default function UsuariosPagina() {
               onClick={() => alterarStatus(u)}
             />
             <BotaoExcluir artigoTipo="o usuário" nome={u.nomeCompleto} caminho={`/usuarios/${u.id}`} aoExcluir={carregar} />
+              </>
+            )}
           </Space>
         )
     }
@@ -165,6 +180,7 @@ export default function UsuariosPagina() {
             icon={<PlusOutlined />}
             onClick={() => {
               setEmEdicao(null);
+              setSomenteLeitura(false);
               setFormAberto(true);
             }}
           >
@@ -235,6 +251,7 @@ export default function UsuariosPagina() {
 
       <UsuarioFormulario
         aberto={formAberto}
+        somenteLeitura={somenteLeitura}
         usuario={emEdicao}
         aoFechar={() => setFormAberto(false)}
         aoSalvar={() => {

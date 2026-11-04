@@ -340,6 +340,8 @@ export interface ResponsavelLegal {
   uf?: string | null;
   consentimentosAtuais?: ConsentimentoPaciente[];
   quantidadePacientes?: number;
+  /** P73: true quando o servidor já mascarou CPF e RG (usuário que só visualiza). */
+  dadosMascarados?: boolean;
 }
 
 export interface HistoricoProfissional {
@@ -389,6 +391,8 @@ export interface Paciente {
   profissionalResponsavel: Referencia;
   responsavelLegal?: ResponsavelLegal | null;
   consentimentosAtuais: ConsentimentoPaciente[];
+  /** P73: true quando o servidor já mascarou CPF e RG (usuário que só visualiza). */
+  dadosMascarados?: boolean;
 }
 
 export type StatusListaEspera = 'AGUARDANDO' | 'NOTIFICADO' | 'ATENDIDO' | 'CANCELADO';

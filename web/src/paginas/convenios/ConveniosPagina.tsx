@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { App, Button, Col, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { Convenio, ItemApoio, Pagina } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
@@ -29,12 +29,13 @@ interface ValoresFormulario {
 
 interface FormularioProps {
   aberto: boolean;
+  somenteLeitura?: boolean;
   convenio: Convenio | null;
   aoFechar: () => void;
   aoSalvar: () => void;
 }
 
-export function FormularioConvenio({ aberto, convenio, aoFechar, aoSalvar }: FormularioProps) {
+export function FormularioConvenio({ aberto, somenteLeitura, convenio, aoFechar, aoSalvar }: FormularioProps) {
   const { message } = App.useApp();
   const [form] = Form.useForm<ValoresFormulario>();
   const [salvando, setSalvando] = useState(false);
@@ -94,9 +95,10 @@ export function FormularioConvenio({ aberto, convenio, aoFechar, aoSalvar }: For
   return (
     <Modal
       open={aberto}
-      title={convenio ? 'Editar convênio' : 'Novo convênio'}
+      title={somenteLeitura ? 'Visualizar convênio' : convenio ? 'Editar convênio' : 'Novo convênio'}
       okText="Salvar"
-      cancelText="Cancelar"
+      okButtonProps={{ style: somenteLeitura ? { display: 'none' } : undefined }}
+      cancelText={somenteLeitura ? 'Fechar' : 'Cancelar'}
       confirmLoading={salvando}
       onOk={() => void enviar()}
       onCancel={aoFechar}
@@ -106,6 +108,7 @@ export function FormularioConvenio({ aberto, convenio, aoFechar, aoSalvar }: For
     >
       <Form<ValoresFormulario>
         form={form}
+        disabled={somenteLeitura}
         layout="vertical"
         requiredMark
         preserve={false}
@@ -230,6 +233,7 @@ export default function ConveniosPagina() {
   const [buscaAplicada, setBuscaAplicada] = useState('');
   const [situacao, setSituacao] = useState<FiltroSituacao>('todos');
   const [formAberto, setFormAberto] = useState(false);
+  const [somenteLeitura, setSomenteLeitura] = useState(false);
   const [emEdicao, setEmEdicao] = useState<Convenio | null>(null);
 
   const carregar = useCallback(async () => {
@@ -317,15 +321,27 @@ export default function ConveniosPagina() {
     {
       title: 'Ações',
       width: 150,
-      render: (_, c) =>
-        podeEditar && (
+      render: (_, c) => (
           <Space>
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              title="Visualizar"
+              onClick={() => {
+                setEmEdicao(c);
+                setSomenteLeitura(true);
+                setFormAberto(true);
+              }}
+            />
+            {podeEditar && (
+              <>
             <Button
               size="small"
               icon={<EditOutlined />}
               title="Editar"
               onClick={() => {
                 setEmEdicao(c);
+                setSomenteLeitura(false);
                 setFormAberto(true);
               }}
             />
@@ -337,6 +353,8 @@ export default function ConveniosPagina() {
               onClick={() => alterarStatus(c)}
             />
             <BotaoExcluir artigoTipo="o convênio" nome={c.nomeFantasia || c.razaoSocial} caminho={`/convenios/${c.id}`} aviso="Os valores por especialidade, os credenciamentos e a forma de pagamento do convênio saem junto." aoExcluir={carregar} />
+              </>
+            )}
           </Space>
         )
     }
@@ -352,6 +370,7 @@ export default function ConveniosPagina() {
             icon={<PlusOutlined />}
             onClick={() => {
               setEmEdicao(null);
+              setSomenteLeitura(false);
               setFormAberto(true);
             }}
           >
@@ -412,6 +431,7 @@ export default function ConveniosPagina() {
 
       <FormularioConvenio
         aberto={formAberto}
+        somenteLeitura={somenteLeitura}
         convenio={emEdicao}
         aoFechar={() => setFormAberto(false)}
         aoSalvar={() => {

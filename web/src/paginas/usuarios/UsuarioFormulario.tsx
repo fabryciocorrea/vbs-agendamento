@@ -20,12 +20,13 @@ interface ValoresFormulario {
 
 interface Props {
   aberto: boolean;
+  somenteLeitura?: boolean;
   usuario: Usuario | null;
   aoFechar: () => void;
   aoSalvar: () => void;
 }
 
-export default function UsuarioFormulario({ aberto, usuario, aoFechar, aoSalvar }: Props) {
+export default function UsuarioFormulario({ aberto, somenteLeitura, usuario, aoFechar, aoSalvar }: Props) {
   const { message } = App.useApp();
   const [form] = Form.useForm<ValoresFormulario>();
   const [salvando, setSalvando] = useState(false);
@@ -99,10 +100,11 @@ export default function UsuarioFormulario({ aberto, usuario, aoFechar, aoSalvar 
   return (
     <Modal
       open={aberto}
-      title={usuario ? 'Editar usuário' : 'Novo usuário'}
+      title={somenteLeitura ? 'Visualizar usuário' : usuario ? 'Editar usuário' : 'Novo usuário'}
       width={720}
       okText="Salvar"
-      cancelText="Cancelar"
+      okButtonProps={{ style: somenteLeitura ? { display: 'none' } : undefined }}
+      cancelText={somenteLeitura ? 'Fechar' : 'Cancelar'}
       confirmLoading={salvando}
       onOk={() => void enviar()}
       onCancel={aoFechar}
@@ -111,6 +113,7 @@ export default function UsuarioFormulario({ aberto, usuario, aoFechar, aoSalvar 
     >
       <Form<ValoresFormulario>
         form={form}
+        disabled={somenteLeitura}
         layout="vertical"
         requiredMark
         preserve={false}
