@@ -4,8 +4,12 @@ import { api, ApiErro } from '../../api/cliente';
 import { useAuth } from '../../auth/AuthContext';
 import { pedirJustificativa } from './liberacao';
 import type { ItemApoio, PacienteResumo, Pagina } from '../../api/tipos';
+import { formatarDiaPacote, formatarMoeda } from '../../api/tiposPacotes';
+import type { Pacote, PacotePaciente } from '../../api/tiposPacotes';
 import { adicionarDias, diaBrasilia, diaDaSemana, hojeBrasilia, horaBrasilia } from './datas';
-import type { AgendaSaida, Consulta, ConsultaEntrada, Slot } from './tipos';
+import type { AgendaSaida, Consulta, ConsultaEntrada, ConsultaSerie, ConsultaSerieEntrada, Slot } from './tipos';
+import { datasDaSerie, formatarDiaCurto, OPCOES_REPETICAO } from './serie';
+import type { Repeticao } from './serie';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 
@@ -23,8 +27,12 @@ interface Valores {
   dia: string;
   slotInicio?: string;
   encaixe: boolean;
-  encaixeInicio?: string;
   pagamentoConfirmado: boolean;
+  /** 'NOVO' (vender um pacote na hora) ou o id de um pacote já vendido ao paciente; vazio = consulta avulsa. */
+  pacoteOpcao?: string;
+  modeloPacoteId?: number;
+  repeticao?: Repeticao;
+  quantidade?: number;
 }
 
 interface Props {
@@ -35,6 +43,8 @@ interface Props {
   /** Paciente já escolhido (por exemplo, vindo da lista de espera). */
   pacienteInicial?: { id: string; nome: string };
   dia?: string;
+  /** Abre a mesma tela no modo encaixe (horários livres do dia, sem repetição). */
+  modoEncaixe?: boolean;
   aoFechar: () => void;
   aoSalvar: () => void;
 }
@@ -46,9 +56,9 @@ const MENSAGENS_ERRO: Record<string, string> = {
   AGENDA_EM_USO: 'A agenda do profissional está em uso por outra operação. Tente novamente.'
 };
 
-export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, especialidadeId, pacienteInicial, dia, aoFechar, aoSalvar }: Props) {
+export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, especialidadeId, pacienteInicial, dia, modoEncaixe, aoFechar, aoSalvar }: Props) {
   const { message, modal } = App.useApp();
-  const { sessao } = useAuth();
+  const { sessao, pode } = useAuth();
   const administrador = !!sessao?.administrador;
   const [form] = Form.useForm<Valores>();
   const [salvando, setSalvando] = useState(false);
@@ -77,6 +87,58 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, e
 
   const paciente = pacientes.find((p) => p.id === pacienteId);
   const especialidadeEscolhida = Form.useWatch('especialidadeId', form);
+  const pacoteOpcao = Form.useWatch('pacoteOpcao', form);
+  const modeloPacoteId = Form.useWatch('modeloPacoteId', form);
+  const repeticao = Form.useWatch('repeticao', form);
+  const quantidadeSerie = Form.useWatch('quantidade', form);
+
+  // Pacotes (consulta particular): os pacotes disponíveis do paciente e os modelos que podem ser vendidos na hora.
+  const podeUsarPacote = pode('pacote.venda', 'visualizar');
+  const podeVenderPacote = pode('pacote.venda', 'incluir');
+  const [pacotesPaciente, setPacotesPaciente] = useState<PacotePaciente[]>([]);
+  const [modelosPacote, setModelosPacote] = useState<Pacote[]>([]);
+
+  useEffect(() => {
+    setPacotesPaciente([]);
+    if (!aberto) return;
+    form.setFieldsValue({ pacoteOpcao: undefined, modeloPacoteId: undefined });
+    if (!pacienteId || tipo === 'CONVENIO' || !podeUsarPacote) return;
+    let atual = true;
+    api
+      .get<PacotePaciente[]>(`/pacientes/${pacienteId}/pacotes`, { somenteDisponiveis: true })
+      .then((l) => atual && setPacotesPaciente(l))
+      .catch(() => atual && setPacotesPaciente([]));
+    return () => {
+      atual = false;
+    };
+  }, [aberto, pacienteId, tipo, podeUsarPacote, form]);
+
+  useEffect(() => {
+    if (!aberto || !podeVenderPacote || tipo === 'CONVENIO') {
+      setModelosPacote([]);
+      return;
+    }
+    api
+      .get<Pacote[]>('/pacotes/para-venda')
+      .then(setModelosPacote)
+      .catch(() => setModelosPacote([]));
+  }, [aberto, podeVenderPacote, tipo]);
+
+  const pacotesDaEspecialidade = pacotesPaciente.filter((p) => p.especialidade.id === especialidadeEscolhida);
+  const modelosDaEspecialidade = modelosPacote.filter((m) => m.especialidade.id === especialidadeEscolhida);
+  const pacoteExistente = pacotesPaciente.find((p) => p.id === pacoteOpcao);
+  const vendendoPacote = pacoteOpcao === 'NOVO';
+  const modeloEscolhido = modelosPacote.find((m) => m.id === modeloPacoteId);
+  const mostrarPacote = !!especialidadeEscolhida && (pacotesDaEspecialidade.length > 0 || (podeVenderPacote && modelosDaEspecialidade.length > 0));
+
+  // Trocar a especialidade desfaz a escolha do pacote que não é dela.
+  useEffect(() => {
+    const op = form.getFieldValue('pacoteOpcao') as string | undefined;
+    if (op && op !== 'NOVO' && !pacotesDaEspecialidade.some((p) => p.id === op)) form.setFieldValue('pacoteOpcao', undefined);
+    const m = form.getFieldValue('modeloPacoteId') as number | undefined;
+    if (m && !modelosDaEspecialidade.some((x) => x.id === m)) form.setFieldValue('modeloPacoteId', undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [especialidadeEscolhida]);
 
   // Valor do convênio: vem do credenciamento (convênio + unidade + especialidade). Só leitura; o servidor também o aplica sozinho.
   const [valorConvenio, setValorConvenio] = useState<number | null>(null);
@@ -171,7 +233,7 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, e
   // Horários livres do dia.
   const carregarSlots = useCallback(async () => {
     setMotivoSemHorario('');
-    if (!profId || !uniId || !diaEscolhido || encaixe) {
+    if (!profId || !uniId || !diaEscolhido) {
       setSlots([]);
       return;
     }
@@ -195,7 +257,7 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, e
     } finally {
       setCarregandoSlots(false);
     }
-  }, [profId, uniId, diaEscolhido, encaixe, form, message]);
+  }, [profId, uniId, diaEscolhido, form, message]);
 
   useEffect(() => {
     void carregarSlots();
@@ -213,7 +275,7 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, e
     } catch {
       // Sem a liberação da agenda, cai na mensagem geral.
     }
-    return 'Não há horários livres neste dia (todos ocupados ou já passaram). Escolha outra data ou marque encaixe.';
+    return 'Não há horários livres neste dia (todos ocupados ou já passaram). Escolha outra data.';
   }
 
   function buscarPacientes(texto: string) {
@@ -235,6 +297,12 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, e
     }, 300);
   }
 
+  // Justificativa de agendar com profissional que não é o responsável do paciente (vale enquanto paciente e profissional não mudam).
+  const justProfRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    justProfRef.current = undefined;
+  }, [pacienteId, profId, aberto]);
+
   async function enviar(justificativa?: string) {
     let v: Valores;
     try {
@@ -244,24 +312,24 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, e
     }
     setErroGeral('');
 
-    let inicio: string;
-    if (v.encaixe) {
-      if (!v.encaixeInicio) {
-        form.setFields([{ name: 'encaixeInicio', errors: [OBRIGATORIO] }]);
-        return;
-      }
-      inicio = new Date(`${v.encaixeInicio}:00-03:00`).toISOString();
-    } else {
-      if (!v.slotInicio) {
-        form.setFields([{ name: 'slotInicio', errors: ['Escolha um horário'] }]);
-        return;
-      }
-      inicio = v.slotInicio;
+    if (!v.slotInicio) {
+      form.setFields([{ name: 'slotInicio', errors: ['Escolha um horário'] }]);
+      return;
     }
+    const inicio = v.slotInicio;
 
     const convenioEscolhido = v.convenioId;
     if (v.tipoAtendimento === 'CONVENIO' && !convenioEscolhido) {
       setErroGeral('Escolha o convênio.');
+      return;
+    }
+
+    // Pacote (só particular): uma sessão de um pacote já vendido, ou a venda de um pacote novo junto com a consulta.
+    const opcaoPacote = v.tipoAtendimento === 'PARTICULAR' ? v.pacoteOpcao : undefined;
+    const vendendo = opcaoPacote === 'NOVO';
+    const usaExistente = !!opcaoPacote && !vendendo;
+    if (vendendo && !v.formaPagamentoId) {
+      form.setFields([{ name: 'formaPagamentoId', errors: [OBRIGATORIO] }]);
       return;
     }
 
@@ -274,17 +342,64 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, e
       modalidade: v.modalidade,
       tipoAtendimento: v.tipoAtendimento,
       convenioId: v.tipoAtendimento === 'CONVENIO' ? convenioEscolhido ?? null : null,
-      valor: v.tipoAtendimento === 'CONVENIO' ? 0 : v.valor ?? 0,
-      formaPagamentoId: v.tipoAtendimento === 'CONVENIO' ? null : v.formaPagamentoId ?? null,
+      valor: v.tipoAtendimento === 'CONVENIO' || opcaoPacote ? 0 : v.valor ?? 0,
+      formaPagamentoId: v.tipoAtendimento === 'CONVENIO' || usaExistente ? null : v.formaPagamentoId ?? null,
       inicio,
       encaixe: v.encaixe,
-      pagamentoConfirmado: v.tipoAtendimento === 'CONVENIO' ? false : !!v.pagamentoConfirmado,
+      pagamentoConfirmado: v.tipoAtendimento === 'CONVENIO' || usaExistente ? false : !!v.pagamentoConfirmado,
+      pacotePacienteId: usaExistente ? opcaoPacote : null,
+      vendaPacote:
+        vendendo && v.modeloPacoteId && v.formaPagamentoId
+          ? { pacoteId: v.modeloPacoteId, formaPagamentoId: v.formaPagamentoId, pagamentoConfirmado: !!v.pagamentoConfirmado }
+          : null,
+      justificativaProfissional: justProfRef.current ?? null,
       liberacaoCredenciamento: justificativa ? { justificativa } : null,
       liberacaoAdministrador: justificativa ? { justificativa } : null
     };
 
+    const repete = !v.encaixe && !!v.repeticao && v.repeticao !== 'NENHUMA';
+    if (repete && (!v.quantidade || v.quantidade < 2 || v.quantidade > 12)) {
+      form.setFields([{ name: 'quantidade', errors: ['Informe de 2 a 12 consultas'] }]);
+      return;
+    }
+
     setSalvando(true);
     try {
+      if (repete) {
+        const corpoSerie: ConsultaSerieEntrada = {
+          ...corpo,
+          repeticao: v.repeticao as 'SEMANAL' | 'QUINZENAL' | 'MENSAL',
+          quantidade: v.quantidade as number
+        };
+        const serie = await api.post<ConsultaSerie>('/consultas/serie', corpoSerie);
+        message.success(`${serie.criadas.length} consulta(s) agendada(s).`);
+        const primeira = serie.criadas[0];
+        modal.info({
+          title: 'Agendamento repetido',
+          width: 520,
+          content: (
+            <Space direction="vertical" size={4}>
+              <span>
+                Agendadas ({serie.criadas.length}): {serie.criadas.map((c) => formatarDiaCurto(diaBrasilia(c.inicio))).join(', ')} às {horaBrasilia(primeira.inicio)}.
+              </span>
+              {serie.ignoradas.length > 0 && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  message={`Não agendadas (${serie.ignoradas.length}):`}
+                  description={serie.ignoradas.map((i) => (
+                    <div key={i.inicio}>
+                      {formatarDiaCurto(diaBrasilia(i.inicio))}: {i.mensagem}
+                    </div>
+                  ))}
+                />
+              )}
+            </Space>
+          )
+        });
+        aoSalvar();
+        return;
+      }
       const consulta = await api.post<Consulta>('/consultas', corpo);
       message.success('Consulta agendada.');
       if (consulta.avisos && consulta.avisos.length > 0) {
@@ -303,6 +418,14 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, e
     } catch (e) {
       if (!(e instanceof ApiErro)) {
         message.error('Erro inesperado.');
+      } else if (e.codigo === 'PROFISSIONAL_NAO_RESPONSAVEL') {
+        setSalvando(false);
+        void pedirJustificativa(modal, message, e.message, { titulo: 'Profissional não responsável', okText: 'Agendar' }).then((j) => {
+          if (j) {
+            justProfRef.current = j;
+            void enviar(justificativa);
+          }
+        });
       } else if (administrador && LIBERAVEIS.includes(e.codigo ?? '')) {
         const aviso = ['CONVENIO_NAO_CREDENCIADO', 'CONVENIO_DIVERGENTE'].includes(e.codigo ?? '') ? 'O convênio informado não possui credenciamento ativo no sistema.' : e.message;
         setSalvando(false);
@@ -332,7 +455,7 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, e
   return (
     <Modal
       open={aberto}
-      title="Nova consulta"
+      title={modoEncaixe ? 'Encaixe' : 'Nova consulta'}
       okText="Agendar"
       cancelText="Cancelar"
       confirmLoading={salvando}
@@ -356,8 +479,10 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, e
           modalidade: 'PRESENCIAL',
           tipoAtendimento: 'PARTICULAR',
           valor: null,
-          encaixe: false,
-          pagamentoConfirmado: false
+          encaixe: !!modoEncaixe,
+          pagamentoConfirmado: false,
+          repeticao: 'NENHUMA',
+          quantidade: 4
         }}
       >
         {erroGeral && <Alert type="error" showIcon message={erroGeral} style={{ marginBottom: 16 }} />}
@@ -469,13 +594,58 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, e
           </Form.Item>
         )}
 
+        {tipo !== 'CONVENIO' && mostrarPacote && (
+          <>
+            <Form.Item name="pacoteOpcao" label="Pacote" extra="Deixe em branco para uma consulta avulsa.">
+              <Select
+                allowClear
+                placeholder="Sem pacote (consulta avulsa)"
+                options={[
+                  ...pacotesDaEspecialidade.map((p) => ({
+                    value: p.id,
+                    label: `${p.nome} - restam ${p.sessoesRestantes} de ${p.quantidadeSessoes} - até ${formatarDiaPacote(p.dataValidade)}`
+                  })),
+                  ...(podeVenderPacote && modelosDaEspecialidade.length > 0 ? [{ value: 'NOVO', label: 'Vender um pacote novo...' }] : [])
+                ]}
+              />
+            </Form.Item>
+            {vendendoPacote && (
+              <Form.Item name="modeloPacoteId" label="Pacote a vender" rules={[{ required: true, message: OBRIGATORIO }]}>
+                <Select
+                  placeholder="Selecione o pacote"
+                  options={modelosDaEspecialidade.map((m) => ({
+                    value: m.id,
+                    label: `${m.nome} - ${m.quantidadeSessoes} sessões - ${formatarMoeda(m.valor)}`
+                  }))}
+                />
+              </Form.Item>
+            )}
+            {pacoteExistente && (
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+                message={`Esta consulta usa 1 sessão do pacote (restam ${pacoteExistente.sessoesRestantes} de ${pacoteExistente.quantidadeSessoes}). Valor da sessão: ${formatarMoeda(pacoteExistente.valorSessao)}. Pagamento do pacote: ${pacoteExistente.pagamentoConfirmado ? 'recebido' : 'pendente'}.`}
+              />
+            )}
+            {vendendoPacote && modeloEscolhido && (
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+                message={`Será vendido o pacote por ${formatarMoeda(modeloEscolhido.valor)} (${modeloEscolhido.quantidadeSessoes} sessões de ${formatarMoeda(modeloEscolhido.valorSessao)}, válido por ${modeloEscolhido.validadeDias} dias). Esta consulta usa a primeira sessão. Informe a forma de pagamento do pacote abaixo.`}
+              />
+            )}
+          </>
+        )}
+
         <Space align="start" wrap style={{ width: '100%' }}>
-          {tipo !== 'CONVENIO' && (
+          {tipo !== 'CONVENIO' && !pacoteOpcao && (
             <Form.Item name="valor" label="Valor (R$)" rules={[{ required: true, message: OBRIGATORIO }]}>
               <InputNumber min={0} step={10} precision={2} decimalSeparator="," style={{ width: 150 }} />
             </Form.Item>
           )}
-          {tipo !== 'CONVENIO' && (
+          {tipo !== 'CONVENIO' && !pacoteExistente && (
             <Form.Item name="formaPagamentoId" label="Forma de pagamento" rules={[{ required: true, message: OBRIGATORIO }]}>
               <Select
                 style={{ width: 280 }}
@@ -490,8 +660,7 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, e
           <Input type="date" min={hoje} style={{ width: 180 }} />
         </Form.Item>
 
-        {!encaixe && (
-          <Form.Item name="slotInicio" label="Horário">
+        <Form.Item name="slotInicio" label="Horário">
             {carregandoSlots ? (
               <Spin size="small" />
             ) : slots.length === 0 ? (
@@ -504,20 +673,38 @@ export default function NovaConsultaModal({ aberto, profissionalId, unidadeId, e
               />
             )}
           </Form.Item>
+
+        {!encaixe && (
+          <>
+            <Space align="start" wrap size={16}>
+              <Form.Item name="repeticao" label="Repetir">
+                <Select style={{ width: 280 }} options={OPCOES_REPETICAO} />
+              </Form.Item>
+              {repeticao && repeticao !== 'NENHUMA' && (
+                <Form.Item name="quantidade" label="Total de consultas (com a primeira)" rules={[{ required: true, message: OBRIGATORIO }]}>
+                  <InputNumber min={2} max={12} precision={0} style={{ width: 120 }} />
+                </Form.Item>
+              )}
+            </Space>
+            {repeticao && repeticao !== 'NENHUMA' && diaEscolhido && quantidadeSerie && quantidadeSerie >= 2 && (
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+                message={`Datas previstas: ${datasDaSerie(diaEscolhido, repeticao, quantidadeSerie).map(formatarDiaCurto).join(', ')}`}
+                description="No mesmo horário da primeira. As datas indisponíveis (horário ocupado, feriado, fora do expediente ou pacote sem saldo) são puladas e informadas no final."
+              />
+            )}
+          </>
         )}
 
-        <Form.Item name="encaixe" valuePropName="checked">
-          <Checkbox>Encaixe (fora do expediente ou dos intervalos; nunca sobrepõe outra consulta)</Checkbox>
+        <Form.Item name="encaixe" valuePropName="checked" hidden>
+          <Checkbox />
         </Form.Item>
-        {encaixe && (
-          <Form.Item name="encaixeInicio" label="Data e hora do encaixe (horário de Brasília)">
-            <Input type="datetime-local" style={{ width: 220 }} />
-          </Form.Item>
-        )}
 
-        {tipo !== 'CONVENIO' && (
+        {tipo !== 'CONVENIO' && !pacoteExistente && (
         <Form.Item name="pagamentoConfirmado" valuePropName="checked">
-          <Checkbox>Pagamento já recebido (por exemplo, PIX adiantado)</Checkbox>
+          <Checkbox>{vendendoPacote ? 'Pagamento do pacote já recebido' : 'Pagamento já recebido'}</Checkbox>
         </Form.Item>
         )}
       </Form>

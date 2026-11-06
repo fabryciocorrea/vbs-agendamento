@@ -62,6 +62,8 @@ export interface ConsultaResumo {
   encaixe: boolean;
   /** Consulta criada por remarcação (a original ficou REMARCADA no horário antigo). */
   remarcada?: boolean;
+  /** Convênio concluído com a guia ainda aguardando o faturamento. */
+  pendenteFaturamento?: boolean;
 }
 
 export interface Aviso {
@@ -74,6 +76,17 @@ export interface Consulta extends ConsultaResumo {
   numeroCarteirinha?: string | null;
   carteirinhaVencida: boolean;
   formaPagamento: Referencia;
+  /** Série do agendamento repetido (nulo quando a consulta foi agendada sozinha) e quantas consultas futuras dela ainda estão agendadas ou confirmadas. */
+  observacao?: string | null;
+  justificativaProfissional?: string | null;
+  serieId?: string | null;
+  serieFuturas?: number;
+  /** Pacote que paga a consulta (quando houver). */
+  pacotePacienteId?: string | null;
+  pacoteNome?: string | null;
+  pacotePagamentoConfirmado?: boolean | null;
+  pacoteValor?: number | null;
+  pacoteFormaPagamentoNome?: string | null;
   pagamentoConfirmado: boolean;
   pagamentoConfirmadoEm?: string | null;
   pagamentoConfirmadoPor?: { id: number; nomeCompleto: string } | null;
@@ -113,8 +126,25 @@ export interface ConsultaEntrada {
   fim?: string | null;
   encaixe: boolean;
   pagamentoConfirmado: boolean;
+  /** Pacote já vendido ao paciente que a consulta consome (só particular). */
+  pacotePacienteId?: string | null;
+  /** Venda de um pacote novo no ato do agendamento (a forma de pagamento e o pagamento recebido valem para o pacote). */
+  vendaPacote?: { pacoteId: number; formaPagamentoId: number; pagamentoConfirmado: boolean } | null;
   liberacaoCredenciamento?: { justificativa: string } | null;
+  /** Obrigatória quando o profissional não é o responsável atual do paciente. */
+  justificativaProfissional?: string | null;
   liberacaoAdministrador?: { justificativa: string } | null;
+}
+
+export interface ConsultaSerieEntrada extends ConsultaEntrada {
+  repeticao: 'SEMANAL' | 'QUINZENAL' | 'MENSAL';
+  /** Total de consultas da série, contando a primeira (2 a 12). */
+  quantidade: number;
+}
+
+export interface ConsultaSerie {
+  criadas: Consulta[];
+  ignoradas: { inicio: string; codigo?: string | null; mensagem: string }[];
 }
 
 export const NOMES_STATUS: Record<StatusConsulta, string> = {

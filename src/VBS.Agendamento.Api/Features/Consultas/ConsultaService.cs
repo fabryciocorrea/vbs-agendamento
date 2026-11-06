@@ -7,6 +7,7 @@ using VBS.Agendamento.Api.Common;
 using VBS.Agendamento.Api.Features.Credenciamentos;
 using VBS.Agendamento.Api.Features.Agenda;
 using VBS.Agendamento.Api.Features.Pacientes;
+using VBS.Agendamento.Api.Features.Pacotes;
 using VBS.Agendamento.Api.Infra.Db;
 using VBS.Agendamento.Api.Infra.Seguranca;
 
@@ -47,6 +48,11 @@ SELECT C.CODIGO_CONSULTA AS Codigo, C.CODIGO_PUBLIC AS Id, C.VERSAO AS Versao, C
        C.TIPO_ATENDIMENTO AS TipoAtendimento, C.CODIGO_CONVENIO AS ConvenioId, COALESCE(CV.NOME_FANTASIA, CV.RAZAO_SOCIAL) AS ConvenioNome,
        C.NUMERO_CARTEIRINHA AS NumeroCarteirinha, C.VALOR AS Valor,
        C.CODIGO_PAGAMENTO AS FormaPagamentoId, FP.DESCRICAO AS FormaPagamentoNome,
+       C.OBSERVACAO_CHECKIN AS Observacao, C.JUSTIFICATIVA_PROFISSIONAL AS JustificativaProfissional,
+       C.CODIGO_SERIE AS SerieId,
+       CASE WHEN C.CODIGO_SERIE IS NULL THEN 0 ELSE (SELECT COUNT(*) FROM DBO.CONSULTA F WHERE F.CODIGO_SERIE = C.CODIGO_SERIE
+            AND F.DATA_INICIO > C.DATA_INICIO AND F.STATUS IN ('AGENDADA', 'CONFIRMADA')) END AS SerieFuturas,
+       PPK.CODIGO_PUBLIC AS PacotePacienteId, PPK.NOME AS PacoteNome, PPK.PAGAMENTO_CONFIRMADO AS PacotePagamentoConfirmado, PPK.VALOR AS PacoteValor, FPK.DESCRICAO AS PacoteFormaPagamentoNome,
        C.PAGAMENTO_CONFIRMADO AS PagamentoConfirmado, C.DATA_PAGAMENTO AS PagamentoConfirmadoEm,
        C.PAGAMENTO_CONFIRMADO_USUARIO AS PagamentoConfirmadoPorId, UP.NOME_COMPLETO AS PagamentoConfirmadoPorNome,
        ORIG.CODIGO_PUBLIC AS ConsultaOrigemId, C.ENCAIXE AS Encaixe,
@@ -64,6 +70,8 @@ JOIN DBO.FORMA_PAGAMENTO FP ON FP.CODIGO_PAGAMENTO = C.CODIGO_PAGAMENTO
 LEFT JOIN DBO.SALA S ON S.CODIGO_SALA = C.CODIGO_SALA
 LEFT JOIN DBO.CONVENIO CV ON CV.CODIGO_CONVENIO = C.CODIGO_CONVENIO
 LEFT JOIN DBO.CONSULTA ORIG ON ORIG.CODIGO_CONSULTA = C.CODIGO_CONSULTA_ORIGEM
+LEFT JOIN DBO.PACOTE_PACIENTE PPK ON PPK.CODIGO_PACOTE_PACIENTE = C.CODIGO_PACOTE_PACIENTE
+LEFT JOIN DBO.FORMA_PAGAMENTO FPK ON FPK.CODIGO_PAGAMENTO = PPK.CODIGO_PAGAMENTO
 LEFT JOIN DBO.USUARIO UP ON UP.CODIGO_USUARIO = C.PAGAMENTO_CONFIRMADO_USUARIO
 LEFT JOIN DBO.USUARIO UL ON UL.CODIGO_USUARIO = C.CREDENCIAMENTO_LIBERADO_POR
 LEFT JOIN DBO.USUARIO UC ON UC.CODIGO_USUARIO = C.CRIACAO_USUARIO
@@ -100,6 +108,15 @@ LEFT JOIN DBO.USUARIO UA ON UA.CODIGO_USUARIO = C.LIBERACAO_ADMIN_USUARIO";
         public decimal Valor { get; set; }
         public int FormaPagamentoId { get; set; }
         public string FormaPagamentoNome { get; set; } = string.Empty;
+        public string? Observacao { get; set; }
+        public string? JustificativaProfissional { get; set; }
+        public Guid? SerieId { get; set; }
+        public int SerieFuturas { get; set; }
+        public Guid? PacotePacienteId { get; set; }
+        public string? PacoteNome { get; set; }
+        public bool? PacotePagamentoConfirmado { get; set; }
+        public decimal? PacoteValor { get; set; }
+        public string? PacoteFormaPagamentoNome { get; set; }
         public bool PagamentoConfirmado { get; set; }
         public DateTime? PagamentoConfirmadoEm { get; set; }
         public int? PagamentoConfirmadoPorId { get; set; }
@@ -143,6 +160,7 @@ LEFT JOIN DBO.USUARIO UA ON UA.CODIGO_USUARIO = C.LIBERACAO_ADMIN_USUARIO";
         d.Valor = ocultarValor ? null : l.Valor;
         d.Encaixe = l.Encaixe;
         d.Remarcada = l.ConsultaOrigemId.HasValue;
+        d.PendenteFaturamento = l.Status == "CONCLUIDA" && l.TipoAtendimento == "CONVENIO" && (l.GuiaStatus ?? "PENDENTE") == "PENDENTE";
     }
 
     private static ConsultaResumoDto ParaResumo(ConsultaLinha l, bool ocultarValor)
@@ -161,6 +179,15 @@ LEFT JOIN DBO.USUARIO UA ON UA.CODIGO_USUARIO = C.LIBERACAO_ADMIN_USUARIO";
         d.CarteirinhaVencida = l.TipoAtendimento == "CONVENIO" && l.PacienteValidadeCarteirinha.HasValue &&
                                DateOnly.FromDateTime(l.PacienteValidadeCarteirinha.Value) < DataBrasil.Hoje();
         d.FormaPagamento = new ReferenciaDto { Id = l.FormaPagamentoId, Nome = l.FormaPagamentoNome };
+        d.Observacao = l.Observacao;
+        d.JustificativaProfissional = l.JustificativaProfissional;
+        d.SerieId = l.SerieId;
+        d.SerieFuturas = l.SerieFuturas;
+        d.PacotePacienteId = l.PacotePacienteId;
+        d.PacoteNome = l.PacoteNome;
+        d.PacotePagamentoConfirmado = l.PacotePagamentoConfirmado;
+        d.PacoteValor = l.PacoteValor;
+        d.PacoteFormaPagamentoNome = l.PacoteFormaPagamentoNome;
         d.PagamentoConfirmado = l.PagamentoConfirmado;
         d.PagamentoConfirmadoEm = DataBrasil.Utc(l.PagamentoConfirmadoEm);
         d.PagamentoConfirmadoPor = l.PagamentoConfirmadoPorId.HasValue
@@ -377,7 +404,7 @@ WHERE (@Prof IS NULL OR C.CODIGO_PROFISSIONAL = @Prof) AND C.DATA_INICIO < @Ate 
 
     private sealed record Dados(Guid PacienteId, int ProfissionalId, int EspecialidadeId, int UnidadeId, int? SalaId, string Modalidade,
         string Tipo, int? ConvenioId, decimal Valor, int? FormaId, DateTime Inicio, DateTime? Fim, bool Encaixe, bool PagamentoConfirmado,
-        string? JustificativaLiberacao);
+        string? JustificativaLiberacao, Guid? PacotePacienteId, VendaPacoteEntrada? VendaPacote, string? JustificativaProfissional);
 
     private static Dados Validar(ConsultaEntrada? d)
     {
@@ -398,15 +425,21 @@ WHERE (@Prof IS NULL OR C.CODIGO_PROFISSIONAL = @Prof) AND C.DATA_INICIO < @Ate 
         if (d.Modalidade == "PRESENCIAL" && d.SalaId is null) e.Add(new ErroCampo("salaId", NaoPreenchido));
         if (d.TipoAtendimento == "CONVENIO" && d.ConvenioId is null) e.Add(new ErroCampo("convenioId", NaoPreenchido));
 
+        // Pacote (só particular): o valor da sessão e a forma de pagamento vêm do pacote, vendido antes ou na hora.
+        var usaPacote = d.PacotePacienteId.HasValue || d.VendaPacote is not null;
+        if (usaPacote && d.TipoAtendimento == "CONVENIO") e.Add(new ErroCampo("pacotePacienteId", "O pacote só vale em atendimento particular"));
+        if (d.PacotePacienteId.HasValue && d.PacotePacienteId == Guid.Empty) e.Add(new ErroCampo("pacotePacienteId", "Pacote inválido"));
+
         // Em convênio o valor vem do cadastro do convênio (a tela não o envia); o valor informado só vale no atendimento particular.
         if (d.TipoAtendimento == "CONVENIO") { }
+        else if (usaPacote) { }
         else if (d.Valor is null) e.Add(new ErroCampo("valor", NaoPreenchido));
         else if (d.Valor < 0) e.Add(new ErroCampo("valor", "Não pode ser negativo"));
         else if (d.Valor >= 100_000_000m) e.Add(new ErroCampo("valor", "Valor acima do permitido"));
         else if (decimal.Round(d.Valor.Value, 2) != d.Valor) e.Add(new ErroCampo("valor", "Use no máximo duas casas decimais"));
 
         // No convênio a forma é a do próprio convênio: se a tela não enviar, o servidor localiza (mais simples para a tela).
-        if (d.FormaPagamentoId is null && d.TipoAtendimento != "CONVENIO") e.Add(new ErroCampo("formaPagamentoId", NaoPreenchido));
+        if (d.FormaPagamentoId is null && d.TipoAtendimento != "CONVENIO" && !usaPacote) e.Add(new ErroCampo("formaPagamentoId", NaoPreenchido));
 
         DateTime? inicio = null, fim = null;
         if (d.Inicio is null) e.Add(new ErroCampo("inicio", NaoPreenchido));
@@ -431,8 +464,8 @@ WHERE (@Prof IS NULL OR C.CODIGO_PROFISSIONAL = @Prof) AND C.DATA_INICIO < @Ate 
 
         return new Dados(d.PacienteId!.Value, d.ProfissionalId!.Value, d.EspecialidadeId!.Value, d.UnidadeId!.Value,
             d.Modalidade == "PRESENCIAL" ? d.SalaId : null, d.Modalidade!, d.TipoAtendimento!,
-            d.TipoAtendimento == "CONVENIO" ? d.ConvenioId : null, d.TipoAtendimento == "CONVENIO" ? 0m : d.Valor!.Value, d.FormaPagamentoId,
-            inicio!.Value, fim, d.Encaixe, d.PagamentoConfirmado, justificativa);
+            d.TipoAtendimento == "CONVENIO" ? d.ConvenioId : null, d.TipoAtendimento == "CONVENIO" ? 0m : d.Valor ?? 0m, d.FormaPagamentoId,
+            inicio!.Value, fim, d.Encaixe, d.PagamentoConfirmado, justificativa, d.PacotePacienteId, d.VendaPacote, d.JustificativaProfissional);
     }
 
     /// <summary>UTC, sem segundos (as colunas são DATETIME2(0) e a regra trabalha em minutos).</summary>
@@ -470,6 +503,17 @@ FROM DBO.PACIENTE WHERE CODIGO_PUBLIC = @Id" + (usuario.EhMedico ? " AND CODIGO_
             "SELECT ATIVO AS Ativo, NOME AS Nome FROM DBO.PROFISSIONAL WHERE CODIGO_PROFISSIONAL = @Id;", new { Id = d.ProfissionalId }, tx, ct))
             ?? throw Erro.Validacao("profissionalId", "Profissional não encontrado");
         if (!prof.Ativo) throw Erro.Validacao("profissionalId", "O profissional está inativo");
+        // Profissional que não é o responsável do paciente: agenda só com justificativa (10 a 500 caracteres).
+        string? justificativaProfissional = null;
+        if (paciente.Responsavel != d.ProfissionalId)
+        {
+            justificativaProfissional = d.JustificativaProfissional?.Trim();
+            if (string.IsNullOrEmpty(justificativaProfissional))
+                throw Erro.Regra("PROFISSIONAL_NAO_RESPONSAVEL",
+                    $"O profissional {prof.Nome} não é o profissional responsável por este paciente. Informe uma justificativa para agendar mesmo assim.");
+            if (justificativaProfissional.Length is < 10 or > 500)
+                throw Erro.Validacao("justificativaProfissional", "Informe de 10 a 500 caracteres");
+        }
 
         var esp = await con.QueryFirstOrDefaultAsync<SituacaoLinha>(Sql.Cmd(
             "SELECT ATIVO AS Ativo, NOME AS Nome FROM DBO.ESPECIALIDADE WHERE CODIGO_ESPECIALIDADE = @Id;", new { Id = d.EspecialidadeId }, tx, ct))
@@ -498,8 +542,20 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE WHERE CODI
             if (!sala.Ativo) throw Erro.Validacao("salaId", "A sala está inativa");
         }
 
+        // ---- pacote (consulta particular que consome uma sessão de pacote já vendido, ou venda de um pacote novo na hora)
+        UsoPacote? pacote = null;
+        if (d.PacotePacienteId.HasValue || d.VendaPacote is not null)
+        {
+            if (d.Tipo != "PARTICULAR") throw Erro.Validacao("pacotePacienteId", "O pacote só vale em atendimento particular");
+            var vende = d.VendaPacote is not null;
+            if (!await _permissoes.TemAsync(usuario.PerfilId, usuario.Administrador, vende ? "pacote.venda:incluir" : "pacote.venda:visualizar", ct))
+                throw Erro.SemPermissao(vende ? "O seu perfil não tem liberação para vender pacotes." : "O seu perfil não tem liberação para usar pacotes.", "PACOTE_SEM_PERMISSAO");
+            pacote = await PacotePacienteService.PrepararUsoAsync(con, tx, _auditoria, paciente.Codigo, d.EspecialidadeId, d.Inicio,
+                d.PacotePacienteId, d.VendaPacote, usuario, ct);
+        }
+
         // ---- forma de pagamento
-        var formaId = d.FormaId;
+        var formaId = pacote?.FormaPagamentoId ?? d.FormaId;
         if (formaId is null)
         {
             formaId = await con.ExecuteScalarAsync<int?>(Sql.Cmd(
@@ -517,7 +573,7 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE WHERE CODI
         // ---- tipo de atendimento e convênio (RN02, RN12, G3)
         string? numeroCarteirinha = null;
         string? convenioNome = null;
-        var valorConsulta = d.Valor;
+        var valorConsulta = pacote?.ValorSessao ?? d.Valor;
         if (d.Tipo == "CONVENIO")
         {
             // Qualquer perfil pode escolher outro convênio; o credenciamento ativo continua exigido (RN35).
@@ -571,7 +627,7 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE WHERE CODI
         p.Add("DATA_FIM", fim, DbType.DateTime2);
         p.Add("VALOR", valorConsulta, DbType.Decimal, precision: 10, scale: 2);
         p.Add("CODIGO_PAGAMENTO", formaId, DbType.Int32);
-        p.Add("PAGAMENTO_CONFIRMADO", d.PagamentoConfirmado, DbType.Boolean);
+        p.Add("PAGAMENTO_CONFIRMADO", pacote?.PagamentoConfirmado ?? d.PagamentoConfirmado, DbType.Boolean);
         p.Add("ENCAIXE", d.Encaixe, DbType.Boolean);
         p.Add("CODIGO_USUARIO", usuario.Id, DbType.Int32);
         p.Add("LIBERACAO_USUARIO", d.JustificativaLiberacao is null ? null : usuario.Id, DbType.Int32);
@@ -591,9 +647,13 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE WHERE CODI
 
         var codigo = p.Get<int>("CODIGO_CONSULTA");
         if (liberacaoAdmin is not null) await GravarLiberacaoAdminAsync(con, tx, codigo, liberacaoAdmin, usuario.Id, ct);
+        if (justificativaProfissional is not null)
+            await con.ExecuteAsync(Sql.Cmd("UPDATE DBO.CONSULTA SET JUSTIFICATIVA_PROFISSIONAL = @J WHERE CODIGO_CONSULTA = @C;",
+                new { J = justificativaProfissional, C = codigo }, tx, ct));
+        if (pacote is not null) await PacotePacienteService.VincularAsync(con, tx, codigo, pacote.CodigoPacotePaciente, ct);
 
         await _auditoria.RegistrarAsync("INCLUIR", "CONSULTA", codigo, paciente.Codigo, usuario.Id,
-            new { encaixe = d.Encaixe, tipo = d.Tipo, modalidade = d.Modalidade, liberacaoCredenciamento = d.JustificativaLiberacao is not null, liberacaoAdministrador = liberacaoAdmin },
+            new { encaixe = d.Encaixe, tipo = d.Tipo, modalidade = d.Modalidade, liberacaoCredenciamento = d.JustificativaLiberacao is not null, liberacaoAdministrador = liberacaoAdmin, pacotePacienteId = pacote?.CodigoPacotePaciente, profissionalNaoResponsavel = justificativaProfissional is not null, justificativaProfissional },
             con, tx, ct);
 
         var linha = await con.QueryFirstAsync<ConsultaLinha>(Sql.Cmd(
@@ -602,12 +662,6 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE WHERE CODI
 
         var saida = ParaConsulta(linha, usuario.EhMedico);
         var avisos = new List<AvisoDto>();
-        if (paciente.Responsavel != d.ProfissionalId)
-            avisos.Add(new AvisoDto
-            {
-                Codigo = "PROFISSIONAL_NAO_RESPONSAVEL",
-                Mensagem = "O profissional escolhido não é o responsável atual do paciente."
-            });
         if (d.Modalidade == "ONLINE")
             avisos.Add(new AvisoDto
             {
@@ -617,6 +671,139 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM DBO.PROFISSIONAL_ESPECIALIDADE WHERE CODI
         saida.Avisos = avisos;
         return saida;
     }
+
+    // ------------------------------------------------------ agendamento repetido
+    /// <summary>Datas (UTC) da série. A hora de parede de Brasília se mantém; MENSAL usa o mesmo dia da semana e a mesma posição no mês (a 5ª vira a última).</summary>
+    internal static List<DateTime> GerarDatasSerie(DateTime inicioUtc, string repeticao, int quantidade)
+    {
+        var local = DataBrasil.ParaBrasilia(inicioUtc);
+        var datas = new List<DateTime>();
+        var posicao = (local.Day - 1) / 7 + 1;
+        for (var k = 0; k < quantidade; k++)
+        {
+            DateTime alvo;
+            if (repeticao == "SEMANAL") alvo = local.AddDays(7 * k);
+            else if (repeticao == "QUINZENAL") alvo = local.AddDays(14 * k);
+            else
+            {
+                var mes = new DateTime(local.Year, local.Month, 1).AddMonths(k);
+                var primeiro = new DateTime(mes.Year, mes.Month, 1);
+                var deslocamento = ((int)local.DayOfWeek - (int)primeiro.DayOfWeek + 7) % 7;
+                var dia = 1 + deslocamento + 7 * (posicao - 1);
+                if (dia > DateTime.DaysInMonth(mes.Year, mes.Month)) dia -= 7;
+                alvo = new DateTime(mes.Year, mes.Month, dia, local.Hour, local.Minute, 0);
+            }
+            datas.Add(DataBrasil.ParaUtc(alvo));
+        }
+        return datas;
+    }
+
+    /// <summary>
+    /// Agenda a primeira consulta e as repetições, cada uma na sua transação. Se a primeira falhar, nada é criado e o erro é o da própria consulta.
+    /// As demais que não puderem ser agendadas (horário ocupado, feriado, fora do expediente, pacote sem saldo...) são puladas e devolvidas com o motivo.
+    /// </summary>
+    public async Task<ConsultaSerieDto> AgendarSerieAsync(ConsultaSerieEntrada? entrada, UsuarioAtual usuario, CancellationToken ct)
+    {
+        if (entrada is null) throw Erro.Validacao("corpo", NaoPreenchido);
+        var e = new List<ErroCampo>();
+        if (entrada.Repeticao is not ("SEMANAL" or "QUINZENAL" or "MENSAL")) e.Add(new ErroCampo("repeticao", "Informe SEMANAL, QUINZENAL ou MENSAL"));
+        if (entrada.Quantidade is null or < 2 or > 12) e.Add(new ErroCampo("quantidade", "Informe de 2 a 12 consultas"));
+        if (entrada.Inicio is null) e.Add(new ErroCampo("inicio", NaoPreenchido));
+        if (entrada.Encaixe) e.Add(new ErroCampo("encaixe", "O encaixe não pode ser repetido"));
+        if (e.Count > 0) throw Erro.Validacao(e);
+
+        var primeiraInicio = Minuto(entrada.Inicio!.Value);
+        var duracao = entrada.Fim.HasValue ? Minuto(entrada.Fim.Value) - primeiraInicio : (TimeSpan?)null;
+        var datas = GerarDatasSerie(primeiraInicio, entrada.Repeticao!, entrada.Quantidade!.Value);
+
+        var saida = new ConsultaSerieDto();
+        var primeira = await AgendarAsync(Copiar(entrada, datas[0], duracao, true, null), usuario, ct);
+        saida.Criadas.Add(primeira);
+
+        for (var i = 1; i < datas.Count; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                // Pacote: as repetições usam o pacote da primeira (já existente ou vendido agora); cada uma consome uma sessão.
+                var consulta = await AgendarAsync(Copiar(entrada, datas[i], duracao, false, primeira.PacotePacienteId), usuario, ct);
+                saida.Criadas.Add(consulta);
+            }
+            catch (ApiException ex)
+            {
+                saida.Ignoradas.Add(new SerieIgnoradaDto { Inicio = datas[i], Codigo = ex.Codigo, Mensagem = ex.Detalhe ?? ex.Titulo });
+            }
+        }
+
+        // Marca as consultas criadas como uma série (serve para cancelar esta e as próximas).
+        var serie = Guid.NewGuid();
+        await using (var con = await _db.AbrirAsync(ct))
+            await con.ExecuteAsync(Sql.Cmd("UPDATE DBO.CONSULTA SET CODIGO_SERIE = @Serie WHERE CODIGO_PUBLIC IN @Ids;",
+                new { Serie = serie, Ids = saida.Criadas.Select(c => c.Id).ToArray() }, ct: ct));
+        foreach (var c in saida.Criadas) c.SerieId = serie;
+        return saida;
+    }
+
+    /// <summary>Cancela a consulta atual e as próximas da mesma série (AGENDADA ou CONFIRMADA). Se a atual falhar, nada é cancelado; as próximas que falharem voltam em Ignoradas.</summary>
+    public async Task<CancelamentoSerieDto> CancelarSerieAsync(Guid id, CancelamentoSerieEntrada? d, UsuarioAtual usuario, CancellationToken ct)
+    {
+        if (d is null) throw Erro.Validacao("corpo", "Corpo da requisição inválido");
+        var atual = await AlterarStatusAsync(id, new StatusEntrada
+        {
+            Status = "CANCELADA", Motivo = d.Motivo, CanceladoPor = d.CanceladoPor, Versao = d.Versao, LiberacaoAdministrador = d.LiberacaoAdministrador
+        }, usuario, ct);
+
+        var saida = new CancelamentoSerieDto { Canceladas = 1 };
+        if (atual.SerieId is null) return saida;
+
+        List<ProximaSerie> proximas;
+        await using (var con = await _db.AbrirAsync(ct))
+            proximas = (await con.QueryAsync<ProximaSerie>(Sql.Cmd(@"
+SELECT CODIGO_PUBLIC AS Id, VERSAO AS Versao, DATA_INICIO AS Inicio FROM DBO.CONSULTA
+WHERE CODIGO_SERIE = @Serie AND DATA_INICIO > @Inicio AND STATUS IN ('AGENDADA', 'CONFIRMADA') AND CODIGO_PUBLIC <> @Id
+ORDER BY DATA_INICIO;", new { Serie = atual.SerieId, Inicio = DateTime.SpecifyKind(atual.Inicio, DateTimeKind.Utc), Id = id }, ct: ct))).ToList();
+
+        foreach (var p in proximas)
+        {
+            try
+            {
+                await AlterarStatusAsync(p.Id, new StatusEntrada
+                {
+                    Status = "CANCELADA", Motivo = d.Motivo, CanceladoPor = d.CanceladoPor,
+                    Versao = Convert.ToBase64String(p.Versao), LiberacaoAdministrador = d.LiberacaoAdministrador
+                }, usuario, ct);
+                saida.Canceladas++;
+            }
+            catch (ApiException ex)
+            {
+                saida.Ignoradas.Add(new SerieIgnoradaDto { Inicio = DataBrasil.Utc(p.Inicio), Codigo = ex.Codigo, Mensagem = ex.Detalhe ?? ex.Titulo });
+            }
+        }
+        return saida;
+    }
+
+    private sealed class ProximaSerie
+    {
+        public Guid Id { get; set; }
+        public byte[] Versao { get; set; } = Array.Empty<byte>();
+        public DateTime Inicio { get; set; }
+    }
+
+    private static ConsultaEntrada Copiar(ConsultaSerieEntrada o, DateTime inicio, TimeSpan? duracao, bool primeira, Guid? pacotePacienteId) => new()
+    {
+        PacienteId = o.PacienteId, ProfissionalId = o.ProfissionalId, EspecialidadeId = o.EspecialidadeId, UnidadeId = o.UnidadeId,
+        SalaId = o.SalaId, Modalidade = o.Modalidade, TipoAtendimento = o.TipoAtendimento, ConvenioId = o.ConvenioId,
+        Valor = o.Valor, FormaPagamentoId = o.FormaPagamentoId,
+        Inicio = inicio, Fim = duracao.HasValue ? inicio + duracao.Value : null,
+        Encaixe = false,
+        // O pagamento recebido vale só para a primeira consulta avulsa (no pacote, vale para o pacote, na venda).
+        PagamentoConfirmado = primeira && o.PagamentoConfirmado,
+        PacotePacienteId = primeira ? o.PacotePacienteId : pacotePacienteId,
+        VendaPacote = primeira ? o.VendaPacote : null,
+        LiberacaoCredenciamento = o.LiberacaoCredenciamento,
+        LiberacaoAdministrador = o.LiberacaoAdministrador,
+        JustificativaProfissional = o.JustificativaProfissional
+    };
 
     // ------------------------------------------------------ status e remarcação
     private static readonly string[] StatusInformaveis = { "CONFIRMADA", "CHECK_IN", "EM_ATENDIMENTO", "CONCLUIDA", "CANCELADA", "FALTA" };
@@ -676,6 +863,14 @@ WHERE CODIGO_CONSULTA = @C;", new { U = usuarioId, J = justificativa, C = codigo
 
         await using var con = await _db.AbrirAsync(ct);
         var atual = await CarregarParaAlterarAsync(con, null, id, usuario, ct);
+
+        // Convênio com carteirinha vencida: iniciar e concluir o atendimento só com liberação (justificativa) do administrador.
+        if (liberacao is null && atual.TipoAtendimento == "CONVENIO" && d.Status is ("EM_ATENDIMENTO" or "CONCLUIDA")
+            && atual.PacienteValidadeCarteirinha.HasValue && DateOnly.FromDateTime(atual.PacienteValidadeCarteirinha.Value) < DataBrasil.Hoje())
+        {
+            throw Erro.Regra("CARTEIRINHA_VENCIDA_ATENDIMENTO",
+                $"{(d.Status == "EM_ATENDIMENTO" ? "O atendimento não pode ser iniciado" : "A consulta não pode ser concluída")}, pois a validade da carteirinha do convênio do paciente está vencida ({atual.PacienteValidadeCarteirinha.Value:dd/MM/yyyy}). Solicite autorização do administrador ou da gerência para liberação.");
+        }
 
         var p = new DynamicParameters();
         p.Add("LIBERADO", liberacao is not null, DbType.Boolean);
@@ -757,6 +952,39 @@ WHERE CODIGO_CONSULTA = @Codigo AND VERSAO = @Versao;",
         public string Tipo { get; set; } = string.Empty;
     }
 
+    /// <summary>Grava a observação do check-in (só consulta por convênio, enquanto está em CHECK_IN). Vazio apaga a observação.</summary>
+    public async Task<ConsultaDto> SalvarObservacaoAsync(Guid id, ObservacaoEntrada? d, UsuarioAtual usuario, CancellationToken ct)
+    {
+        if (d is null) throw Erro.Validacao("corpo", "Corpo da requisição inválido");
+        var e = new List<ErroCampo>();
+        var versao = LerVersao(d.Versao, e);
+        var texto = d.Observacao?.Trim();
+        if (texto is { Length: > 500 }) e.Add(new ErroCampo("observacao", "Máximo de 500 caracteres"));
+        if (e.Count > 0) throw Erro.Validacao(e);
+
+        await using var con = await _db.AbrirAsync(ct);
+        await using var tx = (SqlTransaction)await con.BeginTransactionAsync(ct);
+        var atual = await CarregarParaAlterarAsync(con, tx, id, usuario, ct);
+
+        if (atual.TipoAtendimento != "CONVENIO")
+            throw Erro.Conflito("A observação é só para consulta por convênio.", "OBSERVACAO_SO_CONVENIO");
+        if (atual.Status != "CHECK_IN")
+            throw Erro.Conflito("A observação é anotada enquanto a consulta está em check-in.", "STATUS_NAO_PERMITE");
+
+        var linhas = await con.ExecuteAsync(Sql.Cmd(@"
+UPDATE DBO.CONSULTA SET OBSERVACAO_CHECKIN = @Texto, DATA_ATUALIZACAO = SYSUTCDATETIME()
+WHERE CODIGO_CONSULTA = @Codigo AND VERSAO = @Versao;",
+            new { Texto = string.IsNullOrEmpty(texto) ? null : texto, Codigo = atual.Codigo, Versao = versao }, tx, ct));
+        if (linhas == 0)
+            throw Erro.Conflito("A consulta foi alterada por outra pessoa. Atualize a tela e tente novamente.", "CONSULTA_ALTERADA");
+
+        await _auditoria.RegistrarAsync("EDITAR", "CONSULTA", atual.Codigo, null, usuario.Id, new { observacaoCheckin = true }, con, tx, ct);
+
+        var linha = await con.QueryFirstAsync<ConsultaLinha>(Sql.Cmd(SelectConsulta + " WHERE C.CODIGO_CONSULTA = @Codigo;", new { Codigo = atual.Codigo }, tx, ct));
+        await tx.CommitAsync(ct);
+        return ParaConsulta(linha, usuario.EhMedico);
+    }
+
     /// <summary>Remarca (ou antecipa): cria uma nova consulta ligada à original, que passa a REMARCADA (RN06, G5).</summary>
     public async Task<ConsultaDto> RemarcarAsync(Guid id, RemarcacaoEntrada? d, UsuarioAtual usuario, CancellationToken ct)
     {
@@ -798,6 +1026,8 @@ WHERE CODIGO_CONSULTA = @Codigo AND VERSAO = @Versao;",
         var inicio = novoInicio!.Value;
         var fim = novoFim ?? inicio.AddMinutes(parametros.DuracaoPadraoConsultaMin ?? 45);
         if (liberacaoAdmin is null) await ValidarHorarioAsync(con, tx, profissionalId, unidadeId, inicio, fim, d.Encaixe, ct);
+        // Consulta de pacote: a nova data precisa estar dentro da validade do pacote.
+        await PacotePacienteService.ValidarRemarcacaoAsync(con, tx, orig.Codigo, inicio, ct);
 
         var p = new DynamicParameters();
         p.Add("CODIGO_CONSULTA", orig.Codigo, DbType.Int32);
@@ -827,10 +1057,10 @@ WHERE CODIGO_CONSULTA = @Codigo AND VERSAO = @Versao;",
 
         var codigoNova = p.Get<int>("CODIGO_CONSULTA_NOVA");
 
-        // A guia do convênio acompanha o paciente para a nova consulta.
+        // A guia do convênio e o pacote (se houver) acompanham o paciente para a nova consulta.
         await con.ExecuteAsync(Sql.Cmd(@"
 UPDATE N SET N.GUIA_STATUS = O.GUIA_STATUS, N.GUIA_NUMERO = O.GUIA_NUMERO, N.GUIA_OBSERVACAO = O.GUIA_OBSERVACAO,
-             N.GUIA_DATA = O.GUIA_DATA, N.GUIA_USUARIO = O.GUIA_USUARIO
+             N.GUIA_DATA = O.GUIA_DATA, N.GUIA_USUARIO = O.GUIA_USUARIO, N.CODIGO_PACOTE_PACIENTE = O.CODIGO_PACOTE_PACIENTE
 FROM DBO.CONSULTA N JOIN DBO.CONSULTA O ON O.CODIGO_CONSULTA = @Orig
 WHERE N.CODIGO_CONSULTA = @Nova;", new { Orig = orig.Codigo, Nova = codigoNova }, tx, ct));
 

@@ -616,7 +616,7 @@ export default function FormularioPaciente({ aberto, paciente, cpfInicial, aoFec
               <Space style={{ marginLeft: 12 }}>
                 {podeTransferir && (
                   <Button size="small" onClick={() => setModalTroca(true)}>
-                    Transferir prontuário
+                    Transferir
                   </Button>
                 )}
                 <Button size="small" onClick={() => setModalHistorico(true)}>

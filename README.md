@@ -20,12 +20,15 @@ Detalhes técnicos (camadas, regras, fluxos e banco): veja [ARCHITECTURE.md](ARC
 |---|---|
 | Acesso | Login em tela dividida, sessão com expiração por inatividade, bloqueio após 5 senhas erradas, recuperação de senha por e-mail, troca da própria senha em "Meu perfil" (pede a senha atual e encerra os outros acessos), senha com 10 a 128 caracteres, letras maiúsculas e minúsculas, números e caractere especial, perfis de acesso com permissão por tela e ação (visualizar, incluir, editar, cancelar, excluir, exportar). O perfil pode ser marcado como "de profissional": o usuário dele sem o profissional vinculado não acessa dados e vê um aviso |
 | Interface | Layout moderno em todas as telas (menu em degradê, cartões, títulos com ícone, listas em cartão com ações redondas e filtros em pílula), tema claro e escuro por botão ao lado do sino (o login fica sempre claro) e campo de busca padronizado (lupa dentro do campo, texto de ajuda que some ao clicar). Todas as telas de cadastro e de faturamento têm a ação Visualizar (olho), em leitura, para quem vê a tela; Perfis de acesso e Usuários, para o administrador. Perfis de acesso filtra por nome e descrição |
-| Profissional | O usuário vinculado a um profissional vê o início "Meu dia" e só os pacientes e consultas de que é o responsável atual (agenda sem filtro de profissional); a ação Visualizar abre o cadastro em leitura, com CPF, RG e documento de estrangeiro (RNE/CRNM) mascarados pelo próprio servidor (a API não envia os dados completos) e só o tipo de atendimento (convênio ou Particular). Administrador e recepção também têm Visualizar, com os dados completos |
+| Profissional | O usuário vinculado a um profissional vê o início "Meu dia" e só os pacientes e consultas de que é o responsável atual (agenda sem filtro de profissional); a ação Visualizar abre o cadastro em leitura, com CPF, RG e documento de estrangeiro (RNE/CRNM) completos (o profissional precisa deles para o prontuário) e só o tipo de atendimento (convênio ou Particular). Administrador e recepção também têm Visualizar, com os dados completos. Só quem apenas visualiza cadastros (sem ser profissional nem incluir ou editar paciente) recebe esses dados mascarados pelo servidor. A lista de pacientes mostra o CPF sempre mascarado |
 | Cadastros | Pacientes (com responsável legal, consentimento e documentos anexados: identidade, encaminhamento, autorização, carteirinha e exames, em PDF, JPG ou PNG de até 5 MB, com permissão própria "Documentos do paciente"), profissionais, colaboradores, unidades, salas, especialidades, formas de pagamento, convênios, usuários e perfis |
+| Documentos | Tela "Documentos" para os documentos internos da empresa (folha timbrada, termos, contratos, políticas, formulários e modelos): título, tipo e descrição, arquivo em PDF, Word, Excel, JPG ou PNG de até 10 MB, abrir, baixar e excluir, com permissão própria "Documentos internos da empresa" e registro no log. Na tela Credenciamentos, a ação "Anexar documentos" (clipe) guarda protocolo, contrato, carta de aprovação e tabela de valores de cada credenciamento (permissão "Documentos do credenciamento") |
+| Pacotes | Pacotes mensais de consultas particulares (assinatura): modelo com especialidade, quantidade de sessões, valor e validade; venda ao paciente (na tela Pacotes ou na Nova consulta), saldo de sessões, confirmação de pagamento e cancelamento |
 | Convênios | Valor por especialidade, credenciamento por unidade, valor vigente na data da consulta |
-| Agenda | Agenda semanal do profissional, nova consulta (particular ou convênio, presencial ou online), encaixe, remarcação (a consulta sai do horário antigo e aparece como Remarcada no novo), filtros de unidade, profissional e situação, horários livres conforme expediente, feriados e recessos |
+| Agenda | Agenda semanal do profissional, nova consulta (particular ou convênio, presencial ou online), encaixe (botão "Encaixe", ao lado de "Nova consulta", com os horários livres do dia escolhido; exige a permissão de editar o agendamento), repetição semanal, quinzenal ou mensal (com cancelamento só desta consulta ou desta e das próximas), remarcação (a consulta sai do horário antigo e aparece como Remarcada no novo), filtros de unidade, profissional e situação, horários livres conforme expediente, intervalo (12h às 13h, segunda a sexta, cadastrado na grade de cada profissional), feriados e recessos. Agendar com um profissional que não é o responsável do paciente exige uma justificativa (10 a 500 caracteres), gravada na consulta. Consulta concluída de convênio com guia pendente aparece como "Pendente de faturamento" |
 | Fluxo da consulta | Agendada → Confirmada → Check-in → (pagamento, se particular) → Em atendimento → Concluída; também Cancelada, Falta e Remarcada, com motivo e prazo |
 | Convênio | Guia do convênio (pendente, autorizada, negada, cancelada); só inicia e conclui atendimento com guia autorizada. Cancelar a consulta cancela a guia pendente ou negada; com guia autorizada, o faturamento cancela a guia antes |
+| Carteirinha vencida | Convênio com carteirinha vencida: a confirmação do agendamento mostra um aviso orientando a regularização; iniciar e concluir o atendimento só com liberação do administrador (justificativa); a recepção recebe um aviso explicando que precisa da autorização do administrador ou da gerência |
 | Pagamento particular | Confirmado pela recepção após o check-in; exigido para iniciar o atendimento |
 | Faturamento | Tela única com resumo financeiro, guias de convênio (inclusive pendentes e canceladas), particulares e exportação CSV; o nome do paciente abre o cadastro dele |
 | Lista de espera | Tela própria: paciente aguardando horário, aviso quando um horário é liberado por cancelamento, atendido ou cancelado |
@@ -41,7 +44,7 @@ Detalhes técnicos (camadas, regras, fluxos e banco): veja [ARCHITECTURE.md](ARC
 
 **Requisitos:** .NET SDK 8, Node.js 18 ou mais novo, SQL Server Express com o banco `VBSAGENDA`.
 
-1. **Banco:** no SSMS, rode os scripts de `banco/` na ordem numérica (01 a 36). Depois de cada atualização do projeto, rode os scripts novos.
+1. **Banco:** no SSMS, rode os scripts de `banco/` na ordem numérica (01 a 43). Depois de cada atualização do projeto, rode os scripts novos.
 2. **Conexão:** confira `src/VBS.Agendamento.Api/appsettings.Development.json` (autenticação integrada do Windows, sem criar login novo).
 3. **API:**
    ```
@@ -70,7 +73,7 @@ Para o usuário ver só **Agenda** e **Pacientes** no menu, marque no perfil: Ag
 ## Estrutura de pastas
 
 ```
-banco/                      scripts SQL (01 a 36), rodar em ordem no SSMS
+banco/                      scripts SQL (01 a 43), rodar em ordem no SSMS
 docs/                       roteiros de teste e notas de cada funcionalidade
 postman/                    coleção de testes da API
 src/VBS.Agendamento.Api/    servidor (Program.cs, Common, Infra, Features, contrato)

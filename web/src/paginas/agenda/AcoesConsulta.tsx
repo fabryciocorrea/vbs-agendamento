@@ -19,6 +19,7 @@ const CODIGOS_STATUS = [
   'CANCELAMENTO_FORA_DO_PRAZO',
   'FALTA_ANTES_DO_HORARIO',
   'CONCLUSAO_ANTES_DO_HORARIO',
+  'CARTEIRINHA_VENCIDA_ATENDIMENTO',
   'TRANSICAO_INVALIDA'
 ];
 const CODIGOS_HORARIO = ['HORARIO_NO_PASSADO', 'HORARIO_BLOQUEADO', 'FORA_DO_EXPEDIENTE'];
@@ -77,6 +78,7 @@ interface Props {
 interface MotivoValores {
   motivo: string;
   canceladoPor?: 'PACIENTE' | 'CLINICA';
+  escopo?: 'ATUAL' | 'FUTURAS';
 }
 
 function MotivoModal({
@@ -86,9 +88,10 @@ function MotivoModal({
   aoFechar,
   aoAlterar
 }: Props & { aberto: boolean; tipo: 'CANCELADA' | 'FALTA'; aoFechar: () => void }) {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { executar } = useLiberacao();
   const [form] = Form.useForm<MotivoValores>();
+  const futuras = tipo === 'CANCELADA' && consulta.serieId ? consulta.serieFuturas ?? 0 : 0;
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
 
@@ -101,8 +104,18 @@ function MotivoModal({
     }
     setErro('');
     setSalvando(true);
+    let resultadoSerie: { canceladas: number; ignoradas: { inicio: string; mensagem: string }[] } | null = null;
     const ok = await executar(
       async (lib) => {
+        if (futuras > 0 && v.escopo === 'FUTURAS') {
+          resultadoSerie = await api.post(`/consultas/${consulta.id}/cancelamento-serie`, {
+            motivo: v.motivo.trim(),
+            canceladoPor: v.canceladoPor,
+            liberacaoAdministrador: lib ?? null,
+            versao: consulta.versao
+          });
+          return;
+        }
         await api.patch(`/consultas/${consulta.id}/status`, {
           status: tipo,
           motivo: v.motivo.trim(),
@@ -122,7 +135,24 @@ function MotivoModal({
     );
     setSalvando(false);
     if (ok) {
-      message.success(tipo === 'CANCELADA' ? 'Consulta cancelada.' : 'Consulta marcada como não concluída (falta do paciente).');
+      const serie = resultadoSerie as { canceladas: number; ignoradas: { inicio: string; mensagem: string }[] } | null;
+      message.success(
+        serie ? `${serie.canceladas} consulta(s) cancelada(s).` : tipo === 'CANCELADA' ? 'Consulta cancelada.' : 'Consulta marcada como não concluída (falta do paciente).'
+      );
+      if (serie && serie.ignoradas.length > 0) {
+        modal.warning({
+          title: 'Algumas consultas não foram canceladas',
+          content: (
+            <div>
+              {serie.ignoradas.map((i) => (
+                <div key={i.inicio}>
+                  {new Date(i.inicio).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })}: {i.mensagem}
+                </div>
+              ))}
+            </div>
+          )
+        });
+      }
       aoFechar();
       aoAlterar();
     }
@@ -149,6 +179,16 @@ function MotivoModal({
               options={[
                 { value: 'PACIENTE', label: 'Paciente' },
                 { value: 'CLINICA', label: 'Clínica' }
+              ]}
+            />
+          </Form.Item>
+        )}
+        {futuras > 0 && (
+          <Form.Item name="escopo" label="O que cancelar" initialValue="ATUAL">
+            <Radio.Group
+              options={[
+                { value: 'ATUAL', label: 'Somente esta consulta' },
+                { value: 'FUTURAS', label: `Esta e as próximas da série (${futuras} depois desta)` }
               ]}
             />
           </Form.Item>
@@ -297,6 +337,8 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
   const { admin, executar } = useLiberacao();
   const [motivo, setMotivo] = useState<'CANCELADA' | 'FALTA' | null>(null);
   const [remarcando, setRemarcando] = useState(false);
+  const [observacao, setObservacao] = useState(consulta.observacao ?? '');
+  useEffect(() => setObservacao(consulta.observacao ?? ''), [consulta.id, consulta.versao, consulta.observacao]);
   const navegar = useNavigate();
 
   const ativa = ATIVAS.includes(consulta.status);
@@ -306,6 +348,16 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
   const podeRemarcar = pode('consulta.agendamento', 'editar');
   const inicial = consulta.status === 'AGENDADA' || consulta.status === 'CONFIRMADA';
 
+  // Carteirinha vencida (convênio): quem não é administrador vê um aviso ao tentar iniciar ou concluir.
+  const bloqueioCarteirinha = !admin && consulta.tipoAtendimento === 'CONVENIO' && !!consulta.carteirinhaVencida;
+  function avisarCarteirinha(acao: 'iniciado' | 'concluída') {
+    modal.warning({
+      title: acao === 'iniciado' ? 'Atendimento não pode ser iniciado' : 'Consulta não pode ser concluída',
+      width: 520,
+      okText: 'Entendi',
+      content: `${acao === 'iniciado' ? 'O atendimento não pode ser iniciado' : 'A consulta não pode ser concluída'}, pois a validade da carteirinha do convênio do paciente está vencida. Solicite autorização do administrador ou da gerência para liberação.`
+    });
+  }
   const guiaPendente = !admin && consulta.tipoAtendimento === 'CONVENIO' && (consulta.guia?.status ?? 'PENDENTE') !== 'AUTORIZADA';
   const textoGuia = consulta.guia?.status === 'CANCELADA' ? 'A guia está cancelada' : 'Aguardando a autorização da guia pelo faturamento';
   const concluir = ((ativa && (vencida || admin)) || consulta.status === 'EM_ATENDIMENTO') && podeStatus;
@@ -319,7 +371,7 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
   const remarcar = inicial && podeRemarcar;
   const cancelar = ativa && (consulta.status !== 'EM_ATENDIMENTO' || admin) && podeCancelarConsulta;
 
-  const confirmarPag = (consulta.status === 'CHECK_IN' || (admin && ativa)) && consulta.tipoAtendimento === 'PARTICULAR' && !consulta.pagamentoConfirmado && podeRemarcar;
+  const confirmarPag = (consulta.status === 'CHECK_IN' || (admin && ativa)) && consulta.tipoAtendimento === 'PARTICULAR' && !consulta.pagamentoConfirmado && (consulta.pacotePacienteId ? pode('pacote.venda', 'editar') : podeRemarcar);
 
   // Prontuário: aberto pela Agenda quando o atendimento começou ou terminou; o servidor confere se é o profissional responsável.
   // Só o administrador e o profissional responsável atual pelo paciente abrem o prontuário.
@@ -358,12 +410,30 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
 
   async function avancar() {
     if (!proximo) return;
+    // Observação do check-in (convênio): grava antes de iniciar o atendimento; a gravação muda a versão da consulta.
+    const comObservacao = proximo.status === 'EM_ATENDIMENTO' && consulta.tipoAtendimento === 'CONVENIO';
+    let versao = consulta.versao;
+    let gravada = false;
     const fn = async (lib?: Liberacao) => {
-      await api.patch(`/consultas/${consulta.id}/status`, { status: proximo.status, liberacaoAdministrador: lib ?? null, versao: consulta.versao });
+      if (comObservacao && !gravada && observacao.trim() !== (consulta.observacao ?? '')) {
+        const atualizada = await api.put<Consulta>(`/consultas/${consulta.id}/observacao`, { observacao: observacao.trim(), versao });
+        versao = atualizada.versao;
+        gravada = true;
+      }
+      await api.patch(`/consultas/${consulta.id}/status`, { status: proximo.status, liberacaoAdministrador: lib ?? null, versao });
     };
     const ok = await executar(fn, (e) => message.error(mensagemErro(e)));
+    if (!ok && gravada) aoAlterar();
     if (ok) {
       message.success(proximo.ok);
+      if (proximo.status === 'CONFIRMADA' && consulta.tipoAtendimento === 'CONVENIO' && consulta.carteirinhaVencida) {
+        modal.warning({
+          title: 'Carteirinha vencida',
+          width: 520,
+          okText: 'Entendi',
+          content: 'O agendamento foi confirmado. No entanto, a carteirinha do convênio do paciente encontra-se vencida. Oriente o paciente a providenciar a regularização. Sem a atualização da situação cadastral, o atendimento somente poderá ser iniciado e concluído mediante autorização do administrador ou da gerência.'
+        });
+      }
       aoAlterar();
     }
   }
@@ -371,11 +441,17 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
   function confirmarPagamento() {
     confirmarAcao({
       titulo: 'Confirmar pagamento',
-      texto: `Confirmar o recebimento do pagamento de ${consulta.paciente.nome} (${consulta.formaPagamento.nome})?`,
+      texto: consulta.pacotePacienteId
+        ? `Confirmar o recebimento do pagamento do pacote "${consulta.pacoteNome}" de ${consulta.paciente.nome} (${(consulta.pacoteValor ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} - ${consulta.pacoteFormaPagamentoNome ?? consulta.formaPagamento.nome})? A confirmação vale para o pacote inteiro.`
+        : `Confirmar o recebimento do pagamento de ${consulta.paciente.nome} (${consulta.formaPagamento.nome})?`,
       okText: 'Confirmar pagamento',
       sucesso: 'Pagamento confirmado.',
       codigos: CODIGOS_PAGAMENTO,
       fn: async (lib) => {
+        if (consulta.pacotePacienteId) {
+          await api.post(`/pacotes-vendidos/${consulta.pacotePacienteId}/pagamento`);
+          return;
+        }
         await api.post(`/consultas/${consulta.id}/pagamento/confirmacao`, { liberacaoAdministrador: lib ?? null, versao: consulta.versao });
       }
     });
@@ -395,14 +471,20 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
 
   return (
     <>
+      {consulta.status === 'CHECK_IN' && consulta.tipoAtendimento === 'CONVENIO' && podeStatus && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ marginBottom: 4 }}>Observação</div>
+          <Input.TextArea rows={2} maxLength={500} showCount value={observacao} onChange={(ev) => setObservacao(ev.target.value)} />
+        </div>
+      )}
       <Space wrap style={{ marginTop: 16 }}>
         {proximo && (
           <Button
             type="primary"
             icon={proximo.icone}
-            onClick={avancar}
-            disabled={proximo.status === 'EM_ATENDIMENTO' && guiaPendente}
-            title={proximo.status === 'EM_ATENDIMENTO' && guiaPendente ? textoGuia : undefined}
+            onClick={() => (bloqueioCarteirinha && proximo.status === 'EM_ATENDIMENTO' ? avisarCarteirinha('iniciado') : void avancar())}
+            disabled={proximo.status === 'EM_ATENDIMENTO' && guiaPendente && !bloqueioCarteirinha}
+            title={proximo.status === 'EM_ATENDIMENTO' && guiaPendente && !bloqueioCarteirinha ? textoGuia : undefined}
           >
             {proximo.texto}
           </Button>
@@ -424,9 +506,9 @@ export default function AcoesConsulta({ consulta, aoAlterar }: Props) {
           <Button
             type="primary"
             icon={<CheckOutlined />}
-            onClick={confirmarConclusao}
-            disabled={guiaPendente}
-            title={guiaPendente ? textoGuia : undefined}
+            onClick={() => (bloqueioCarteirinha ? avisarCarteirinha('concluída') : confirmarConclusao())}
+            disabled={guiaPendente && !bloqueioCarteirinha}
+            title={guiaPendente && !bloqueioCarteirinha ? textoGuia : undefined}
           >
             Concluído
           </Button>

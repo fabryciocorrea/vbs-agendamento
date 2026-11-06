@@ -23,6 +23,8 @@ import {
   BarChartOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  GiftOutlined,
+  FolderOpenOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../auth/AuthContext";
 import { cores } from "../tema";
@@ -68,6 +70,12 @@ const ITENS: ItemMenu[] = [
     tela: "convenio.cadastro",
   },
   {
+    key: "/pacotes",
+    label: "Pacotes",
+    icon: <GiftOutlined />,
+    tela: "pacote.venda",
+  },
+  {
     key: "/credenciamentos",
     label: "Credenciamentos",
     icon: <SafetyCertificateOutlined />,
@@ -84,6 +92,12 @@ const ITENS: ItemMenu[] = [
     label: "Painel financeiro",
     icon: <LineChartOutlined />,
     tela: "dashboard.financeiro",
+  },
+  {
+    key: "/documentos",
+    label: "Documentos",
+    icon: <FolderOpenOutlined />,
+    tela: "documento.interno",
   },
   {
     key: "/relatorios",

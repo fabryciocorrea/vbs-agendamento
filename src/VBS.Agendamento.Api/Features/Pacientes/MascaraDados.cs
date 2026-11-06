@@ -5,15 +5,15 @@ namespace VBS.Agendamento.Api.Features.Pacientes;
 
 /// <summary>
 /// P73: CPF e RG do paciente (e do responsável legal) saem mascarados da API para quem só visualiza cadastros.
-/// Administrador e quem pode incluir ou editar pacientes (recepção) recebem os dados completos, porque precisam deles
-/// para cadastrar e corrigir. O banco continua guardando tudo completo: o mascaramento é só na resposta.
+/// Administrador, quem pode incluir ou editar pacientes (recepção) e o profissional de saúde (que só enxerga os pacientes
+/// dos quais é responsável) recebem os dados completos: precisam deles para cadastrar, corrigir e registrar o prontuário. O banco continua guardando tudo completo: o mascaramento é só na resposta.
 /// </summary>
 public static class MascaraDados
 {
-    /// <summary>Completo para o administrador e para quem pode incluir ou editar pacientes; os demais recebem mascarado.</summary>
+    /// <summary>Completo para o administrador, o profissional (médico) e quem pode incluir ou editar pacientes; os demais recebem mascarado.</summary>
     public static async Task<bool> PodeVerCompletoAsync(IPermissaoService permissoes, UsuarioAtual usuario, CancellationToken ct)
     {
-        if (usuario.Administrador) return true;
+        if (usuario.Administrador || usuario.EhMedico) return true;
         return await permissoes.TemAsync(usuario.PerfilId, usuario.Administrador, "paciente.cadastro:editar", ct)
             || await permissoes.TemAsync(usuario.PerfilId, usuario.Administrador, "paciente.cadastro:incluir", ct);
     }

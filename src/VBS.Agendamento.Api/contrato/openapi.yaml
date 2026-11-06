@@ -59,6 +59,8 @@ tags:
   description: Troca do profissional que atende o paciente e histórico (RN18).
 - name: Documentos do paciente
   description: Carteira de identidade, encaminhamentos, autorizações e outros arquivos anexados ao cadastro do paciente.
+- name: Pacotes
+  description: Pacotes mensais de consultas particulares - modelos (cadastro), venda ao paciente, saldo de sessões, pagamento e cancelamento.
 - name: Consentimentos LGPD
   description: Histórico de consentimentos do paciente (RNF03).
 - name: Responsáveis legais
@@ -999,6 +1001,389 @@ paths:
           $ref: '#/components/responses/SemPermissao'
         '404':
           $ref: '#/components/responses/NaoEncontrado'
+  /pacotes:
+    get:
+      tags:
+      - Pacotes
+      operationId: listarPacotes
+      summary: Listar os modelos de pacote
+      x-permissao: pacote.cadastro:visualizar
+      parameters:
+      - name: busca
+        in: query
+        description: Parte do nome do pacote.
+        schema:
+          type: string
+          maxLength: 100
+      - name: especialidadeId
+        in: query
+        schema:
+          type: integer
+      - name: ativo
+        in: query
+        schema:
+          type: boolean
+      - $ref: '#/components/parameters/Pagina'
+      - $ref: '#/components/parameters/Tamanho'
+      responses:
+        '200':
+          description: Página.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PacotePagina'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+    post:
+      tags:
+      - Pacotes
+      operationId: criarPacote
+      summary: Cadastrar um modelo de pacote
+      x-permissao: pacote.cadastro:incluir
+      description: Define a especialidade, a quantidade de sessões (1 a 60), o valor total e a validade em dias (1 a 365). O nome é único (409 `PACOTE_DUPLICADO`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PacoteEntrada'
+      responses:
+        '201':
+          description: Pacote cadastrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pacote'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '409':
+          $ref: '#/components/responses/Conflito'
+  /pacotes/para-venda:
+    get:
+      tags:
+      - Pacotes
+      operationId: listarPacotesParaVenda
+      summary: Listar os modelos ativos que podem ser vendidos
+      x-permissao: pacote.venda:incluir
+      description: Usado ao vender um pacote na Nova consulta ou na tela Pacotes vendidos. Quem vende não precisa de acesso ao cadastro de modelos.
+      parameters:
+      - name: especialidadeId
+        in: query
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Modelos ativos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pacote'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+  /pacotes/{pacoteId}:
+    parameters:
+    - name: pacoteId
+      in: path
+      required: true
+      schema:
+        type: integer
+    get:
+      tags:
+      - Pacotes
+      operationId: obterPacote
+      summary: Consultar um modelo de pacote
+      x-permissao: pacote.cadastro:visualizar
+      responses:
+        '200':
+          description: Pacote.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pacote'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    put:
+      tags:
+      - Pacotes
+      operationId: atualizarPacote
+      summary: Alterar um modelo de pacote
+      x-permissao: pacote.cadastro:editar
+      description: A mudança vale só para as próximas vendas. Os pacotes já vendidos guardam uma cópia das condições da venda.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PacoteEntrada'
+      responses:
+        '200':
+          description: Pacote atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pacote'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+  /pacotes/{pacoteId}/status:
+    parameters:
+    - name: pacoteId
+      in: path
+      required: true
+      schema:
+        type: integer
+    patch:
+      tags:
+      - Pacotes
+      operationId: alterarStatusPacote
+      summary: Ativar ou inativar um modelo de pacote
+      x-permissao: pacote.cadastro:editar
+      description: O modelo não se exclui (RN14). Inativo, deixa de ser oferecido em novas vendas; os pacotes já vendidos continuam valendo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - ativo
+              properties:
+                ativo:
+                  type: boolean
+      responses:
+        '200':
+          description: Pacote atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pacote'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /pacientes/{pacienteId}/pacotes:
+    parameters:
+    - $ref: '#/components/parameters/PacienteId'
+    get:
+      tags:
+      - Pacotes
+      operationId: listarPacotesDoPaciente
+      summary: Listar os pacotes do paciente
+      x-permissao: pacote.venda:visualizar
+      description: Do mais recente para o mais antigo. O usuário vinculado a um profissional só vê os pacotes dos pacientes de que é o responsável atual (RN16, RN49). Sem cache.
+      parameters:
+      - name: somenteDisponiveis
+        in: query
+        description: Só os pacotes ativos, no prazo e com sessões.
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Pacotes do paciente.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PacotePaciente'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    post:
+      tags:
+      - Pacotes
+      operationId: venderPacote
+      summary: Vender um pacote ao paciente
+      x-permissao: pacote.venda:incluir
+      description: Guarda uma cópia das condições do modelo (sessões, valor, validade). A validade conta a partir do dia da venda. O valor de cada sessão é o total dividido pela quantidade, em centavos. Também é possível vender o pacote junto com o agendamento (`vendaPacote` em `POST /consultas`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VendaPacoteEntrada'
+      responses:
+        '201':
+          description: Pacote vendido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PacotePaciente'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /pacotes-vendidos:
+    get:
+      tags:
+      - Pacotes
+      operationId: listarPacotesVendidos
+      summary: Listar os pacotes vendidos
+      x-permissao: pacote.venda:visualizar
+      parameters:
+      - name: busca
+        in: query
+        description: Parte do nome do paciente ou do pacote.
+        schema:
+          type: string
+          maxLength: 150
+      - name: situacao
+        in: query
+        schema:
+          type: string
+          enum: [DISPONIVEL, ENCERRADO, CANCELADO]
+      - name: pagamentoPendente
+        in: query
+        schema:
+          type: boolean
+      - $ref: '#/components/parameters/Pagina'
+      - $ref: '#/components/parameters/Tamanho'
+      responses:
+        '200':
+          description: Página.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PacotePacientePagina'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+  /pacotes-vendidos/{pacoteId}:
+    parameters:
+    - name: pacoteId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags:
+      - Pacotes
+      operationId: obterPacoteVendido
+      summary: Consultar um pacote vendido, com as consultas que o usaram
+      x-permissao: pacote.venda:visualizar
+      responses:
+        '200':
+          description: Pacote com as sessões.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PacotePacienteDetalhe'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /pacotes-vendidos/{pacoteId}/pagamento:
+    parameters:
+    - name: pacoteId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      tags:
+      - Pacotes
+      operationId: confirmarPagamentoPacote
+      summary: Confirmar o recebimento do pagamento do pacote
+      x-permissao: pacote.venda:editar
+      description: As consultas já agendadas com o pacote passam a constar como pagas. 409 `PAGAMENTO_JA_CONFIRMADO` ou `PACOTE_CANCELADO`.
+      responses:
+        '200':
+          description: Pacote atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PacotePaciente'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+  /pacotes-vendidos/{pacoteId}/cancelamento:
+    parameters:
+    - name: pacoteId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      tags:
+      - Pacotes
+      operationId: cancelarPacoteVendido
+      summary: Cancelar um pacote vendido
+      x-permissao: pacote.venda:excluir
+      description: Só é possível quando nenhuma consulta o usa (409 `PACOTE_EM_USO`). A devolução de um pagamento já recebido é combinada fora do sistema. O motivo é obrigatório e vai para o log.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - motivo
+              properties:
+                motivo:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          description: Pacote cancelado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PacotePaciente'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
   /pacientes/{pacienteId}/documentos:
     parameters:
     - $ref: '#/components/parameters/PacienteId'
@@ -1112,6 +1497,264 @@ paths:
       operationId: excluirDocumentoPaciente
       summary: Excluir o documento do paciente
       x-permissao: paciente.documento:excluir
+      description: Apaga o arquivo de vez. O log guarda o tipo, o nome do arquivo e a impressão digital SHA-256.
+      responses:
+        '204':
+          description: Excluído.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /documentos-internos:
+    get:
+      tags:
+      - Documentos internos
+      operationId: listarDocumentosInternos
+      summary: Listar os documentos internos da empresa
+      x-permissao: documento.interno:visualizar
+      description: Lista os documentos (sem o conteúdo), do mais recente para o mais antigo, até 500. Filtros opcionais `tipo` e `busca` (título, descrição ou nome do arquivo). Sem cache.
+      parameters:
+      - name: tipo
+        in: query
+        schema:
+          type: string
+          enum: [FOLHA_TIMBRADA, TERMO, CONTRATO, POLITICA, FORMULARIO, MODELO, OUTRO]
+      - name: busca
+        in: query
+        schema:
+          type: string
+          maxLength: 100
+      responses:
+        '200':
+          description: Documentos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentoInterno'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+    post:
+      tags:
+      - Documentos internos
+      operationId: enviarDocumentoInterno
+      summary: Enviar um documento interno
+      x-permissao: documento.interno:incluir
+      description: |
+        Envia o documento (multipart: `arquivo`, `tipo`, `titulo` e, opcionalmente, `descricao`). Aceita PDF, Word (doc, docx), Excel (xls, xlsx), JPG ou PNG de até 10 MB; o tipo é conferido pela extensão e pelo conteúdo. Guarda nome, tamanho, impressão digital SHA-256, usuário e data. No máximo 500 documentos (409 `LIMITE_DOCUMENTOS`). O envio fica no log.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - arquivo
+              - tipo
+              - titulo
+              properties:
+                arquivo:
+                  type: string
+                  format: binary
+                tipo:
+                  type: string
+                  enum: [FOLHA_TIMBRADA, TERMO, CONTRATO, POLITICA, FORMULARIO, MODELO, OUTRO]
+                titulo:
+                  type: string
+                  maxLength: 150
+                descricao:
+                  type: string
+                  maxLength: 300
+      responses:
+        '201':
+          description: Documento guardado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentoInterno'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '409':
+          $ref: '#/components/responses/Conflito'
+  /documentos-internos/{documentoId}:
+    parameters:
+    - name: documentoId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags:
+      - Documentos internos
+      operationId: baixarDocumentoInterno
+      summary: Abrir ou baixar o documento interno
+      x-permissao: documento.interno:visualizar
+      description: Devolve o arquivo original. O acesso fica no log. Sem cache.
+      responses:
+        '200':
+          description: Arquivo.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      tags:
+      - Documentos internos
+      operationId: excluirDocumentoInterno
+      summary: Excluir o documento interno
+      x-permissao: documento.interno:excluir
+      description: Apaga o arquivo de vez. O log guarda o tipo, o título, o nome do arquivo e a impressão digital SHA-256.
+      responses:
+        '204':
+          description: Excluído.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+  /convenios/{convenioId}/credenciamentos/{credenciamentoId}/documentos:
+    parameters:
+    - name: convenioId
+      in: path
+      required: true
+      schema:
+        type: integer
+    - name: credenciamentoId
+      in: path
+      required: true
+      schema:
+        type: integer
+    get:
+      tags:
+      - Documentos do credenciamento
+      operationId: listarDocumentosCredenciamento
+      summary: Listar os documentos do credenciamento
+      x-permissao: credenciamento.documento:visualizar
+      description: Lista os documentos anexados, do mais recente para o mais antigo (sem o conteúdo). Sem cache.
+      responses:
+        '200':
+          description: Documentos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentoCredenciamento'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    post:
+      tags:
+      - Documentos do credenciamento
+      operationId: anexarDocumentoCredenciamento
+      summary: Anexar um documento ao credenciamento
+      x-permissao: credenciamento.documento:incluir
+      description: |
+        Envia o documento (multipart: `arquivo`, `tipo` e, opcionalmente, `descricao`). Aceita PDF, Word (doc, docx), Excel (xls, xlsx), JPG ou PNG de até 10 MB, conferido pela extensão e pelo conteúdo. Guarda nome, tamanho, impressão digital SHA-256, usuário e data. No máximo 30 documentos por credenciamento (409 `LIMITE_DOCUMENTOS`). A descrição é obrigatória para o tipo `OUTRO`. O envio fica no log.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - arquivo
+              - tipo
+              properties:
+                arquivo:
+                  type: string
+                  format: binary
+                tipo:
+                  type: string
+                  enum: [PROTOCOLO, CONTRATO, APROVACAO, TABELA_VALORES, COMUNICADO, OUTRO]
+                descricao:
+                  type: string
+                  maxLength: 150
+      responses:
+        '201':
+          description: Documento guardado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentoCredenciamento'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+  /convenios/{convenioId}/credenciamentos/{credenciamentoId}/documentos/{documentoId}:
+    parameters:
+    - name: convenioId
+      in: path
+      required: true
+      schema:
+        type: integer
+    - name: credenciamentoId
+      in: path
+      required: true
+      schema:
+        type: integer
+    - name: documentoId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags:
+      - Documentos do credenciamento
+      operationId: baixarDocumentoCredenciamento
+      summary: Abrir ou baixar o documento do credenciamento
+      x-permissao: credenciamento.documento:visualizar
+      description: Devolve o arquivo original. O acesso fica no log. Sem cache.
+      responses:
+        '200':
+          description: Arquivo.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      tags:
+      - Documentos do credenciamento
+      operationId: excluirDocumentoCredenciamento
+      summary: Excluir o documento do credenciamento
+      x-permissao: credenciamento.documento:excluir
       description: Apaga o arquivo de vez. O log guarda o tipo, o nome do arquivo e a impressão digital SHA-256.
       responses:
         '204':
@@ -3167,7 +3810,7 @@ paths:
         - **Sala:** obrigatória no presencial, da unidade escolhida e ativa (RN11).
         - **Consulta online (RN04):** o servidor gera o link do Google Meet. Se não conseguir, a consulta é gravada e a resposta traz o aviso `LINK_ONLINE_NAO_GERADO`.
         - **Credenciamento do convênio (RN35):** no tipo CONVENIO, o convênio precisa ter credenciamento APROVADO e vigente na unidade e na especialidade, na data da consulta. Sem isso: 409 `CONVENIO_NAO_CREDENCIADO` ("O convênio X não tem credenciamento aprovado para a unidade Y nesta especialidade. Agende como particular ou escolha outra unidade."). Só o administrador libera, enviando `liberacaoCredenciamento` com a justificativa e tendo `consulta.credenciamento:liberar`; sem essa liberação, 403 `LIBERACAO_CREDENCIAMENTO_NEGADA`. A liberação fica gravada na consulta.
-        - **Aviso (RN16):** se o profissional não é o responsável atual do paciente, a resposta traz o aviso `PROFISSIONAL_NAO_RESPONSAVEL`, sem impedir o agendamento.
+        - **Profissional responsável (RN16):** se o profissional escolhido não é o responsável atual do paciente, o agendamento exige `justificativaProfissional` (10 a 500 caracteres); sem ela, 400 `PROFISSIONAL_NAO_RESPONSAVEL` ("O profissional X não é o profissional responsável por este paciente. Informe uma justificativa..."). A justificativa fica gravada na consulta e no log. Qualquer perfil que agenda pode informá-la.
         - Quando o término não é informado, vale início + duração padrão. Registra o histórico de status.
       requestBody:
         required: true
@@ -3187,6 +3830,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConsultaComAvisos'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+  /consultas/serie:
+    post:
+      tags:
+      - Consultas
+      operationId: criarSerieConsultas
+      summary: Agendar consultas repetidas (semanal, quinzenal ou mensal)
+      x-permissao: consulta.agendamento:incluir
+      description: |
+        Agenda a primeira consulta (data e horário informados) e gera as demais pela repetição, no mesmo horário de Brasília:
+        - `SEMANAL`: a cada 7 dias. `QUINZENAL`: a cada 14 dias. `MENSAL`: no mesmo dia da semana e na mesma posição do mês (2ª segunda, por exemplo); a 5ª ocorrência vira a última do mês.
+        - `quantidade` conta a primeira consulta (2 a 12). O encaixe não se repete (400).
+        - Cada consulta segue as regras de `POST /consultas` e é gravada na sua transação. **Se a primeira falhar, nada é criado** e a resposta é o erro dela. As demais que não puderem ser agendadas (horário ocupado, feriado, fora do expediente, pacote sem saldo etc.) são puladas e voltam em `ignoradas`, com o motivo.
+        - O pagamento recebido (`pagamentoConfirmado`) vale só para a primeira consulta avulsa. Com pacote (`pacotePacienteId` ou `vendaPacote`), as repetições usam o mesmo pacote e cada uma consome uma sessão; a venda acontece uma vez, na primeira.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaSerieEntrada'
+      responses:
+        '201':
+          description: Série agendada (ao menos a primeira consulta).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaSerie'
         '400':
           $ref: '#/components/responses/ValidacaoErro'
         '401':
@@ -3325,6 +4004,124 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConsultaComAvisos'
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+  /consultas/{consultaId}/cancelamento-serie:
+    parameters:
+    - $ref: '#/components/parameters/ConsultaId'
+    post:
+      tags:
+      - Consultas
+      operationId: cancelarSerieConsultas
+      summary: Cancelar esta consulta e as próximas da série
+      x-permissao: consulta.status:cancelar
+      description: |
+        Cancela a consulta informada (mesmas regras de `PATCH /consultas/{id}/status` com `CANCELADA`) e, em seguida, as consultas **futuras** da mesma série (agendamento repetido) que estejam AGENDADA ou CONFIRMADA. O motivo e quem cancelou valem para todas.
+        Se o cancelamento da consulta informada falhar, nada é cancelado. As próximas que falharem voltam em `ignoradas`, com o motivo. Em pacote, cada cancelamento devolve a sessão.
+        Consulta fora de uma série cancela só ela.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - motivo
+              - canceladoPor
+              - versao
+              properties:
+                motivo:
+                  type: string
+                  maxLength: 500
+                canceladoPor:
+                  type: string
+                  enum: [PACIENTE, CLINICA]
+                versao:
+                  type: string
+                liberacaoAdministrador:
+                  $ref: '#/components/schemas/LiberacaoAdministradorEntrada'
+      responses:
+        '200':
+          description: Resultado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - canceladas
+                - ignoradas
+                properties:
+                  canceladas:
+                    type: integer
+                    description: Total cancelado, contando a consulta informada.
+                  ignoradas:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - inicio
+                      - mensagem
+                      properties:
+                        inicio:
+                          type: string
+                          format: date-time
+                        codigo:
+                          type: string
+                          nullable: true
+                        mensagem:
+                          type: string
+        '400':
+          $ref: '#/components/responses/ValidacaoErro'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/SemPermissao'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflito'
+  /consultas/{consultaId}/observacao:
+    parameters:
+    - $ref: '#/components/parameters/ConsultaId'
+    put:
+      tags:
+      - Consultas
+      operationId: salvarObservacaoConsulta
+      summary: Anotar a observação do check-in (consulta por convênio)
+      x-permissao: consulta.status:editar
+      description: |
+        Só para consulta por convênio em CHECK_IN (409 `OBSERVACAO_SO_CONVENIO` ou `STATUS_NAO_PERMITE`). Até 500 caracteres; texto vazio apaga a observação.
+        Altera a versão da consulta: use a versão devolvida na próxima mudança de status. 409 `CONSULTA_ALTERADA` quando a versão enviada está desatualizada.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - versao
+              properties:
+                observacao:
+                  type: string
+                  maxLength: 500
+                  nullable: true
+                versao:
+                  type: string
+      responses:
+        '200':
+          description: Consulta atualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consulta'
         '400':
           $ref: '#/components/responses/ValidacaoErro'
         '401':
@@ -8186,6 +8983,10 @@ components:
           - $ref: '#/components/schemas/LiberacaoAdministradorEntrada'
           nullable: true
           description: Liberação do administrador de uma regra operacional que bloqueou a operação. Só o administrador (403 `LIBERACAO_ADMIN_NEGADA`); a justificativa fica na consulta e no log.
+        justificativaProfissional:
+          type: string
+          nullable: true
+          description: Obrigatória (10 a 500 caracteres) quando o profissional não é o responsável atual do paciente.
         pacienteId:
           type: string
           format: uuid
@@ -8221,7 +9022,17 @@ components:
           description: Valor informado no agendamento e ajustável (RN02).
         formaPagamentoId:
           type: integer
-          description: Forma de pagamento (RN17). No tipo CONVENIO, a forma ligada ao convênio da consulta.
+          description: Forma de pagamento (RN17). No tipo CONVENIO, a forma ligada ao convênio da consulta. Com `pacotePacienteId`, a forma é a do pacote (o servidor ignora este campo). Com `vendaPacote`, vale a forma da venda.
+        pacotePacienteId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Pacote já vendido ao paciente que a consulta consome (só PARTICULAR; permissão `pacote.venda:visualizar`). A especialidade deve ser a do pacote, a data deve estar na validade e o pacote deve ter sessões (400 `PACOTE_ESPECIALIDADE`, `PACOTE_VENCIDO`, `PACOTE_SEM_SALDO`, `PACOTE_CANCELADO`). O valor da consulta passa a ser o valor da sessão do pacote. Não combina com `vendaPacote`.
+        vendaPacote:
+          allOf:
+          - $ref: '#/components/schemas/VendaPacoteEntrada'
+          nullable: true
+          description: Vende um pacote novo no ato do agendamento e usa a primeira sessão nesta consulta (só PARTICULAR; permissão `pacote.venda:incluir`). Tudo na mesma transação.
         liberacaoCredenciamento:
           allOf:
           - $ref: '#/components/schemas/LiberacaoCredenciamento'
@@ -8246,6 +9057,49 @@ components:
           type: boolean
           default: false
           description: Exige a liberação `consulta.encaixe:incluir` (G2).
+    ConsultaSerieEntrada:
+      allOf:
+      - $ref: '#/components/schemas/ConsultaEntrada'
+      - type: object
+        required:
+        - repeticao
+        - quantidade
+        properties:
+          repeticao:
+            type: string
+            enum: [SEMANAL, QUINZENAL, MENSAL]
+          quantidade:
+            type: integer
+            minimum: 2
+            maximum: 12
+            description: Total de consultas da série, contando a primeira.
+    ConsultaSerie:
+      type: object
+      required:
+      - criadas
+      - ignoradas
+      properties:
+        criadas:
+          type: array
+          items:
+            $ref: '#/components/schemas/Consulta'
+        ignoradas:
+          type: array
+          items:
+            type: object
+            required:
+            - inicio
+            - mensagem
+            properties:
+              inicio:
+                type: string
+                format: date-time
+              codigo:
+                type: string
+                nullable: true
+                description: Código do erro (por exemplo, HORARIO_INDISPONIVEL, HORARIO_BLOQUEADO, PACOTE_SEM_SALDO).
+              mensagem:
+                type: string
     ConsultaAtualizacao:
       type: object
       description: 'Dados que podem ser ajustados. Paciente, profissional, especialidade, unidade e horário não mudam aqui: para mudar o dia ou
@@ -8362,6 +9216,9 @@ components:
         remarcada:
           type: boolean
           description: Verdadeiro quando a consulta nasceu de uma remarcação (a original ficou REMARCADA no horário antigo).
+        pendenteFaturamento:
+          type: boolean
+          description: Consulta por convênio CONCLUIDA cuja guia ainda está aguardando o faturamento (some quando a guia é autorizada, negada ou cancelada).
         valor:
           type: number
           format: double
@@ -8457,6 +9314,42 @@ components:
         carteirinhaVencida:
           type: boolean
           description: Verdadeiro quando a consulta é por convênio e a carteirinha do paciente venceu até hoje (G3).
+        observacao:
+          type: string
+          nullable: true
+          description: Observação anotada no check-in (só consulta por convênio).
+        serieId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Série do agendamento repetido (nulo quando a consulta foi agendada sozinha).
+        justificativaProfissional:
+          type: string
+          nullable: true
+          description: Justificativa de agendar com profissional que não é o responsável do paciente.
+        serieFuturas:
+          type: integer
+          description: Consultas futuras da mesma série ainda AGENDADA ou CONFIRMADA.
+        pacotePacienteId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Pacote do paciente que paga a consulta (nulo quando não é de pacote).
+        pacoteNome:
+          type: string
+          nullable: true
+        pacoteValor:
+          type: number
+          format: double
+          nullable: true
+          description: Valor total do pacote.
+        pacoteFormaPagamentoNome:
+          type: string
+          nullable: true
+        pacotePagamentoConfirmado:
+          type: boolean
+          nullable: true
+          description: Situação do pagamento do pacote (confirmar o pagamento do pacote atualiza esta informação).
         pagamentoConfirmado:
           type: boolean
         pagamentoConfirmadoEm:
@@ -9192,6 +10085,304 @@ components:
           format: date-time
         enviadoPor:
           $ref: '#/components/schemas/UsuarioReferencia'
+    DocumentoInterno:
+      type: object
+      required:
+      - id
+      - tipo
+      - tipoNome
+      - titulo
+      - nomeArquivo
+      - tipoConteudo
+      - tamanhoBytes
+      - enviadoEm
+      properties:
+        id:
+          type: string
+          format: uuid
+        tipo:
+          type: string
+          enum: [FOLHA_TIMBRADA, TERMO, CONTRATO, POLITICA, FORMULARIO, MODELO, OUTRO]
+        tipoNome:
+          type: string
+          example: Folha timbrada
+        titulo:
+          type: string
+        descricao:
+          type: string
+          nullable: true
+        nomeArquivo:
+          type: string
+        tipoConteudo:
+          type: string
+        tamanhoBytes:
+          type: integer
+        enviadoEm:
+          type: string
+          format: date-time
+        enviadoPor:
+          $ref: '#/components/schemas/UsuarioReferencia'
+    DocumentoCredenciamento:
+      type: object
+      required:
+      - id
+      - tipo
+      - tipoNome
+      - nomeArquivo
+      - tipoConteudo
+      - tamanhoBytes
+      - enviadoEm
+      properties:
+        id:
+          type: string
+          format: uuid
+        tipo:
+          type: string
+          enum: [PROTOCOLO, CONTRATO, APROVACAO, TABELA_VALORES, COMUNICADO, OUTRO]
+        tipoNome:
+          type: string
+          example: Protocolo
+        descricao:
+          type: string
+          nullable: true
+        nomeArquivo:
+          type: string
+        tipoConteudo:
+          type: string
+        tamanhoBytes:
+          type: integer
+        enviadoEm:
+          type: string
+          format: date-time
+        enviadoPor:
+          $ref: '#/components/schemas/UsuarioReferencia'
+    PacoteEntrada:
+      type: object
+      required:
+      - nome
+      - especialidadeId
+      - quantidadeSessoes
+      - valor
+      - validadeDias
+      properties:
+        nome:
+          type: string
+          maxLength: 100
+        especialidadeId:
+          type: integer
+        quantidadeSessoes:
+          type: integer
+          minimum: 1
+          maximum: 60
+        valor:
+          type: number
+          format: double
+          exclusiveMinimum: true
+          minimum: 0
+          multipleOf: 0.01
+          description: Valor total do pacote.
+        validadeDias:
+          type: integer
+          minimum: 1
+          maximum: 365
+    Pacote:
+      type: object
+      required:
+      - id
+      - ativo
+      - nome
+      - especialidade
+      - quantidadeSessoes
+      - valor
+      - valorSessao
+      - validadeDias
+      properties:
+        id:
+          type: integer
+        ativo:
+          type: boolean
+        nome:
+          type: string
+        especialidade:
+          $ref: '#/components/schemas/Referencia'
+        quantidadeSessoes:
+          type: integer
+        valor:
+          type: number
+          format: double
+        valorSessao:
+          type: number
+          format: double
+          description: Valor total dividido pela quantidade de sessões, em centavos.
+        validadeDias:
+          type: integer
+        criadoEm:
+          type: string
+          format: date-time
+        criadoPor:
+          $ref: '#/components/schemas/UsuarioReferencia'
+        atualizadoEm:
+          type: string
+          format: date-time
+        atualizadoPor:
+          $ref: '#/components/schemas/UsuarioReferencia'
+    PacotePagina:
+      type: object
+      required:
+      - itens
+      - pagina
+      - tamanho
+      - total
+      properties:
+        itens:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pacote'
+        pagina:
+          type: integer
+        tamanho:
+          type: integer
+        total:
+          type: integer
+    VendaPacoteEntrada:
+      type: object
+      required:
+      - pacoteId
+      - formaPagamentoId
+      properties:
+        pacoteId:
+          type: integer
+          description: Modelo ativo.
+        formaPagamentoId:
+          type: integer
+          description: Forma de pagamento do pacote (não pode ser de convênio).
+        pagamentoConfirmado:
+          type: boolean
+          default: false
+          description: Verdadeiro quando o pagamento do pacote já foi recebido (por exemplo, PIX adiantado).
+    PacotePaciente:
+      type: object
+      required:
+      - id
+      - nome
+      - paciente
+      - especialidade
+      - quantidadeSessoes
+      - sessoesUsadas
+      - sessoesRestantes
+      - valor
+      - valorSessao
+      - dataInicio
+      - dataValidade
+      - pagamentoConfirmado
+      - status
+      - situacao
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+          description: Nome do pacote na hora da venda.
+        paciente:
+          $ref: '#/components/schemas/PacienteReferencia'
+        especialidade:
+          $ref: '#/components/schemas/Referencia'
+        quantidadeSessoes:
+          type: integer
+        sessoesUsadas:
+          type: integer
+          description: Consultas ligadas ao pacote que não estão canceladas nem remarcadas. Cancelar devolve a sessão; a falta consome.
+        sessoesRestantes:
+          type: integer
+        valor:
+          type: number
+          format: double
+        valorSessao:
+          type: number
+          format: double
+        dataInicio:
+          type: string
+          format: date
+        dataValidade:
+          type: string
+          format: date
+        formaPagamento:
+          $ref: '#/components/schemas/Referencia'
+        pagamentoConfirmado:
+          type: boolean
+        pagamentoConfirmadoEm:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [ATIVO, CANCELADO]
+        situacao:
+          type: string
+          enum: [DISPONIVEL, ENCERRADO, CANCELADO]
+          description: Calculada. ENCERRADO quando vencido ou sem sessões.
+        vendidoEm:
+          type: string
+          format: date-time
+        vendidoPor:
+          $ref: '#/components/schemas/UsuarioReferencia'
+        canceladoEm:
+          type: string
+          format: date-time
+          nullable: true
+        motivoCancelamento:
+          type: string
+          nullable: true
+    SessaoPacote:
+      type: object
+      required:
+      - consultaId
+      - inicio
+      - status
+      - profissional
+      - consome
+      properties:
+        consultaId:
+          type: string
+          format: uuid
+        inicio:
+          type: string
+          format: date-time
+        status:
+          type: string
+        profissional:
+          type: string
+        consome:
+          type: boolean
+          description: Falso quando a consulta está cancelada ou remarcada (a sessão voltou ao pacote).
+    PacotePacienteDetalhe:
+      allOf:
+      - $ref: '#/components/schemas/PacotePaciente'
+      - type: object
+        properties:
+          sessoes:
+            type: array
+            items:
+              $ref: '#/components/schemas/SessaoPacote'
+    PacotePacientePagina:
+      type: object
+      required:
+      - itens
+      - pagina
+      - tamanho
+      - total
+      properties:
+        itens:
+          type: array
+          items:
+            $ref: '#/components/schemas/PacotePaciente'
+        pagina:
+          type: integer
+        tamanho:
+          type: integer
+        total:
+          type: integer
     DocumentoAutorizacao:
       type: object
       required:

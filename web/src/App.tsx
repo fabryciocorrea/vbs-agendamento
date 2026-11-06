@@ -23,6 +23,8 @@ import RelatoriosPagina from "./paginas/relatorios/RelatoriosPagina";
 import ProntuarioPagina from "./paginas/prontuario/ProntuarioPagina";
 import ConsultasSemCredenciamentoPagina from "./paginas/consultas/ConsultasSemCredenciamentoPagina";
 import RedefinirSenha from "./paginas/RedefinirSenha";
+import PacotesPagina from "./paginas/pacotes/PacotesPagina";
+import DocumentosPagina from "./paginas/documentos/DocumentosPagina";
 
 export default function App() {
   return (
@@ -181,7 +183,9 @@ export default function App() {
             </RotaProtegida>
           }
         />
+        <Route path="/pacotes" element={<PacotesPagina />} />
         <Route path="relatorios" element={<RelatoriosPagina />} />
+        <Route path="/documentos" element={<DocumentosPagina />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

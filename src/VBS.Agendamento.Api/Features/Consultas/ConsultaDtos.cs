@@ -54,6 +54,27 @@ public sealed class StatusEntrada
     public string? Versao { get; set; }
 }
 
+public sealed class CancelamentoSerieEntrada
+{
+    public LiberacaoAdministradorEntrada? LiberacaoAdministrador { get; set; }
+    public string? Motivo { get; set; }
+    public string? CanceladoPor { get; set; }
+    public string? Versao { get; set; }
+}
+
+public sealed class CancelamentoSerieDto
+{
+    /// <summary>Total de consultas canceladas, contando a atual.</summary>
+    public int Canceladas { get; set; }
+    public List<SerieIgnoradaDto> Ignoradas { get; set; } = new();
+}
+
+public sealed class ObservacaoEntrada
+{
+    public string? Observacao { get; set; }
+    public string? Versao { get; set; }
+}
+
 public sealed class PagamentoConfirmacaoEntrada
 {
     public LiberacaoAdministradorEntrada? LiberacaoAdministrador { get; set; }
@@ -86,7 +107,7 @@ public sealed class GuiaConvenioDto
     public UsuarioReferenciaDto? AtualizadoPor { get; set; }
 }
 
-public sealed class ConsultaEntrada
+public class ConsultaEntrada
 {
     public Guid? PacienteId { get; set; }
     public int? ProfissionalId { get; set; }
@@ -102,8 +123,36 @@ public sealed class ConsultaEntrada
     public DateTime? Fim { get; set; }
     public bool Encaixe { get; set; }
     public bool PagamentoConfirmado { get; set; }
+    /// <summary>Pacote já vendido ao paciente que esta consulta consome (só atendimento particular). O valor e a forma de pagamento vêm do pacote.</summary>
+    public Guid? PacotePacienteId { get; set; }
+    /// <summary>Venda de um pacote novo no ato do agendamento (a forma de pagamento e o pagamento recebido valem para o pacote).</summary>
+    public Pacotes.VendaPacoteEntrada? VendaPacote { get; set; }
     public LiberacaoCredenciamentoEntrada? LiberacaoCredenciamento { get; set; }
     public LiberacaoAdministradorEntrada? LiberacaoAdministrador { get; set; }
+    /// <summary>Obrigatória (10 a 500 caracteres) quando o profissional não é o responsável atual do paciente.</summary>
+    public string? JustificativaProfissional { get; set; }
+}
+
+/// <summary>Agendamento repetido: a primeira consulta é a informada e as demais são geradas pela repetição.</summary>
+public sealed class ConsultaSerieEntrada : ConsultaEntrada
+{
+    /// <summary>SEMANAL (a cada 7 dias), QUINZENAL (a cada 14 dias) ou MENSAL (mesmo dia da semana e posição no mês).</summary>
+    public string? Repeticao { get; set; }
+    /// <summary>Total de consultas da série, contando a primeira (2 a 12).</summary>
+    public int? Quantidade { get; set; }
+}
+
+public sealed class SerieIgnoradaDto
+{
+    public DateTime Inicio { get; set; }
+    public string? Codigo { get; set; }
+    public string Mensagem { get; set; } = string.Empty;
+}
+
+public sealed class ConsultaSerieDto
+{
+    public List<ConsultaDto> Criadas { get; set; } = new();
+    public List<SerieIgnoradaDto> Ignoradas { get; set; } = new();
 }
 
 public class ConsultaResumoDto
@@ -127,14 +176,31 @@ public class ConsultaResumoDto
     public bool Encaixe { get; set; }
     /// <summary>Verdadeiro quando esta consulta nasceu de uma remarcação (a original ficou REMARCADA no horário antigo).</summary>
     public bool Remarcada { get; set; }
+    /// <summary>Consulta por convênio concluída cuja guia ainda aguarda o faturamento.</summary>
+    public bool PendenteFaturamento { get; set; }
 }
 
 public sealed class ConsultaDto : ConsultaResumoDto
 {
+    public string? JustificativaProfissional { get; set; }
     public string? LinkOnline { get; set; }
     public string? NumeroCarteirinha { get; set; }
     public bool CarteirinhaVencida { get; set; }
     public ReferenciaDto FormaPagamento { get; set; } = new();
+    /// <summary>Observação anotada no check-in (só consulta por convênio).</summary>
+    public string? Observacao { get; set; }
+    /// <summary>Série do agendamento repetido (nulo quando a consulta foi agendada sozinha).</summary>
+    public Guid? SerieId { get; set; }
+    /// <summary>Consultas futuras da mesma série ainda agendadas ou confirmadas.</summary>
+    public int SerieFuturas { get; set; }
+    /// <summary>Pacote do paciente que paga esta consulta (nulo quando não é de pacote).</summary>
+    public Guid? PacotePacienteId { get; set; }
+    public string? PacoteNome { get; set; }
+    /// <summary>Situação do pagamento do pacote (nulo quando a consulta não é de pacote).</summary>
+    public bool? PacotePagamentoConfirmado { get; set; }
+    /// <summary>Valor total do pacote (a consulta guarda só o valor da sessão).</summary>
+    public decimal? PacoteValor { get; set; }
+    public string? PacoteFormaPagamentoNome { get; set; }
     public bool PagamentoConfirmado { get; set; }
     public DateTime? PagamentoConfirmadoEm { get; set; }
     public UsuarioReferenciaDto? PagamentoConfirmadoPor { get; set; }

@@ -95,6 +95,8 @@ public sealed class ExclusaoService
         if (espera > 0) bloqueios.Add($"{espera} item(ns) na lista de espera");
         var documentos = await con.ExecuteScalarAsync<int>(Sql.Cmd("SELECT COUNT(1) FROM DBO.PACIENTE_DOCUMENTO WHERE CODIGO_PACIENTE = @Id;", new { p.Id }, tx, ct));
         if (documentos > 0) bloqueios.Add($"{documentos} documento(s) anexado(s)");
+        var pacotes = await con.ExecuteScalarAsync<int>(Sql.Cmd("SELECT COUNT(1) FROM DBO.PACOTE_PACIENTE WHERE CODIGO_PACIENTE = @Id;", new { p.Id }, tx, ct));
+        if (pacotes > 0) bloqueios.Add($"{pacotes} pacote(s) de consultas");
         if (bloqueios.Count > 0) throw ComVinculos("este paciente", string.Join(", ", bloqueios));
 
         try
@@ -195,7 +197,8 @@ WHERE CODIGO_RESPONSAVEL = @R AND NOT EXISTS (SELECT 1 FROM DBO.PACIENTE WHERE C
             new[]
             {
                 new Impedimento("consulta(s)", "SELECT COUNT(1) FROM DBO.CONSULTA WHERE CODIGO_ESPECIALIDADE = @Id;"),
-                new Impedimento("item(ns) na lista de espera", "SELECT COUNT(1) FROM DBO.LISTA_ESPERA WHERE CODIGO_ESPECIALIDADE = @Id;")
+                new Impedimento("item(ns) na lista de espera", "SELECT COUNT(1) FROM DBO.LISTA_ESPERA WHERE CODIGO_ESPECIALIDADE = @Id;"),
+                new Impedimento("pacote(s) de consultas (use Inativar)", "SELECT COUNT(1) FROM DBO.PACOTE WHERE CODIGO_ESPECIALIDADE = @Id;")
             },
             new[]
             {
@@ -212,6 +215,7 @@ WHERE CODIGO_RESPONSAVEL = @R AND NOT EXISTS (SELECT 1 FROM DBO.PACIENTE WHERE C
             new[]
             {
                 new Impedimento("consulta(s)", "SELECT COUNT(1) FROM DBO.CONSULTA WHERE CODIGO_PAGAMENTO = @Id;"),
+                new Impedimento("pacote(s) vendido(s)", "SELECT COUNT(1) FROM DBO.PACOTE_PACIENTE WHERE CODIGO_PAGAMENTO = @Id;"),
                 new Impedimento("convênio(s) ligado(s) a ela (exclua o convênio, ou use Inativar)", "SELECT COUNT(1) FROM DBO.FORMA_PAGAMENTO WHERE CODIGO_PAGAMENTO = @Id AND CODIGO_CONVENIO IS NOT NULL;")
             },
             Array.Empty<string>(),

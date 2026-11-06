@@ -28,3 +28,16 @@ Pré-requisitos: scripts 01 a 34 executados, `dotnet run` reiniciado, perfil com
 22. Usuário da recepção com a permissão de transferência (e sem ser o médico responsável) consegue transferir pelo cadastro. Sem a permissão, o botão não aparece e a API devolve 403.
 23. Paciente com consulta futura (agendada ou confirmada) com o profissional anterior: depois da transferência aparece um aviso com a quantidade. As consultas não mudam; remarque ou cancele na Agenda.
 24. O profissional anterior deixa de ver o prontuário; o novo vê todos os registros.
+
+## Nome do botão
+24. No cadastro do paciente (editar), o botão que abre a transferência de profissional/prontuário agora se chama "Transferir". O processo é o mesmo de antes (novo profissional + motivo, permissão e histórico).
+
+## Agendamento com profissional que não é o responsável
+25. Rodar o script 41. Nova consulta (ou Encaixe, repetição, lista de espera) com um profissional que não é o responsável do paciente: ao agendar, abre a janela "Profissional não responsável" com o aviso "O profissional X não é o profissional responsável por este paciente. Informe uma justificativa para agendar mesmo assim." e o campo de justificativa.
+26. A justificativa é obrigatória (10 a 500 caracteres); "Voltar" não agenda nada. Qualquer perfil que agenda pode preencher (recepção, administrador).
+27. Preenchida, a consulta é agendada e o detalhe mostra a linha "Profissional não responsável" com o texto. Na consulta repetida, a justificativa vale para todas.
+28. Com o profissional responsável, nada disso é pedido.
+
+## CPF, RG e documento do estrangeiro para o profissional
+29. Logado como profissional (por exemplo teste.profissional), Pacientes > Visualizar (olho) de um paciente seu: CPF, RG e, para estrangeiro, tipo e número do documento (RNE/CRNM) aparecem completos, inclusive os do responsável legal. Vale também no olho do paciente na Agenda.
+30. O profissional continua vendo só os pacientes dos quais é responsável. A coluna CPF da lista segue mascarada. Perfis que só visualizam (sem incluir/editar paciente e que não são profissional) continuam vendo mascarado.

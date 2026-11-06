@@ -26,13 +26,18 @@ function Campo({ aoMudar }: { aoMudar: (v: string) => void }) {
  * Janela só com o campo de justificativa, aberta ao administrador quando uma regra bloqueia a operação.
  * Devolve a justificativa (10 a 500 caracteres) ou null se ele voltar sem liberar.
  */
-export function pedirJustificativa(modal: Api['modal'], message: Api['message'], aviso: string): Promise<string | null> {
+export function pedirJustificativa(
+  modal: Api['modal'],
+  message: Api['message'],
+  aviso: string,
+  opcoes: { titulo?: string; okText?: string } = {}
+): Promise<string | null> {
   return new Promise<string | null>((resolve) => {
     let texto = '';
     modal.confirm({
-      title: 'Justificativa da liberação',
+      title: opcoes.titulo ?? 'Justificativa da liberação',
       width: 520,
-      okText: 'Liberar',
+      okText: opcoes.okText ?? 'Liberar',
       cancelText: 'Voltar',
       maskClosable: false,
       content: (

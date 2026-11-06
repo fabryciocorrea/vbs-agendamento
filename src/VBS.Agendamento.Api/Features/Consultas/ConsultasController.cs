@@ -34,6 +34,15 @@ public sealed class ConsultasController : ControllerBase
         return Created($"/api/v1/consultas/{consulta.Id}", consulta);
     }
 
+    /// <summary>Agendamento repetido (semanal, quinzenal ou mensal): cria a primeira consulta e as demais da série.</summary>
+    [HttpPost("serie")]
+    [Permissao("consulta.agendamento:incluir")]
+    public async Task<ActionResult<ConsultaSerieDto>> AgendarSerie([FromBody] ConsultaSerieEntrada? entrada, CancellationToken ct)
+    {
+        var serie = await _servico.AgendarSerieAsync(entrada, User.ObterUsuarioAtual(), ct);
+        return Created($"/api/v1/consultas/{serie.Criadas[0].Id}", serie);
+    }
+
     [HttpGet("{consultaId:guid}")]
     [Permissao("consulta.agendamento:visualizar")]
     public async Task<ActionResult<ConsultaDto>> Obter(Guid consultaId, CancellationToken ct) =>
@@ -48,6 +57,18 @@ public sealed class ConsultasController : ControllerBase
         await _permissoes.ExigirAsync(usuario, entrada?.Status == "CANCELADA" ? "consulta.status:cancelar" : "consulta.status:editar", ct);
         return Ok(await _servico.AlterarStatusAsync(consultaId, entrada, usuario, ct));
     }
+
+    /// <summary>Cancela esta consulta e as próximas da mesma série (agendamento repetido).</summary>
+    [HttpPost("{consultaId:guid}/cancelamento-serie")]
+    [Permissao("consulta.status:cancelar")]
+    public async Task<ActionResult<CancelamentoSerieDto>> CancelarSerie(Guid consultaId, [FromBody] CancelamentoSerieEntrada? entrada, CancellationToken ct) =>
+        Ok(await _servico.CancelarSerieAsync(consultaId, entrada, User.ObterUsuarioAtual(), ct));
+
+    /// <summary>Observação do check-in (só convênio).</summary>
+    [HttpPut("{consultaId:guid}/observacao")]
+    [Permissao("consulta.status:editar")]
+    public async Task<ActionResult<ConsultaDto>> SalvarObservacao(Guid consultaId, [FromBody] ObservacaoEntrada? entrada, CancellationToken ct) =>
+        Ok(await _servico.SalvarObservacaoAsync(consultaId, entrada, User.ObterUsuarioAtual(), ct));
 
     [HttpPost("{consultaId:guid}/pagamento/confirmacao")]
     [Permissao("consulta.agendamento:editar")]

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { App, Button, Card, Descriptions, Modal, Segmented, Select, Space, Spin, Tag, Typography } from 'antd';
-import { LeftOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons';
+import { EyeOutlined, LeftOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
-import type { ItemApoio } from '../../api/tipos';
+import type { ItemApoio, Paciente, Profissional } from '../../api/tipos';
+import VisualizarProfissionalModal from '../profissionais/VisualizarProfissionalModal';
+import VisualizarPacienteModal from '../pacientes/VisualizarPacienteModal';
 import { useAuth } from '../../auth/AuthContext';
 import { formatarDataHora } from '../../util/formatos';
 import {
@@ -44,8 +46,35 @@ function dias(base: string, visao: Visao): string[] {
 
 function DetalheConsulta({ id, aoFechar, aoAlterar }: { id: string | null; aoFechar: () => void; aoAlterar: (novoId?: string) => void }) {
   const { message } = App.useApp();
+  const { pode } = useAuth();
   const [consulta, setConsulta] = useState<Consulta | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [cadastro, setCadastro] = useState<Paciente | null>(null);
+  const [abrindoCadastro, setAbrindoCadastro] = useState(false);
+  const [cadastroProfissional, setCadastroProfissional] = useState<Profissional | null>(null);
+  const [abrindoProfissional, setAbrindoProfissional] = useState(false);
+
+  async function abrirProfissional(profissionalId: number) {
+    setAbrindoProfissional(true);
+    try {
+      setCadastroProfissional(await api.get<Profissional>(`/profissionais/${profissionalId}`));
+    } catch (e) {
+      message.error(e instanceof ApiErro ? e.message : 'Não foi possível abrir o cadastro.');
+    } finally {
+      setAbrindoProfissional(false);
+    }
+  }
+
+  async function abrirCadastro(pacienteId: string) {
+    setAbrindoCadastro(true);
+    try {
+      setCadastro(await api.get<Paciente>(`/pacientes/${pacienteId}`));
+    } catch (e) {
+      message.error(e instanceof ApiErro ? e.message : 'Não foi possível abrir o cadastro.');
+    } finally {
+      setAbrindoCadastro(false);
+    }
+  }
 
   const [recarga, setRecarga] = useState(0);
 
@@ -73,11 +102,40 @@ function DetalheConsulta({ id, aoFechar, aoAlterar }: { id: string | null; aoFec
         <Descriptions column={1} size="small" bordered>
           <Descriptions.Item label="Situação">
             <Tag color={CORES_STATUS[consulta.status]}>{NOMES_STATUS[consulta.status]}</Tag>
+            {consulta.pendenteFaturamento && <Tag color="gold">Pendente de faturamento</Tag>}
             {consulta.remarcada && <Tag color="purple">Remarcada</Tag>}
             {consulta.encaixe && <Tag color="orange">Encaixe</Tag>}
           </Descriptions.Item>
-          <Descriptions.Item label="Paciente">{consulta.paciente.nome}</Descriptions.Item>
-          <Descriptions.Item label="Profissional">{consulta.profissional.nome}</Descriptions.Item>
+          <Descriptions.Item label="Paciente">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <span>{consulta.paciente.nome}</span>
+              {pode('paciente.cadastro', 'visualizar') && (
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<EyeOutlined />}
+                  loading={abrindoCadastro}
+                  title="Abrir o cadastro do paciente"
+                  onClick={() => void abrirCadastro(consulta.paciente.id)}
+                />
+              )}
+            </div>
+          </Descriptions.Item>
+          <Descriptions.Item label="Profissional">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <span>{consulta.profissional.nome}</span>
+              {pode('profissional.cadastro', 'visualizar') && (
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<EyeOutlined />}
+                  loading={abrindoProfissional}
+                  title="Abrir o cadastro do profissional"
+                  onClick={() => void abrirProfissional(consulta.profissional.id)}
+                />
+              )}
+            </div>
+          </Descriptions.Item>
           <Descriptions.Item label="Especialidade">{consulta.especialidade.nome}</Descriptions.Item>
           <Descriptions.Item label="Unidade">{consulta.unidade.nome}</Descriptions.Item>
           <Descriptions.Item label="Horário">
@@ -100,9 +158,29 @@ function DetalheConsulta({ id, aoFechar, aoAlterar }: { id: string | null; aoFec
             </Descriptions.Item>
           )}
           {consulta.valor !== undefined && consulta.valor !== null && (
-            <Descriptions.Item label="Valor">{REAIS.format(consulta.valor)}</Descriptions.Item>
+            <Descriptions.Item label="Valor">
+              {consulta.pacoteValor != null ? (
+                <>
+                  {REAIS.format(consulta.pacoteValor)} <Typography.Text type="secondary">(total do pacote; sessão {REAIS.format(consulta.valor)})</Typography.Text>
+                </>
+              ) : (
+                REAIS.format(consulta.valor)
+              )}
+            </Descriptions.Item>
           )}
-          <Descriptions.Item label="Forma de pagamento">{consulta.formaPagamento.nome}</Descriptions.Item>
+          <Descriptions.Item label="Forma de pagamento">{consulta.pacoteFormaPagamentoNome ?? consulta.formaPagamento.nome}</Descriptions.Item>
+          {consulta.justificativaProfissional && (
+            <Descriptions.Item label="Profissional não responsável">{consulta.justificativaProfissional}</Descriptions.Item>
+          )}
+          {consulta.tipoAtendimento === 'CONVENIO' && consulta.observacao && consulta.status !== 'CHECK_IN' && (
+            <Descriptions.Item label="Observação">{consulta.observacao}</Descriptions.Item>
+          )}
+          {consulta.pacoteNome && (
+            <Descriptions.Item label="Pacote">
+              {consulta.pacoteNome}{' '}
+              {consulta.pacotePagamentoConfirmado ? <Tag color="green">Recebido</Tag> : <Tag color="orange">Pendente</Tag>}
+            </Descriptions.Item>
+          )}
           {consulta.tipoAtendimento === 'CONVENIO' ? (
             <Descriptions.Item label="Guia do convênio">
               {consulta.status === 'CANCELADA' && consulta.guia?.status === 'AUTORIZADA' ? (
@@ -140,6 +218,8 @@ function DetalheConsulta({ id, aoFechar, aoAlterar }: { id: string | null; aoFec
           </Descriptions.Item>
         </Descriptions>
       )}
+      <VisualizarProfissionalModal profissional={cadastroProfissional} aoFechar={() => setCadastroProfissional(null)} />
+      <VisualizarPacienteModal paciente={cadastro} mascarar={!pode('paciente.cadastro', 'editar')} aoFechar={() => setCadastro(null)} />
       {consulta && (
         <AcoesConsulta
           consulta={consulta}
@@ -169,6 +249,8 @@ export default function AgendaProfissionalPagina() {
   const [agenda, setAgenda] = useState<AgendaSaida | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [novaAberta, setNovaAberta] = useState(false);
+  const [encaixeAberto, setEncaixeAberto] = useState(false);
+  const podeEncaixe = podeIncluir && pode('consulta.agendamento', 'editar');
   const [diaNova, setDiaNova] = useState<string | undefined>(undefined);
   const [detalheId, setDetalheId] = useState<string | null>(null);
 
@@ -314,6 +396,7 @@ export default function AgendaProfissionalPagina() {
           <Tag color={CORES_STATUS[c.status]} style={{ marginInlineEnd: 0 }}>
             {NOMES_STATUS[c.status]}
           </Tag>
+          {c.pendenteFaturamento && <Tag color="gold" style={{ marginInlineEnd: 0 }}>Pendente de faturamento</Tag>}
           {c.remarcada && <Tag color="purple" style={{ marginInlineEnd: 0 }}>Remarcada</Tag>}
           {c.encaixe && <Tag color="orange" style={{ marginInlineEnd: 0 }}>Encaixe</Tag>}
         </Space>
@@ -328,9 +411,16 @@ export default function AgendaProfissionalPagina() {
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }} wrap>
         <CabecalhoPagina icone={<IconeTela />} titulo="Agenda do profissional" subtitulo="Consultas, encaixes e horários dos profissionais" />
         {podeIncluir && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => abrirNova()}>
-            Nova consulta
-          </Button>
+          <Space>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => abrirNova()}>
+              Nova consulta
+            </Button>
+            {podeEncaixe && (
+              <Button icon={<PlusOutlined />} onClick={() => { setDiaNova(undefined); setEncaixeAberto(true); }}>
+                Encaixe
+              </Button>
+            )}
+          </Space>
         )}
       </Space>
 
@@ -450,6 +540,18 @@ export default function AgendaProfissionalPagina() {
         aoFechar={() => setNovaAberta(false)}
         aoSalvar={() => {
           setNovaAberta(false);
+          void carregar();
+        }}
+      />
+      <NovaConsultaModal
+        aberto={encaixeAberto}
+        modoEncaixe
+        profissionalId={profissionalId}
+        unidadeId={unidadeId}
+        dia={diaNova}
+        aoFechar={() => setEncaixeAberto(false)}
+        aoSalvar={() => {
+          setEncaixeAberto(false);
           void carregar();
         }}
       />

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { App, Alert, Button, Checkbox, Col, Form, Input, Modal, Row, Select, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { EditOutlined, EyeOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
+import { EditOutlined, EyeOutlined, PaperClipOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { api, ApiErro } from '../../api/cliente';
 import type { Convenio, Credenciamento, ItemApoio, Pagina, SituacaoCredenciamento } from '../../api/tipos';
 import { useAuth } from '../../auth/AuthContext';
@@ -10,6 +10,7 @@ import LinkConvenio from '../../componentes/LinkConvenio';
 import { formatarDataIso } from '../../util/formatos';
 import { SafetyCertificateOutlined as IconeTela } from '@ant-design/icons';
 import CabecalhoPagina from '../../layout/CabecalhoPagina';
+import DocumentosCredenciamentoModal from './DocumentosCredenciamentoModal';
 
 const OBRIGATORIO = 'Campo Não Preenchido';
 const TAMANHO = 10;
@@ -301,6 +302,8 @@ export default function CredenciamentosPagina() {
   const { pode } = useAuth();
   const podeIncluir = pode('convenio.credenciamento', 'incluir');
   const podeEditar = pode('convenio.credenciamento', 'editar');
+  const podeDocumentos = pode('credenciamento.documento', 'visualizar');
+  const [docsDe, setDocsDe] = useState<{ id: number; convenioId: number; nome: string } | null>(null);
 
   const [dados, setDados] = useState<Pagina<Credenciamento>>({ itens: [], pagina: 1, tamanho: TAMANHO, total: 0 });
   const [carregando, setCarregando] = useState(false);
@@ -408,7 +411,7 @@ export default function CredenciamentosPagina() {
     },
     {
       title: 'Ações',
-      width: 150,
+      width: 190,
       render: (_, c) => (
           <Space>
             <Button
@@ -421,6 +424,14 @@ export default function CredenciamentosPagina() {
                 setFormAberto(true);
               }}
             />
+            {podeDocumentos && (
+              <Button
+                size="small"
+                icon={<PaperClipOutlined />}
+                title="Anexar documentos"
+                onClick={() => setDocsDe({ id: c.id, convenioId: c.convenio.id, nome: `${c.convenio.nome} / ${c.unidade.nome} / ${c.especialidade.nome}` })}
+              />
+            )}
             {podeEditar && (
               <>
             <Button
@@ -551,6 +562,7 @@ export default function CredenciamentosPagina() {
         }}
       />
 
+      <DocumentosCredenciamentoModal credenciamento={docsDe} aoFechar={() => setDocsDe(null)} />
       <FormularioCredenciamento
         aberto={formAberto}
         somenteLeitura={somenteLeitura}
